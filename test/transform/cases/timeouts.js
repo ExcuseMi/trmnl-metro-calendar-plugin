@@ -7,8 +7,8 @@
 // time the runtime was never going to give us.
 //
 // The clock here is a function (see runTransform in ../run.js) so a fake
-// fetch can move it: waiting out the real 4.2 second deadline would put
-// four idle seconds into the suite for every case below.
+// fetch can move it: waiting out the real three second deadline would put
+// three idle seconds into the suite for every case below.
 
 module.exports = function (test, h) {
   const { runTransform, icsWithEvents, okText, fail, baseInput, eventItems, assert } = h;
@@ -80,19 +80,39 @@ module.exports = function (test, h) {
     assert(r.data, 'the render should still produce a board');
   });
 
-  test('a slow forecast cannot push the calendars past the deadline', async () => {
-    // Same single deadline seen from the other end: the weather call is
-    // budgeted against the SAME clock the feeds are, so a forecast that
-    // takes the lot leaves the calendars nothing rather than starting over.
-    let now = NOW;
+  test('a slow forecast does not hold the feeds back: they are all asked for at once', async () => {
+    // The language file, the forecast and the feeds were fetched one after
+    // the other, so a forecast that took two seconds left the calendars one.
     const calls = [];
+    let release;
+    const held = new Promise((r) => { release = r; });
     const { run } = runTransform(async (url) => {
       calls.push(String(url));
-      if (String(url).indexOf('api.open-meteo.com') >= 0) { now += 5000; return fail(503); }
+      if (String(url).indexOf('api.open-meteo.com') >= 0) { await held; return fail(503); }
       return icsFor('Afternoon');
-    }, () => now);
-    await run(twoCalendars({ lat_lon: '51.05,3.72' }));
+    }, NOW);
+    const done = run(twoCalendars({ lat_lon: '51.05,3.72' }));
+    await new Promise((r) => setTimeout(r, 20));
     const feeds = calls.filter((u) => /\.ics$/.test(u));
-    assert(feeds.length === 0, 'a feed was fetched after the deadline had passed: ' + feeds.join(', '));
+    release();
+    await done;
+    assert(feeds.length === 2, 'the feeds waited for the forecast: ' + calls.join(', '));
+  });
+
+  test('a feed that answers at once and then sends its body slowly is cut at the deadline', async () => {
+    // The timeout used to stop when the headers arrived, and the body had
+    // all the time in the world. A's answer uses up all but a sliver of the
+    // budget; B's headers come at once and its body never does.
+    let now = NOW;
+    const { run } = runTransform(async (url) => {
+      if (String(url) === A) { now += 2900; return icsFor('Alex Time'); }
+      if (String(url) === B) return { ok: true, status: 200, text: () => new Promise(() => {}), json: () => new Promise(() => {}) };
+      return fail(404);
+    }, () => now);
+    const started = Date.now();
+    const r = await run(twoCalendars());
+    assert(Date.now() - started < 1500, 'the render waited on a body that never came: ' + (Date.now() - started) + 'ms');
+    const titles = eventItems(r.data).map((e) => e.title);
+    assert(titles.indexOf('Alex Time') >= 0, 'the feed that answered was lost: ' + titles.join(', '));
   });
 };

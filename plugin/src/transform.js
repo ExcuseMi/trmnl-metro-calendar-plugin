@@ -256,7 +256,10 @@ function msUntil(deadline) {
 
 // The whole render's network budget. Everything that fetches gets a slice
 // of what is left of it, never a fresh one of its own.
-var RENDER_BUDGET_MS = 4200;
+// Three seconds, as TRMNL asks of a transform's own requests: the limit is
+// five for the whole run, and parsing every feed, building the board and
+// starting the runtime come out of the other two.
+var RENDER_BUDGET_MS = 3000;
 
 var WEATHER_STALE_AFTER_S = 6 * 3600;  // older than this and the board says so rather than presenting it as today's forecast
 var CALENDAR_DOWN_AFTER_S = 2 * 3600;  // a feed that has been failing this long is named on the board instead of quietly missing
@@ -1238,6 +1241,8 @@ function moonFor(civil) {
 // Google's Belgian holidays are `<lang>.be#holiday`, not `<lang>.belgian`,
 // which Google answers with a 500. The config editor's wizard wrote the
 // second for a while, so a board set up with it is read from the first.
+function feedKey(url, headers) { return url + (headers ? ' ' + JSON.stringify(headers) : ''); }
+
 function feedUrl(url) {
   var u = String(url || '').trim();
   if (/^webcal:\/\//i.test(u)) u = 'https://' + u.slice('webcal://'.length);
@@ -1400,9 +1405,9 @@ async function fetchWeather(latLonRaw, tz, deadline, unit) {
 // materializeWeather has already turned those into header strings by the
 // time the caller sees them. Reading it back off the header would mean
 // parsing "60" out of a localized string.
-async function resolveWeather(latLonRaw, tz, deadline, state, unit, strings) {
+async function resolveWeather(latLonRaw, tz, deadline, state, unit, strings, started) {
   if (!latLonRaw) return { weather: null, stale: false, snapshot: null };
-  var snap = await fetchWeather(latLonRaw, typeof tz === 'string' ? tz : 'GMT', deadline, unit);
+  var snap = started ? await started : await fetchWeather(latLonRaw, typeof tz === 'string' ? tz : 'GMT', deadline, unit);
   var nowS = Math.floor(Date.now() / 1000);
   if (snap) {
     if (state) { state.weather = snap; state.weatherFetchedAt = nowS; }
@@ -1654,12 +1659,41 @@ async function fetchWithTimeout(url, ms, extraHeaders) {
   var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
   var headers = Object.assign({ 'User-Agent': 'TRMNL-Metro-Calendar' }, extraHeaders || {});
   var timer = controller ? setTimeout(function () { controller.abort(); }, ms) : null;
+  function clear() { if (timer) { clearTimeout(timer); timer = null; } }
+  var resp;
   try {
-    var resp = await fetch(url, controller ? { signal: controller.signal, headers: headers } : { headers: headers });
-    return resp;
-  } finally {
-    if (timer) clearTimeout(timer);
+    resp = await fetch(url, controller ? { signal: controller.signal, headers: headers } : { headers: headers });
+  } catch (e) { clear(); throw e; }
+  if (!resp || !resp.ok) { clear(); return resp; }
+  // THE BODY IS INSIDE THE TIME TOO. The timer used to stop when the headers
+  // came, and a feed that answered at once and then sent its two hundred
+  // kilobytes slowly held the render past the runtime's limit. Reading it is
+  // raced against the same abort, in case a runtime's fetch does not stop a
+  // body it is still reading when the signal fires.
+  function bounded(read) {
+    return function () {
+      var reading = Promise.resolve().then(function () { return read.call(resp); });
+      var cut = controller ? new Promise(function (_, reject) {
+        if (controller.signal.aborted) reject(new Error('timed out'));
+        controller.signal.addEventListener('abort', function () { reject(new Error('timed out')); });
+      }) : null;
+      return (cut ? Promise.race([reading, cut]) : reading)
+        .then(function (v) { clear(); return v; }, function (e) { clear(); throw e; });
+    };
   }
+  return { ok: resp.ok, status: resp.status, text: bounded(resp.text), json: bounded(resp.json) };
+}
+
+// One feed's text within what is left of the deadline: { ok, text }, or null
+// where it could not be had at all. Never throws.
+async function fetchFeedText(url, deadline, headers) {
+  var budget = msUntil(deadline);
+  if (budget <= 0) return null;
+  try {
+    var resp = await fetchWithTimeout(url, budget, headers);
+    if (!resp || !resp.ok) return { ok: false, text: '' };
+    return { ok: true, text: await resp.text() };
+  } catch (e) { return null; }
 }
 
 // Unfold RFC5545 continuation lines (a line starting with a space/tab
@@ -3161,11 +3195,12 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       // No time left is the same outcome as a dead feed from the board's
       // side (the events are missing), so it starts the same clock and
       // clears again on the next render that does reach it.
-      var budget = msUntil(deadline);
-      if (budget <= 0) { failed(); return; }
-      var resp = await fetchWithTimeout(url, Math.min(budget, 4000), cal.headers);
-      if (!resp.ok) { failed(); return; }
-      var text = await resp.text();
+      // Started by run() before the language file and the forecast were
+      // awaited, so every feed has the whole budget rather than what they left.
+      var pre = extra && extra.prefetched && extra.prefetched[feedKey(url, cal.headers)];
+      var got = pre ? await pre : await fetchFeedText(url, deadline, cal.headers);
+      if (!got || !got.ok) { failed(); return; }
+      var text = got.text;
       var parsedIcs = parseIcs(text, tz, days, cal.includeDescription, cal.ignoreTimezone);
       feedsRead++;
       if (state) {
@@ -3585,17 +3620,33 @@ async function run(input) {
   var effectiveCfg = demoCfg ? parseConfig(JSON.stringify(demoCfg))
     : (typedCfg && typedCfg.calendars.length ? typedCfg : parseConfig('{}'));
   var locale = effectiveCfg.locale || userLocale(input);
+  var tempUnit = resolveTempUnit(effectiveCfg.temperatureUnit, cf(input, 'temperature_unit').trim(), locale);
+
+  // EVERYTHING THAT FETCHES STARTS NOW, TOGETHER. The language file, then
+  // the forecast, then the feeds, one after the other, spent the budget in
+  // a queue: a slow forecast left the calendars less than a second.
+  var prefetched = {};
+  (effectiveCfg.calendars || []).forEach(function (cal) {
+    var u = feedUrl(cal.url), k = feedKey(u, cal.headers);
+    if (!prefetched[k]) prefetched[k] = fetchFeedText(u, deadline, cal.headers);
+  });
+  var wxStarted = null;
+  if (latLonRaw) {
+    try {
+      var wxTz = resolveTz(effectiveCfg.timeZone, input);
+      wxStarted = fetchWeather(latLonRaw, typeof wxTz === 'string' ? wxTz : 'GMT', deadline, tempUnit);
+    } catch (e) { wxStarted = null; }
+  }
 
   var strings = await loadStrings(locale, state, deadline);
   var hour12 = resolveHour12(
     (effectiveCfg.timeFormat || cf(input, 'time_format').trim()).toLowerCase(), locale);
-  var tempUnit = resolveTempUnit(effectiveCfg.temperatureUnit, cf(input, 'temperature_unit').trim(), locale);
   // Read once, applied to whichever forecast each path below ends up with.
   // The thresholds are read in the board's own unit, so "cold at or below
   // 0" means 0 of whatever the header is showing.
   var alertOpts = alertSettings(input, tempUnit, strings, hour12);
   var extra = { orientation: orientation, locale: locale, strings: strings, hour12: hour12,
-    tempUnit: tempUnit, deadline: deadline, alertOpts: alertOpts,
+    tempUnit: tempUnit, deadline: deadline, alertOpts: alertOpts, prefetched: prefetched,
     // On unless switched off: a day with no moon draws none, header or night.
     showMoon: cf(input, 'show_moon').trim().toLowerCase() !== 'false' };
 
@@ -3625,7 +3676,7 @@ async function run(input) {
       demoNowMin = demoToday.h * 60 + demoToday.mi;
       demoDate = dateLabel(demoToday, locale);
     } catch (e) { /* no clock rather than an invented one */ }
-    var demoWx = await resolveWeather(latLonRaw, demoTz, deadline, state, tempUnit, strings);
+    var demoWx = await resolveWeather(latLonRaw, demoTz, deadline, state, tempUnit, strings, wxStarted);
     if (configProblem) {
       return done(buildEmpty(demoWx.weather, demoNowMin, Object.assign({ dateLabel: demoDate }, extra,
         { weatherStale: demoWx.stale, wxSnapshot: demoWx.snapshot, notice: boardNotice(null, configProblem, strings) })));
@@ -3708,7 +3759,7 @@ async function run(input) {
 
   try {
     var configTz = resolveTz(parsed.timeZone, input);
-    var wx = await resolveWeather(latLonRaw, configTz, deadline, state, tempUnit, strings);
+    var wx = await resolveWeather(latLonRaw, configTz, deadline, state, tempUnit, strings, wxStarted);
     var cfgExtra = Object.assign({}, extra,
       { weatherStale: wx.stale, wxSnapshot: wx.snapshot });
     return done(await buildFromConfig(input, parsed, wx.weather, cfgExtra, state));
