@@ -31,7 +31,6 @@
   "alert_chilly": "Kalt, Tiefstwert {v}°",
   "alert_freezing": "Frost, Tiefstwert {v}°",
   "notice_config_invalid": "Die Einstellung Kalender konnte nicht gelesen werden. Kopiere sie erneut aus dem Einrichtungsassistenten.",
-  "notice_no_calendars": "In der Einstellung Kalender sind noch keine Kalender.",
   "notice_feeds_failed": "Keiner der Kalender konnte gelesen werden: {n}",
   "notice_nothing": "Heute und morgen steht nichts in den Kalendern.",
   "notice_demo_failed": "Der Beispieltag konnte nicht geladen werden. Füge deine Kalender in den Plugin-Einstellungen hinzu.",

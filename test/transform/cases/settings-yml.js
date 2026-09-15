@@ -85,17 +85,8 @@ module.exports = function (test, h) {
     while ((m = re.exec(SRC))) read.add(m[1]);
     assert(read.size > 5, 'found almost no settings being read: ' + [...read].join(', '));
 
-    // A field can be RETIRED from the form and still be read: calendar_urls
-    // was briefly its own box, and anyone who filled it in then would lose
-    // their calendars the day the code stopped looking at it. Retiring one
-    // is a decision, so it is listed here rather than passing silently.
-    const RETIRED = ['calendar_urls'];
-    const missing = [...read].filter((k) => !BY_KEY[k] && RETIRED.indexOf(k) < 0);
+    const missing = [...read].filter((k) => !BY_KEY[k]);
     assertEqual(missing, [], 'transform.js reads settings the form never offers');
-    RETIRED.forEach((k) => {
-      assert(read.has(k), k + ' is listed as retired but nothing reads it any more');
-      assert(!BY_KEY[k], k + ' is listed as retired but the form still offers it');
-    });
 
     // The other direction, minus the two that are display only: an
     // author_bio is a block of text, not an answer.

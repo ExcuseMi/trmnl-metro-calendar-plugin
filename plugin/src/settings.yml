@@ -63,6 +63,12 @@ custom_fields:
   - 12-hour: 12h
   default: auto
   optional: true
+- keyname: show_moon
+  field_type: boolean
+  name: Moon Phase
+  description: The moon as it is that night, in the header or over the evening.
+  default: true
+  optional: true
 - keyname: lat_lon
   field_type: lat_lon
   name: Location

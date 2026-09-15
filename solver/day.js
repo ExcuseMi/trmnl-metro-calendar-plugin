@@ -1022,7 +1022,10 @@ function specFor(metro, view, opts) {
   // panel, where draw.js writes what is on and what comes next in words for
   // whoever is walking past. A slot does not spend a row on it.
   var nowCard = !opts.oneName && !opts.standing && view.w >= 700 && view.h >= 400 && metro.now_min != null;
-  if (nowCard && !(richWx && !multi)) stripH += rowH0;
+  // Only where the band over the hours is not already two rows deep: a board
+  // spanning days has its date row and its forecast row there, and a third
+  // row for the card was empty paper over the whole header.
+  if (nowCard && stripH - rowH0 - 10 < rowH0 * 1.6) stripH += rowH0;
   // WHAT THE SKY DOES AND WHEN, on its own row under the clock.
   //
   // "Rain starts 13:00", "Sunset". They are not events -- nobody is at them,

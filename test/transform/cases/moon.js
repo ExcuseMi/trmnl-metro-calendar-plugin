@@ -25,4 +25,11 @@ module.exports = function (test, h) {
       if (waxing != null) assert(m.waxing === waxing, iso + ': waxing is ' + m.waxing);
     }
   });
+
+  test('Moon Phase switched off leaves every day without one', async () => {
+    const now = Date.parse('2026-09-26T20:00:00Z');
+    const { run } = runTransform(async () => okText(icsWithEvents([])), now);
+    const r = await run(baseInput(now, { config_json: 'https://calendar.example.com/a.ics', show_moon: 'false' }));
+    assert((r.data.days || []).length && r.data.days.every((d) => d.moon == null), 'a moon was sent anyway');
+  });
 };

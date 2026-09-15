@@ -31,7 +31,6 @@
   "alert_chilly": "Frío, mínima de {v}°",
   "alert_freezing": "Heladas, mínima de {v}°",
   "notice_config_invalid": "No se pudo leer el ajuste Calendarios. Cópialo de nuevo desde el asistente de configuración.",
-  "notice_no_calendars": "Todavía no hay calendarios en el ajuste Calendarios.",
   "notice_feeds_failed": "No se pudo leer ninguno de los calendarios: {n}",
   "notice_nothing": "Nada en los calendarios hoy ni mañana.",
   "notice_demo_failed": "No se pudo cargar el día de ejemplo. Añade tus calendarios en los ajustes del plugin.",

@@ -292,23 +292,34 @@ module.exports = function (test, h) {
 
   // ------------------------------------------------------------ the simple setup
 
-  test('a config that names no calendars says so on the board, instead of showing the example', async () => {
-    // The box is filled in and describes nothing. Showing the example day
-    // hid the fault behind a board that looked fine; an empty box is the
-    // only thing that asks for the example.
+  test('a config that names no calendars shows the example day, as the settings promise', async () => {
+    for (const text of ['{}', '{"version": 1}', '{"lines": [], "calendars": []}']) {
+      const r = await runTransform(serveDemoFiles(), NOW).run(baseInput(NOW, { use_demo_data: 'false', config_json: text }));
+      assert(r.data.legend.length > 0, 'no example day for ' + text);
+      assertEqual(r.data.board_notice, null, 'a notice over the example day for ' + text);
+    }
+  });
+
+  test('text that is neither a config nor a link says so, instead of showing the example', async () => {
+    const r = await runTransform(serveDemoFiles(), NOW).run(baseInput(NOW, { use_demo_data: 'false', config_json: 'my calendars' }));
+    assertEqual(r.data.legend.length, 0, 'the example was drawn over a broken paste');
+    assert(/could not be read/.test(r.data.board_notice || ''), 'no notice: ' + r.data.board_notice);
+  });
+
+  test('a retired calendar_urls value is not drawn when Calendars is empty', async () => {
+    // TRMNL keeps a field's old value after the field leaves the form.
     const r = await runTransform(serveDemoFiles(), NOW).run(baseInput(NOW, {
-      use_demo_data: 'false',
-      config_json: '{"lines": [], "calendars": []}',
-    }));
-    assertEqual(r.data.legend.length, 0, 'the example was drawn over a configuration that is wrong');
-    assert(/no calendars/i.test(r.data.board_notice || ''), 'the board does not say why it is empty: ' + r.data.board_notice);
+      use_demo_data: 'false', config_json: '',
+      calendar_urls: 'https://raw.githubusercontent.com/x/y/main/demo/friends/rachel.ics' }));
+    assert(!r.data.legend.some((t) => /Rachel/.test(t.name)), 'the retired box was read');
+    assert(r.data.legend.length > 0, 'no example day');
   });
 
   test('a plain list of ICS links needs no JSON and no editor', async () => {
     const { run } = runTransform(serveDemoFiles(), NOW);
     const r = await run(baseInput(NOW, {
       use_demo_data: 'false',
-      calendar_urls: [
+      config_json: [
         'https://raw.githubusercontent.com/x/y/main/demo/friends/monica.ics',
         'https://raw.githubusercontent.com/x/y/main/demo/friends/rachel.ics',
       ].join('\n'),
@@ -328,25 +339,9 @@ module.exports = function (test, h) {
     const { run } = runTransform(async () => okText(nameless), NOW);
     const r = await run(baseInput(NOW, {
       use_demo_data: 'false',
-      calendar_urls: 'https://cloud.example.com/alex-work.ics',
+      config_json: 'https://cloud.example.com/alex-work.ics',
     }));
     assert(r.data.legend.map((t) => t.name).join(',') === 'Alex Work',
       'got ' + r.data.legend.map((t) => t.name).join(', '));
-  });
-
-  test('the JSON config wins over the plain list when both are filled', async () => {
-    const { run } = runTransform(serveDemoFiles(), NOW);
-    const cfg = JSON.stringify({
-      lines: [{ name: 'Just Me' }],
-      calendars: [{ name: 'Mine', url: 'https://raw.githubusercontent.com/x/y/main/demo/friends/monica.ics',
-        rules: [{ match: { type: 'any' }, line: 'Just Me' }] }],
-    });
-    const r = await run(baseInput(NOW, {
-      use_demo_data: 'false',
-      calendar_urls: 'https://raw.githubusercontent.com/x/y/main/demo/friends/rachel.ics',
-      config_json: cfg,
-    }));
-    const names = r.data.legend.map((t) => t.name);
-    assert(names.join(',') === 'Just Me', 'the JSON config should win, got ' + names.join(', '));
   });
 };

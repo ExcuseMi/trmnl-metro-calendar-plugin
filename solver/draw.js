@@ -1532,6 +1532,9 @@ function draw(board, spec, ctx) {
           tt.className = 'metro-today title text--bold';
           var i18n2 = spec.metro.i18n || {};
           tt.textContent = dayIx ? (i18n2.tomorrow || 'Tomorrow') : (i18n2.today || 'Today');
+          // a word's space from the date, not the badge's own small gap:
+          // "Today and the date too pushed together"
+          tt.style.marginRight = (8 * S) + 'px';
           badge.appendChild(tt);
         }
         var d = doc.createElement('span');
@@ -1574,7 +1577,13 @@ function draw(board, spec, ctx) {
         var blen = horizontal ? badge.offsetWidth : badge.offsetHeight;
         if (blen <= room || fi === forms.length - 1) break;
       }
-      var br = place(badge, fx.a0 + (dayIx ? 10 * S : 0), titleRoom ? titleRoom / 2 + 2 : c, "left");
+      // ON A BOARD OF DAYS, THE TOP ROW OF THE BAND: the forecast has the row
+      // under it, and a badge centred on both left a strip of empty ink over
+      // it and no room for the forecast of a short day beside it.
+      var multiDay = ((spec.metro && spec.metro.days) || []).length > 1;
+      var badgeC = titleRoom ? titleRoom / 2 + 2 : c;
+      if (titleRoom && multiDay) badgeC = Math.max(badge.offsetHeight / 2 + 4 * S, (titleRoom - rowH - 4) / 2 + 2);
+      var br = place(badge, fx.a0 + (dayIx ? 10 * S : 0), badgeC, "left");
       taken.push(br);
       dayBadges[dayIx] = { r: br, band: titleRoom };
       return;
@@ -1655,6 +1664,8 @@ function draw(board, spec, ctx) {
         // Under the date, starting where the date starts, so the short panel
         // reads as one block rather than a forecast floating off to the right.
         underDate = dayBadges[di] && dayBadges[di].r;
+        // under it, not into it, where the badge sits in the band's top row
+        if (underDate) c = Math.max(c, underDate[3] + rowH / 2 + 2 * S);
       }
       var tx = doc.createElement('span');
       tx.className = 'metro-hour label' + STRIP_SM + ' text--bold text-stroke';
@@ -1666,6 +1677,12 @@ function draw(board, spec, ctx) {
       turn(box);
       var rc = underDate ? place(box, underDate[0], c, 'left') : place(box, wxEnd, c, 'right');
       if (underDate && !(rc[1] <= wxEnd && fitsDay(rc))) rc = place(box, wxEnd, c, 'right');
+      // A day too short for it at its end has it under its date, where that
+      // leaves the row free.
+      if (!fitsDay(rc) && !underDate && horizontal && dayBadges[di] && dayBadges[di].band) {
+        var ub = place(box, dayBadges[di].r[0], Math.max(c, dayBadges[di].r[3] + rowH / 2 + 2 * S), 'left');
+        if (ub[1] <= wxEnd && fitsDay(ub)) rc = ub; else rc = place(box, wxEnd, c, 'right');
+      }
       if (fitsDay(rc)) taken.push(rc); else box.remove();
       return;
     }
@@ -1816,7 +1833,15 @@ function draw(board, spec, ctx) {
       if (dayBadges[nb] && dayBadges[nb].band && nowNext(dayBadges[nb], nb)) break;
     }
   }
-  function nowNext(tb, dayIx) {
+  // ...AND ON A BOARD OF DAYS, WHERE THE FORECAST TOOK THE ROW UNDER THE
+  // DATE, ONE LINE OF IT BESIDE THE DATE.
+  if (dayBadges[0] && dayBadges[0].band && !spec.oneName && spec.metro && spec.metro.now_min != null && horizontal
+      && !canvas.querySelector('.metro-nownext') && ((spec.metro.days || []).length > 1)) {
+    for (var nb2 = 0; nb2 < Math.min(2, dayBadges.length); nb2++) {
+      if (dayBadges[nb2] && dayBadges[nb2].band && nowNext(dayBadges[nb2], nb2, true)) break;
+    }
+  }
+  function nowNext(tb, dayIx, oneRow) {
     var m = spec.metro, now = m.now_min, i18n = m.i18n || {};
     var names = {};
     (m.legend || []).forEach(function (p) { names[p.key] = p.name || p.key; });
@@ -1839,11 +1864,16 @@ function draw(board, spec, ctx) {
     // Between the date and whatever the strip set next to it in that panel.
     // (a later day's badge is moved in off its midnight when it joins its panel)
     var from = tb.r[1] + (dayIx ? 22 : 12) * S, to = (dayCuts.length > dayIx ? dayCuts[dayIx] : (horizontal ? W : H)) - 10 * S;
+    // In one row, only what stands in that row is in the way, and the card is
+    // as deep as the badge.
+    var bandH = oneRow ? tb.r[3] - tb.r[2] + 2 : tb.band;
     taken.forEach(function (t) {
       if (t === tb.r || t.length < 4 || t[2] >= tb.band) return;
+      if (oneRow && (t[2] >= tb.r[3] || t[3] <= tb.r[2])) return;
       if (t[0] >= tb.r[1] && t[0] - 12 * S < to) to = t[0] - 12 * S;
     });
     if (to - from < 80 * S) return false;
+    if (oneRow && rows.length > 1) rows.shift();
     // The base size first, where the band takes two rows of it; small after.
     // "Now and next are hard to read": thin white letters on the black band
     // broke up on the panel. The large size first where the band holds two
@@ -1879,10 +1909,10 @@ function draw(board, spec, ctx) {
       spans.forEach(function (sp) { leadW = Math.max(leadW, sp.lead.offsetWidth); });
       spans.forEach(function (sp) { sp.lead.style.display = 'inline-block'; sp.lead.style.minWidth = leadW + 'px'; });
       spans.forEach(cut);
-      if (card.offsetHeight <= tb.band - 2 && spans.every(function (sp) { return sp.line.offsetWidth <= to - from; })) break;
+      if (card.offsetHeight <= bandH - 2 && spans.every(function (sp) { return sp.line.offsetWidth <= to - from; })) break;
       if (zi === sizes.length - 1) {
         // Two rows where the band is deep enough, else only what is next.
-        while (spans.length > 1 && card.offsetHeight > tb.band - 2) { spans[0].line.remove(); spans.shift(); }
+        while (spans.length > 1 && card.offsetHeight > bandH - 2) { spans[0].line.remove(); spans.shift(); }
       }
     }
     function cut(sp) {
@@ -1892,8 +1922,8 @@ function draw(board, spec, ctx) {
         sp.body.textContent = words.join(' ').replace(/[\s\u00b7,]+$/, '') + '\u2026';
       }
     }
-    if (spans.some(function (sp) { return sp.line.offsetWidth > to - from; }) || card.offsetHeight > tb.band - 2) { card.remove(); return false; }
-    var r = place(card, from, tb.band / 2 + 2, 'left');
+    if (spans.some(function (sp) { return sp.line.offsetWidth > to - from; }) || card.offsetHeight > bandH - 2) { card.remove(); return false; }
+    var r = place(card, from, oneRow ? (tb.r[2] + tb.r[3]) / 2 : tb.band / 2 + 2, 'left');
     if (free(r)) { taken.push(r); return true; }
     card.remove();
     return false;

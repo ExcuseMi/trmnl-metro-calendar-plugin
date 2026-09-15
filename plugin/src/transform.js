@@ -103,7 +103,6 @@ var I18N = {
         feed_down: '{n} unavailable', weather_stale: 'Forecast may be out of date',
         // When the board has nothing to draw, it says why (see boardNotice).
         notice_config_invalid: 'The Calendars setting could not be read. Copy it again from the setup helper.',
-        notice_no_calendars: 'There are no calendars in the Calendars setting yet.',
         notice_feeds_failed: 'None of the calendars could be read: {n}',
         notice_nothing: 'Nothing on the calendars today or tomorrow.',
         notice_demo_failed: 'The example day could not be loaded. Add your calendars in the plugin settings.',
@@ -2608,9 +2607,11 @@ function parseConfig(raw) {
         // that opens with a brace is a broken config, and reading its lines
         // as URLs would draw a board of nonsense rather than fall back to
         // the demo.
-        data = looksLikeConfigJson(raw)
-          ? { _unreadable: true }
-          : { calendars: raw.split(/\r?\n/).map(function (l) { return plainListEntry(l); }).filter(Boolean) };
+        // Text with not one link in it is no more a list than a config.
+        var links = looksLikeConfigJson(raw) ? []
+          : raw.split(/\r?\n/).map(function (l) { return plainListEntry(l); }).filter(Boolean);
+        if (!links.some(function (l) { return /^\S+\.\S+$/.test(typeof l === 'string' ? l : l.url); })) links = [];
+        data = links.length ? { calendars: links } : { _unreadable: true };
       }
     }
   }
@@ -3457,7 +3458,7 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       weekday: localeDatePart(extra.locale || 'en', 'long', 'weekday', civil.y, civil.mo, civil.d),
       weekdayShort: localeDatePart(extra.locale || 'en', 'short', 'weekday', civil.y, civil.mo, civil.d),
       weather: wx,
-      moon: moonFor(civil),
+      moon: extra.showMoon === false ? null : moonFor(civil),
     };
   }
   var dayRows = [dayRow(shownDay, shownWx || (snapIx === 0 && weather && weather.header) || null)];
@@ -3519,9 +3520,8 @@ function boardNotice(metro, why, strings) {
   // Every feed failing is said even over the lines `lines` keeps drawn:
   // empty rails with names on them look like a quiet day.
   var allFailed = why && why.failed && why.failed.length && !why.read;
-  if (!empty && !allFailed && why !== 'config_invalid' && why !== 'no_calendars') return null;
+  if (!empty && !allFailed && why !== 'config_invalid') return null;
   if (why === 'config_invalid') return tr(strings, 'notice_config_invalid');
-  if (why === 'no_calendars') return tr(strings, 'notice_no_calendars');
   if (why === 'demo_failed') return tr(strings, 'notice_demo_failed');
   if (allFailed) return tr(strings, 'notice_feeds_failed', why.failed.join(', '));
   return tr(strings, 'notice_nothing');
@@ -3540,12 +3540,9 @@ async function run(input) {
   var useDemo = useDemoRaw === 'true';
   var configRaw = cf(input, 'config_json').trim();
   // ONE field for both shapes. parseConfig reads whatever is in it: JSON if
-  // it parses as JSON, otherwise one ICS link per line, which is the whole
-  // setup for anyone who just wants a line per calendar. calendar_urls was
-  // briefly a second field; it is still read so nobody who filled it in
-  // loses their calendars.
-  var urlsRaw = cf(input, 'calendar_urls').trim();
-  if (!configRaw && urlsRaw) configRaw = urlsRaw;
+  // it parses as JSON, otherwise one ICS link per line. calendar_urls, a
+  // retired second box, is not read: TRMNL keeps a retired field's old value,
+  // and emptying Calendars then drew those links instead of the example.
   // Which demo board to show. Unknown or unset falls back to Springfield.
   var demoSet = cf(input, 'demo_set');
   var latLonRaw = cf(input, 'lat_lon').trim();
@@ -3562,22 +3559,14 @@ async function run(input) {
   // keeps whatever locale and clock were resolved here.)
   // RIDE THE DEMO UNTIL SOMEBODY FILLS IN SOME DATA.
   //
-  // An empty box already took the demo path. A box with something in it
-  // that yields no calendars -- JSON with an empty `calendars`, a paste
-  // that survived the tidier but described nothing, a list of blank lines
-  // -- did not: it fell through to the built-in Springfield day with no
-  // weather and no real feeds, which is a visibly worse board and reads as
-  // a different fault than the one the reader has.
-  //
-  // There is no third state. Either the config names calendars to draw or
-  // it does not, and until it does the demo is the honest thing to show.
+  // The settings promise the example day for an empty box, and a config
+  // that names no calendars (`{}`, an empty `calendars`) is an empty box
+  // written as JSON. Only text that cannot be read as a config or as links
+  // says so on the board instead: that is a broken paste, and an example
+  // day over it would hide the fault.
   var typedCfg = configRaw ? parseConfig(configRaw) : null;
   var noUsableConfig = !typedCfg || !typedCfg.calendars.length;
-  // SOMETHING IN THE BOX THAT DRAWS NOTHING IS NOT AN EMPTY BOX. It used to
-  // take the example day, which hid the fault behind a board that looked
-  // fine: a broken paste, or a configuration with no calendars in it, says
-  // so on the board instead. Only an empty box shows the example.
-  var configProblem = !useDemo && typedCfg && noUsableConfig ? (typedCfg.unreadable ? 'config_invalid' : 'no_calendars') : null;
+  var configProblem = !useDemo && typedCfg && typedCfg.unreadable ? 'config_invalid' : null;
 
   // Read before anything else needs it, and written back on every exit
   // below: what the weather was last time the API answered, which feeds
@@ -3606,7 +3595,9 @@ async function run(input) {
   // 0" means 0 of whatever the header is showing.
   var alertOpts = alertSettings(input, tempUnit, strings, hour12);
   var extra = { orientation: orientation, locale: locale, strings: strings, hour12: hour12,
-    tempUnit: tempUnit, deadline: deadline, alertOpts: alertOpts };
+    tempUnit: tempUnit, deadline: deadline, alertOpts: alertOpts,
+    // On unless switched off: a day with no moon draws none, header or night.
+    showMoon: cf(input, 'show_moon').trim().toLowerCase() !== 'false' };
 
   // Every exit returns through here. The runtime stores what comes back as
   // `trmnl_state` and hands it to the next render as `input.trmnl.state`, so

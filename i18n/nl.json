@@ -31,7 +31,6 @@
   "alert_chilly": "Koud, minimum {v}°",
   "alert_freezing": "Vorst, minimum {v}°",
   "notice_config_invalid": "De instelling Agenda's kon niet gelezen worden. Kopieer ze opnieuw uit de installatiehulp.",
-  "notice_no_calendars": "Er staan nog geen agenda's in de instelling Agenda's.",
   "notice_feeds_failed": "Geen enkele agenda kon gelezen worden: {n}",
   "notice_nothing": "Niets in de agenda's vandaag of morgen.",
   "notice_demo_failed": "De voorbeelddag kon niet geladen worden. Voeg je agenda's toe in de instellingen van de plugin.",

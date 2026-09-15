@@ -31,7 +31,6 @@
   "alert_chilly": "Froid, minimum {v}°",
   "alert_freezing": "Gel, minimum {v}°",
   "notice_config_invalid": "Le réglage Calendriers n'a pas pu être lu. Copiez-le à nouveau depuis l'assistant de configuration.",
-  "notice_no_calendars": "Le réglage Calendriers ne contient encore aucun calendrier.",
   "notice_feeds_failed": "Aucun calendrier n'a pu être lu : {n}",
   "notice_nothing": "Rien dans les calendriers aujourd'hui ni demain.",
   "notice_demo_failed": "La journée d'exemple n'a pas pu être chargée. Ajoutez vos calendriers dans les réglages du plugin.",
