@@ -28,7 +28,8 @@ module.exports = function (test, h) {
   [['double-booked', 'og-landscape', 'Design Review'],
    ['double-booked', 'og-half', '1:1 with Priya'],
    ['all-day-every-track', 'og-half', 'School Run'],
-   ['busy-day', 'og-landscape', 'School Run']].forEach(function (row) {
+   ['three-day-holiday', 'og-half', 'Team Standup'],
+   ['seven-lines', 'x-portrait', 'Good News Everyone']].forEach(function (row) {
     test('a name is not left along the rail from its stop: ' + row[2] + ' ' + row[0] + '/' + row[1], () => {
       const rep = layout(fix(row[0]), row[1]);
       const along = alongOf(rep, row[2]);

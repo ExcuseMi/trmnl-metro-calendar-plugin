@@ -913,7 +913,10 @@ function boardFor(spec, st) {
         if (edge != null) {
           var nc0 = above ? edge - spec.railGap - nh : edge + spec.railGap;
           var out = { a0: f.a0, a1: f.a1, c0: nc0, c1: nc0 + nh };
-          if (Math.abs(nc0 - f.c0) <= nh && out.c0 >= b.cross.c0 && out.c1 <= b.cross.c1
+          // a row and a half of its own: "Homer" sat a row under the strip
+          // with the spur's flat leg across the letters, and the row above
+          // was free
+          if (Math.abs(nc0 - f.c0) <= nh * 1.5 && out.c0 >= b.cross.c0 && out.c1 <= b.cross.c1
               && !b.lines.some(function (o) { return o.key !== fx.line && B.lineTouches(o, out); })
               && !b.fixed.some(function (g) { return B.capsOverlap(g.box(), out); })) {
             f.c0 = out.c0; f.c1 = out.c1;
