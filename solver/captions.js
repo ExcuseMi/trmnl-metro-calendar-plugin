@@ -902,8 +902,71 @@ function solve(wants, board, opts) {
     if (!moved) break;
   }
   var bestPick = pick.slice(), bestEn = E;
-  return { pick: bestPick, cands: cands, energy: bestEn,
-           shed: bestPick.filter(function (p) { return p < 0; }).length };
+  var result = { pick: bestPick, cands: cands, energy: bestEn,
+                 shed: bestPick.filter(function (p) { return p < 0; }).length };
+  // TWO NAMES MOVED AT ONCE, for the one board that ships (bands.js calls it
+  // on the winner only). Best response moves one caption at a time, and a
+  // name standing a long way from its dot is usually there because the paper
+  // beside the dot is a neighbour's: neither move pays on its own, both
+  // together do. "Skate Park" stood past the interchange, two dots right of
+  // its own, with the notch under its dot free once Detention moved over.
+  result.polish = function () {
+    function local(i) {
+      if (pick[i] < 0) return SHED;
+      var e = price(cands[i][pick[i]]) + (cands[i][pick[i]].mud ? MUD : 0);
+      for (var j = 0; j < n; j++) if (j !== i) e += pairCost(i, j);
+      return e;
+    }
+    function adrift(i) {
+      if (pick[i] < 0 || wants[i].pill) return false;
+      var p = cands[i][pick[i]], w = wants[i], wa1 = w.endAt != null ? w.endAt : w.a1;
+      var along = p.a + w.w < w.a0 ? w.a0 - p.a - w.w : (p.a > wa1 ? p.a - wa1 : 0);
+      return along > Math.max(12, w.h / 2) || (p.off != null ? p.off : p.row) >= 1;
+    }
+    var gained = false;
+    for (var oi3 = 0; oi3 < n; oi3++) {
+      var i3 = order[oi3];
+      if (!adrift(i3)) continue;
+      var was = pick[i3], base = local(i3), curP = price(cands[i3][was]) + (cands[i3][was].mud ? MUD : 0);
+      // only where the name itself would be better off
+      var better = [];
+      for (var k3 = 0; k3 < cands[i3].length; k3++) {
+        var pc = price(cands[i3][k3]) + (cands[i3][k3].mud ? MUD : 0);
+        if (k3 !== was && pc < curP - 1) better.push([pc, k3]);
+      }
+      better.sort(function (x, y) { return x[0] - y[0]; });
+      var done = false;
+      for (var bi = 0; bi < better.length && bi < 24 && !done; bi++) {
+        pick[i3] = better[bi][1];
+        var hit = [];
+        for (var j3 = 0; j3 < n; j3++) if (j3 !== i3 && pairCost(i3, j3) >= CLASH) hit.push(j3);
+        if (hit.length > 1) continue;
+        if (!hit.length) {
+          if (local(i3) < base - 1e-9) { done = true; }
+          continue;
+        }
+        var jj = hit[0], wasJ = pick[jj];
+        pick[i3] = was;
+        var before = base + local(jj) - pairCost(i3, jj);
+        pick[i3] = better[bi][1];
+        var bestJ = -2, bestV = before;
+        for (var k4 = 0; k4 < cands[jj].length; k4++) {
+          if (k4 === wasJ) continue;
+          pick[jj] = k4;
+          var v = local(i3) + local(jj) - pairCost(i3, jj);
+          if (v < bestV - 1e-9) { bestV = v; bestJ = k4; }
+        }
+        if (bestJ >= 0) { pick[jj] = bestJ; done = true; } else pick[jj] = wasJ;
+      }
+      if (done) gained = true; else pick[i3] = was;
+    }
+    if (!gained) return false;
+    result.pick = pick.slice();
+    result.energy = energy();
+    result.shed = result.pick.filter(function (p) { return p < 0; }).length;
+    return true;
+  };
+  return result;
 }
 
 // Put the solution on the board.

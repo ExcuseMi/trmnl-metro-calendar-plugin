@@ -1950,6 +1950,17 @@ function solve(spec, opts) {
   band = { st: bestSt };
   var b = bestBoard, sol = bestSol;
   spec.wants.forEach(function (w, i) { w.wear(bestSt.forms[i]); });
+  // Names adrift of their dots, moved home in pairs where that is cleaner
+  // (captions.js polish), and only where the board is no less readable.
+  if (sol && sol.polish) {
+    var keep = { pick: sol.pick.slice(), energy: sol.energy, shed: sol.shed }, keepCaps = b.caps;
+    var faults0 = require('./board').check(b).length;
+    if (sol.polish()) {
+      b.caps = [];
+      C.apply(b, spec.wants, sol);
+      if (require('./board').check(b).length > faults0) { Object.assign(sol, keep); b.caps = keepCaps; }
+    }
+  }
   // THE MARKS, on whichever rail the event ended up on. A board without its
   // dots and ticks is not a finished board: the caption says what, and only
   // the mark says exactly when. They go on the BRANCH for a shelved event,
