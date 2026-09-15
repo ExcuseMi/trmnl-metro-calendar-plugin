@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Run a build, a suite or a screenshot inside the toolbox image, so several
+# of them can go at once.
+#
+#   tools/box ./test.sh
+#   tools/box 'cd test/layout && node run.js'
+#   tools/box 'cd plugin && trmnlp build'
+#
+# The repo is mounted read-write, because a suite writes its caches and a
+# fix writes source. What is NOT shared is plugin/_build: it gets a tmpfs
+# per container, which is the one thing two runs used to fight over. The
+# layout suite already builds in a copy of plugin/ per build; this covers
+# everything that does not (screenshots, verify-build, a plain trmnlp
+# build) without a lock between them.
+#
+# Chromium comes from the host's Playwright install, mounted read only, so
+# the container and the host render with the same binary. That matters more
+# than it sounds: this suite measures text, and a different browser or a
+# different freetype measures it differently.
+set -euo pipefail
+REPO=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+PW=${PLAYWRIGHT_DIR:-$HOME/.cache/ms-playwright}
+IMAGE=${METRO_IMAGE:-metro-dev}
+
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "building $IMAGE (first run only)..." >&2
+  docker build -q -t "$IMAGE" -f "$REPO/docker/Dockerfile" "$REPO" >/dev/null
+fi
+
+exec docker run --rm -i \
+  --init \
+  -u "$(id -u):$(id -g)" \
+  -e HOME=/tmp \
+  -e IN_METRO_BOX=1 \
+  -e METRO_CHROME=/pw/chromium-1243/chrome-linux64/chrome \
+  -v "$REPO":/work \
+  -v "$PW":/pw:ro \
+  --tmpfs /work/plugin/_build:rw,exec \
+  -w /work \
+  "$IMAGE" "$*"

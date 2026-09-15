@@ -1,0 +1,136 @@
+---
+strategy: polling
+no_screen_padding: 'no'
+dark_mode: 'no'
+static_data: "{}"
+polling_verb: get
+framework_version: 3.3.1
+serverless_language: node
+polling_url: ''
+polling_headers: ''
+polling_body: ''
+id: 471753
+oauth_enabled: 'false'
+oauth_pkce_enabled: 'no'
+oauth_authorize_url: ''
+oauth_token_url: ''
+oauth_scopes: ''
+oauth_scope_separator: ''
+oauth_refresh_url: ''
+oauth_auth_params: ''
+oauth_token_headers: ''
+oauth_token_site: ''
+oauth_token_params: ''
+oauth_token_request_auth_method: ''
+oauth_body_format: ''
+oauth_token_response_metadata: ''
+oauth_authorization_method: ''
+oauth_refresh_params: ''
+oauth_token_field_name: ''
+oauth_expiry_field_name: ''
+oauth_expiry_strategy: ''
+oauth_fixed_expiry_ms: ''
+custom_fields:
+- keyname: author_info
+  name: About This Plugin
+  field_type: author_bio
+  description: Your family's day as a metro map. Everyone gets a <strong>line</strong>, their events are <strong>stops</strong> along it, and when people do something together their lines meet at an <strong>interchange</strong>. It shows today and rolls on into tomorrow as the day runs out, with holidays, the weather and the moon in the header. It fits itself to every TRMNL screen and mashup.<br /><br />Nothing to switch on to try it. Until you add calendars below, it shows an example day.
+  github_url: https://github.com/ExcuseMi/trmnl-metro-calendar-plugin
+  category: calendar
+  help_text: TRMNL X Ready · English, français, español, Deutsch, Nederlands
+- keyname: config_json
+  field_type: text
+  name: Calendars
+  placeholder: |-
+    {
+      "version": 1,
+      "docs": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/CONFIG.md",
+      "lines": [{ "name": "Alex" }, { "name": "Sam" }],
+      "calendars": [
+        { "url": "https://calendar.example.com/alex.ics", "line": "Alex" },
+        { "url": "https://calendar.example.com/sam.ics", "line": "Sam" }
+      ]
+    }
+  description: 'Paste the configuration from the <a href="https://excusemi.github.io/trmnl-metro-calendar-plugin/tools/config-editor.html" target="_blank">setup helper</a>. It asks who lives with you and where each calendar is, checks every link, shows you the map, and gives you the text for this box. Leave it empty to see an example day.'
+  optional: true
+- keyname: time_format
+  field_type: select
+  name: Time Format
+  description: Auto uses the usual clock for your TRMNL account language.
+  options:
+  - Auto: auto
+  - 24-hour: 24h
+  - 12-hour: 12h
+  default: auto
+  optional: true
+- keyname: lat_lon
+  field_type: lat_lon
+  name: Location
+  group: Weather
+  description: For the weather in the header, and small icons along the hours when rain starts or stops. Leave it empty for no weather.
+  optional: true
+- keyname: temperature_unit
+  field_type: select
+  name: Temperature Unit
+  group: Weather
+  description: Auto uses Fahrenheit for US English and Celsius everywhere else.
+  options:
+  - Auto: auto
+  - Celsius: c
+  - Fahrenheit: f
+  default: auto
+  optional: true
+- keyname: alert_enabled
+  field_type: boolean
+  name: Weather Alert Banner
+  group: Weather
+  description: A banner along the bottom when rain, snow, thunderstorms, frost or heat is on the way, saying when. Needs a <strong>Location</strong>. On a calm day it takes no space.
+  default: false
+  optional: true
+  conditional_validation:
+  - when: 'false'
+    hidden:
+    - alert_rain_threshold
+    - alert_temp_low
+    - alert_temp_high
+- keyname: alert_rain_threshold
+  field_type: number
+  name: Rain Chance At Or Above (%)
+  group: Weather
+  description: 70 is a good "take a coat" line. Leave it empty for no rain alert. Snow and thunderstorms always alert.
+  placeholder: '70'
+  default: 70
+  optional: true
+- keyname: alert_temp_low
+  field_type: number
+  name: Cold At Or Below
+  group: Weather
+  description: "In the unit above. Leave it empty for freezing. Examples: freezing 0°C / 32°F, hard frost -10°C / 14°F."
+  optional: true
+- keyname: alert_temp_high
+  field_type: number
+  name: Heat At Or Above
+  group: Weather
+  description: "In the unit above. Leave it empty for hot. Examples: hot 30°C / 86°F, heatwave 35°C / 95°F."
+  optional: true
+- keyname: demo_set
+  field_type: select
+  name: Example Day
+  group: Example
+  description: Which example the board shows while <strong>Calendars</strong> is empty. Each is a real setup from the <a href="https://github.com/ExcuseMi/trmnl-metro-calendar-plugin/tree/main/demo" target="_blank">demo folder</a>, so you can copy the one you like.
+  options:
+  - Springfield, a family of five: simpsons
+  - Planet Express, a work crew: futurama
+  - Apartment 20, two flatmates: friends
+  default: simpsons
+  optional: true
+- keyname: use_demo_data
+  field_type: boolean
+  name: Show The Example Anyway
+  group: Example
+  description: Keeps the example on screen even with calendars filled in. Handy for trying out the plugin without showing your own week.
+  default: false
+  optional: true
+name: Metro Calendar
+description: Everyone's day as a metro map
+refresh_interval: 15

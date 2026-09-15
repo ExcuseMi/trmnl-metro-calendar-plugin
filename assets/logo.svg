@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Metro Calendar">
+<!-- Metro Calendar logo. A two-tone tile split at the interchange, orange #f8654b and ink #151515 swapping across the seam; a hollow bar with a ring at each end, and a branch that tunnels under it. -->
+<defs><clipPath id="tile"><rect width="512" height="512" rx="112"/></clipPath><clipPath id="L"><rect width="256" height="512"/></clipPath><clipPath id="R"><rect x="256" width="256" height="512"/></clipPath></defs>
+<g clip-path="url(#tile)" fill="none">
+<g clip-path="url(#L)"><rect width="512" height="512" fill="#f8654b"/>
+<path d="M-20 94 L436 94 L384 146 L-20 146 Z" fill="#151515"/>
+<path d="M471.8 78 L505.7 78 L421.7 162 L387.8 162 Z" fill="#151515"/>
+<path d="M-20 362 L440 362 L380 422 L-20 422 Z" fill="#151515"/>
+<path d="M-30 383 L389.3 383 L371.3 401 L-30 401 Z" fill="#ffffff"/>
+<path d="M475.8 346 L509.7 346 L417.7 438 L383.8 438 Z" fill="#151515"/>
+<path d="M-20 120 L6 120 Q40 120 64 144 L152 232 Q176 256 210 256 L440 256" stroke="#151515" stroke-width="36" fill="none" stroke-linejoin="round"/>
+<path d="M440 222V290" stroke="#151515" stroke-width="22"/>
+<rect x="198" y="236" width="116" height="40" fill="#f8654b"/></g>
+<g clip-path="url(#R)"><rect width="512" height="512" fill="#151515"/>
+<path d="M-20 94 L436 94 L384 146 L-20 146 Z" fill="#f8654b"/>
+<path d="M471.8 78 L505.7 78 L421.7 162 L387.8 162 Z" fill="#f8654b"/>
+<path d="M-20 362 L440 362 L380 422 L-20 422 Z" fill="#f8654b"/>
+<path d="M-30 383 L389.3 383 L371.3 401 L-30 401 Z" fill="#ffffff"/>
+<path d="M475.8 346 L509.7 346 L417.7 438 L383.8 438 Z" fill="#f8654b"/>
+<path d="M-20 120 L6 120 Q40 120 64 144 L152 232 Q176 256 210 256 L440 256" stroke="#f8654b" stroke-width="36" fill="none" stroke-linejoin="round"/>
+<path d="M440 222V290" stroke="#f8654b" stroke-width="22"/>
+<rect x="198" y="236" width="116" height="40" fill="#151515"/></g>
+<path d="M256 120V392" stroke="#ffffff" stroke-width="84" stroke-linecap="round"/>
+<path d="M256 120V392" stroke="#151515" stroke-width="40" stroke-linecap="round"/>
+<circle cx="256" cy="120" r="44" fill="#151515" stroke="#ffffff" stroke-width="20"/>
+<circle cx="256" cy="392" r="44" fill="#151515" stroke="#ffffff" stroke-width="20"/>
+</g>
+</svg>

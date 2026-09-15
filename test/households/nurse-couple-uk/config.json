@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "timeZone": "Europe/London",
+  "locale": "en-GB",
+  "lines": [
+    {
+      "name": "Priya"
+    },
+    {
+      "name": "Gareth"
+    }
+  ],
+  "rules": [
+    {
+      "match": {
+        "type": "status",
+        "value": "cancelled"
+      },
+      "hide": true
+    }
+  ],
+  "calendars": [
+    {
+      "name": "Priya",
+      "url": "https://eo.healthroster.example.nhs.uk/ical/7741902/priya-rota.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "regex",
+            "value": "^N - .*"
+          },
+          "title": "Night shift"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^LD - .*"
+          },
+          "title": "Long day"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^E - .*"
+          },
+          "title": "Early shift"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^TRN - (?:Mandatory training: )?(.+)$"
+          },
+          "rewrite": "Training: $1"
+        }
+      ],
+      "line": "Priya"
+    },
+    {
+      "name": "Gareth",
+      "url": "https://outlook.office365.com/owa/calendar/5b1e.../reachcalendar/gareth-work.ics",
+      "line": "Gareth"
+    },
+    {
+      "name": "Gareth",
+      "url": "webcal://p64-caldav.icloud.com/published/2/MTIzNDU2Nzg5/gareth-personal.ics",
+      "line": "Gareth"
+    },
+    {
+      "url": "https://calendar.google.com/calendar/ical/home.example%40group.calendar.google.com/private-a1b2/home.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "contains",
+            "value": "delivery"
+          },
+          "line": "Gareth"
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Boiler"
+          },
+          "line": "Priya"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "\\s*\\((?:\\d+(?:am|pm)?-\\d+(?:am|pm)) ?(?:slot)?\\)"
+          },
+          "rewrite": ""
+        }
+      ],
+      "line": [
+        "Priya",
+        "Gareth"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "version": 1,
+  "timeZone": "Europe/Paris",
+  "locale": "fr",
+  "lines": [
+    {
+      "name": "Camille"
+    },
+    {
+      "name": "Julien"
+    }
+  ],
+  "rules": [
+    {
+      "match": {
+        "type": "status",
+        "value": "cancelled"
+      },
+      "hide": true
+    },
+    {
+      "match": {
+        "type": "regex",
+        "value": "^(?:Annulé|Canceled|Cancelled)\\s*:"
+      },
+      "hide": true
+    },
+    {
+      "match": {
+        "type": "regex",
+        "value": "^(?:RE|TR|FW|Fwd)\\s*:\\s*"
+      },
+      "rewrite": ""
+    },
+    {
+      "match": {
+        "type": "regex",
+        "value": "\\s*\\[(?:Teams|Zoom)\\]"
+      },
+      "rewrite": ""
+    },
+    {
+      "match": {
+        "type": "or",
+        "matchers": [
+          {
+            "type": "exact",
+            "value": "Focus time"
+          },
+          {
+            "type": "exact",
+            "value": "Pause café"
+          }
+        ]
+      },
+      "hide": true
+    }
+  ],
+  "calendars": [
+    {
+      "name": "Camille",
+      "url": "https://outlook.office365.com/owa/calendar/9f8e7d6c@groupe-exemple.fr/b1a2c3/camille-outlook.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "exact",
+            "value": "Microsoft Teams Meeting"
+          },
+          "title": "Réunion Teams"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Invitation : (.+?) @ .*$"
+          },
+          "rewrite": "$1"
+        }
+      ],
+      "line": "Camille"
+    },
+    {
+      "name": "Julien",
+      "url": "https://calendar.google.com/calendar/ical/julien.studio.example%40gmail.com/private-5e6f/julien-google.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "regex",
+            "value": "\\[[A-Z]+-\\d+\\]\\s*"
+          },
+          "rewrite": ""
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "\\s*(?:—\\s*Zoom|\\(Zoom\\s*:[^)]*\\))$"
+          },
+          "rewrite": ""
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Zoom:\\s*"
+          },
+          "rewrite": ""
+        }
+      ],
+      "line": "Julien"
+    },
+    {
+      "url": "https://calendar.google.com/calendar/ical/maison.example%40group.calendar.google.com/private-9a9b/maison.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "regex",
+            "value": "\\s*\\((?:dog walker|créneau [^)]*)\\)"
+          },
+          "rewrite": ""
+        }
+      ],
+      "line": [
+        "Camille",
+        "Julien"
+      ]
+    }
+  ]
+}

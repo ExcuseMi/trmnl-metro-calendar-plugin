@@ -1,0 +1,22 @@
+Add to ~/workspace/caddy/Caddyfile on trmnl (10.0.0.9), inside the :80 block,
+in the same shape as every other route there. `handle_path` strips the
+prefix, so the backend sees /ics and /health.
+
+    handle_path /metro-calendar* {
+        reverse_proxy 10.0.0.9:8760 {
+            header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
+            header_up True-Client-IP {http.request.header.True-Client-IP}
+            header_up CF-Ray {http.request.header.CF-Ray}
+            header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+            header_up X-Forwarded-For {http.request.header.X-Forwarded-For} {http.request.remote.host}
+        }
+    }
+
+Then validate and RESTART, not reload: the Caddyfile sets `admin off`, so
+there is no admin API for `caddy reload` to talk to, and it fails. And edit
+the file in place: the container bind-mounts that one file, so an editor
+that saves by renaming a new file over it leaves Caddy reading the old copy.
+
+    docker exec trmnl-caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile \
+      && docker restart trmnl-caddy
+Public endpoint: https://trmnl.bettens.dev/metro-calendar/ics?url=<the ics link>

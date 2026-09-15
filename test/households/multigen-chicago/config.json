@@ -1,0 +1,193 @@
+{
+  "version": 1,
+  "timeZone": "America/Chicago",
+  "locale": "en-US",
+  "timeFormat": "12h",
+  "temperatureUnit": "f",
+  "lines": [
+    {
+      "name": "Walt"
+    },
+    {
+      "name": "Dolores"
+    },
+    {
+      "name": "Renee"
+    },
+    {
+      "name": "Marcus"
+    },
+    {
+      "name": "Mia"
+    },
+    {
+      "name": "Eli"
+    },
+    {
+      "name": "Zoe"
+    }
+  ],
+  "calendars": [
+    {
+      "url": "webcal://p51-caldav.icloud.com/published/2/MTk4NzY1NDMy/family.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Grandpa\\b"
+          },
+          "line": "Walt"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Grandma\\b"
+          },
+          "line": "Dolores"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Mom\\b"
+          },
+          "line": "Renee"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Dad\\b"
+          },
+          "line": "Marcus"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Mia\\b"
+          },
+          "line": "Mia"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Eli\\b"
+          },
+          "line": "Eli"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Zoe\\b"
+          },
+          "line": "Zoe"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Grandma & Grandpa:"
+          },
+          "line": [
+            "Dolores",
+            "Walt"
+          ]
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Grandpa & Zoe:"
+          },
+          "line": [
+            "Walt",
+            "Zoe"
+          ]
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Mia & Eli:"
+          },
+          "line": [
+            "Mia",
+            "Eli"
+          ]
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Everyone:"
+          },
+          "line": [
+            "Walt",
+            "Dolores",
+            "Renee",
+            "Marcus",
+            "Mia",
+            "Eli",
+            "Zoe"
+          ]
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Picture day"
+          },
+          "allDay": true
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^[A-Za-z]+(?: & [A-Za-z]+)?:\\s*(.+)$"
+          },
+          "rewrite": "$1"
+        }
+      ]
+    },
+    {
+      "url": "webcal://p51-caldav.icloud.com/published/2/MTk4NzY1NDMz/reminders.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Grandpa\\b"
+          },
+          "line": "Walt"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Eli\\b"
+          },
+          "line": "Eli"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Zoe\\b"
+          },
+          "line": "Zoe"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^[A-Za-z]+:\\s*(.+)$"
+          },
+          "rewrite": "$1"
+        }
+      ]
+    },
+    {
+      "name": "Renee",
+      "url": "https://outlook.office365.com/owa/calendar/aa11bb22@swedishcovenant.example/renee-work.ics",
+      "line": "Renee"
+    },
+    {
+      "name": "Marcus",
+      "url": "https://www.shiftboard.example/ical/99812/marcus-shifts.ics",
+      "line": "Marcus"
+    },
+    {
+      "name": "Dolores",
+      "url": "https://mychart.swedish.example/MyChart/Calendar/dolores-mychart.ics",
+      "line": "Dolores"
+    }
+  ]
+}

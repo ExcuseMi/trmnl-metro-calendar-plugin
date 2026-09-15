@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "timeZone": "Europe/Berlin",
+  "locale": "de",
+  "lines": [
+    {
+      "name": "Moritz"
+    },
+    {
+      "name": "Aylin"
+    },
+    {
+      "name": "Svenja"
+    },
+    {
+      "name": "Tobias",
+      "hideWhenEmpty": true
+    }
+  ],
+  "rules": [
+    {
+      "match": {
+        "type": "status",
+        "value": "cancelled"
+      },
+      "hide": true
+    }
+  ],
+  "calendars": [
+    {
+      "name": "Moritz",
+      "url": "https://hisinone.htw.example/qisserver/pages/cm/exa/timetable/moritz-stundenplan.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "regex",
+            "value": "\\s*\\((?:Vorlesung|Labor)\\)"
+          },
+          "rewrite": ""
+        }
+      ],
+      "line": "Moritz"
+    },
+    {
+      "name": "Aylin",
+      "url": "https://lernplattform.charite.example/stundenplan/export/aylin-charite.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "regex",
+            "value": "^(?:VL|SE|PR|UaK|POL) M09:?\\s*"
+          },
+          "rewrite": ""
+        }
+      ],
+      "line": "Aylin"
+    },
+    {
+      "name": "Svenja",
+      "url": "https://cloud.example.de/remote.php/dav/public-calendars/k3Jd9sQ/svenja.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "and",
+            "matchers": [
+              {
+                "type": "contains",
+                "value": "Werkstudentin"
+              },
+              {
+                "type": "weekday",
+                "value": [
+                  "WE"
+                ]
+              }
+            ]
+          },
+          "title": "Homeoffice"
+        }
+      ],
+      "line": "Svenja"
+    },
+    {
+      "name": "Tobias",
+      "url": "https://calendar.google.com/calendar/ical/tobias.example%40gmail.com/private-0c1d/tobias.ics",
+      "line": "Tobias"
+    },
+    {
+      "url": "https://cloud.example.de/remote.php/dav/public-calendars/Wg77aa/wg-kalender.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "contains",
+            "value": "Moritz"
+          },
+          "line": "Moritz"
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Aylin"
+          },
+          "line": "Aylin"
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Svenja"
+          },
+          "line": "Svenja"
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Kochen"
+          },
+          "line": [
+            "Moritz",
+            "Aylin",
+            "Svenja"
+          ]
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "\\s*(?:–\\s*(?:Moritz|Aylin|Svenja|Tobias)|\\([^)]*\\))$"
+          },
+          "rewrite": ""
+        }
+      ]
+    }
+  ]
+}

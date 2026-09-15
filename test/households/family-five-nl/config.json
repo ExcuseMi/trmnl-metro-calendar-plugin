@@ -1,0 +1,136 @@
+{
+  "version": 1,
+  "timeZone": "Europe/Amsterdam",
+  "locale": "nl",
+  "lines": [
+    {
+      "name": "Sanne"
+    },
+    {
+      "name": "Joris"
+    },
+    {
+      "name": "Daan"
+    },
+    {
+      "name": "Lotte"
+    },
+    {
+      "name": "Pim"
+    }
+  ],
+  "rules": [
+    {
+      "match": {
+        "type": "status",
+        "value": "cancelled"
+      },
+      "hide": true
+    }
+  ],
+  "calendars": [
+    {
+      "url": "https://calendar.google.com/calendar/ical/nl.dutch%23holiday%40group.v.calendar.google.com/public/basic.ics",
+      "holiday": true
+    },
+    {
+      "url": "https://api.parro.com/agenda/ical/wilgenhoek-groep6-7f3a/school-parro.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "or",
+            "matchers": [
+              {
+                "type": "contains",
+                "value": "vrij"
+              },
+              {
+                "type": "contains",
+                "value": "vakantie"
+              }
+            ]
+          },
+          "line": [
+            "Daan",
+            "Lotte"
+          ],
+          "holiday": true
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Informatieavond"
+          },
+          "line": [
+            "Sanne",
+            "Joris"
+          ]
+        }
+      ],
+      "line": "Lotte"
+    },
+    {
+      "url": "https://calendar.google.com/calendar/ical/gezin.example%40group.calendar.google.com/private-c0ffee/gezin.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "word",
+            "value": "Lotte"
+          },
+          "line": "Lotte"
+        },
+        {
+          "match": {
+            "type": "word",
+            "value": "Pim"
+          },
+          "line": "Pim"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "Pim \\(Sanne\\)"
+          },
+          "line": [
+            "Pim",
+            "Sanne"
+          ]
+        },
+        {
+          "match": {
+            "type": "exact",
+            "value": "Samen eten"
+          },
+          "line": [
+            "Sanne",
+            "Joris",
+            "Daan",
+            "Lotte"
+          ]
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "\\s*(?:\\b(?:Lotte|Pim)\\b)?\\s*\\((?:Sanne|diploma C|MD6)\\)|\\s+(?:Lotte|Pim)$"
+          },
+          "rewrite": ""
+        }
+      ]
+    },
+    {
+      "name": "Daan",
+      "url": "webcal://p33-caldav.icloud.com/published/2/NDQ1NTY2Nzc4/daan.ics",
+      "line": "Daan"
+    },
+    {
+      "name": "Sanne",
+      "url": "https://outlook.office365.com/owa/calendar/1a2b3c@gemeente-example.nl/d4e5/sanne-werk.ics",
+      "line": "Sanne"
+    },
+    {
+      "name": "Joris",
+      "url": "https://calendar.google.com/calendar/ical/joris.example%40gmail.com/private-beef/joris.ics",
+      "line": "Joris"
+    }
+  ]
+}

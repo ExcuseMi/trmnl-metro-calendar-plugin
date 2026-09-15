@@ -1,0 +1,119 @@
+{
+  "version": 1,
+  "docs": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/CONFIG.md",
+  "locale": "en",
+  "timeZone": "America/New_York",
+  "lines": [
+    {
+      "name": "Homer"
+    },
+    {
+      "name": "Marge"
+    },
+    {
+      "name": "Bart"
+    },
+    {
+      "name": "Lisa"
+    },
+    {
+      "name": "Maggie"
+    }
+  ],
+  "calendars": [
+    {
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/homer.ics",
+      "name": "Homer",
+      "line": "Homer"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/marge.ics",
+      "name": "Marge",
+      "line": "Marge"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/bart.ics",
+      "name": "Bart",
+      "line": "Bart"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/lisa.ics",
+      "name": "Lisa",
+      "line": "Lisa"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/maggie.ics",
+      "name": "Maggie",
+      "line": "Maggie"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/school.ics",
+      "name": "School",
+      "rules": [
+        {
+          "match": {
+            "type": "word",
+            "value": "L6"
+          },
+          "line": "Bart"
+        },
+        {
+          "match": {
+            "type": "word",
+            "value": "K3"
+          },
+          "line": "Lisa"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^(?:L6|K3)\\s+"
+          },
+          "rewrite": ""
+        }
+      ]
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/family.ics",
+      "name": "Family",
+      "rules": [
+        {
+          "match": {
+            "type": "contains",
+            "value": "Family Dinner"
+          },
+          "line": [
+            "Marge",
+            "Homer",
+            "Bart",
+            "Lisa",
+            "Maggie"
+          ]
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "School Run"
+          },
+          "line": [
+            "Marge",
+            "Bart",
+            "Lisa"
+          ]
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Spring Break"
+          },
+          "line": "Bart",
+          "allDay": true
+        }
+      ]
+    },
+    {
+      "url": "https://calendar.google.com/calendar/ical/en.usa%23holiday%40group.v.calendar.google.com/public/basic.ics",
+      "holiday": true
+    }
+  ]
+}

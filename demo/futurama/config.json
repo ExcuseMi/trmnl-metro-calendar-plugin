@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "docs": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/CONFIG.md",
+  "locale": "en-US",
+  "timeFormat": "12h",
+  "lines": [
+    {
+      "name": "Professor"
+    },
+    {
+      "name": "Amy"
+    },
+    {
+      "name": "Fry"
+    },
+    {
+      "name": "Leela"
+    },
+    {
+      "name": "Bender"
+    }
+  ],
+  "calendars": [
+    {
+      "name": "Planet Express",
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/futurama/crew.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Fry:"
+          },
+          "line": "Fry"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Leela:"
+          },
+          "line": "Leela"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Bender:"
+          },
+          "line": "Bender"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Amy:"
+          },
+          "line": "Amy"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^Professor:"
+          },
+          "line": "Professor"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^[A-Za-z]+:\\s*"
+          },
+          "rewrite": ""
+        }
+      ]
+    },
+    {
+      "name": "Deliveries",
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/futurama/deliveries.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "contains",
+            "value": "Delivery Run"
+          },
+          "line": [
+            "Fry",
+            "Leela",
+            "Bender"
+          ]
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Good News"
+          },
+          "line": [
+            "Professor",
+            "Fry",
+            "Leela",
+            "Bender",
+            "Amy"
+          ]
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Crew Debrief"
+          },
+          "line": [
+            "Fry",
+            "Leela",
+            "Bender"
+          ]
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Ship Inspection"
+          },
+          "line": "Leela",
+          "allDay": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "trmnl-metro-calendar-tools",
+  "private": true,
+  "description": "Build tooling. esbuild minifies the two source files on the way to the device; see plugin/push.sh.",
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "fflate": "^0.8.3"
+  }
+}

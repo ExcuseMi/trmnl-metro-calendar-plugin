@@ -1,0 +1,20 @@
+services:
+  backend:
+    build: ./backend
+    container_name: trmnl-metro-calendar-relay
+    ports:
+      - "${PORT:-8760}:8080"
+    environment:
+      # Who may call it from a browser. An allowlist, not "*".
+      - ORIGINS=${ORIGINS:-https://excusemi.github.io,http://localhost:8000,http://127.0.0.1:8000}
+      # Requests per address per RATE_WINDOW_MIN minutes (a day).
+      - RATE_MAX=${RATE_MAX:-300}
+      - RATE_WINDOW_MIN=${RATE_WINDOW_MIN:-1440}
+    healthcheck:
+      # The image has no curl, and busybox wget is enough to ask a question
+      # that needs no URL in it.
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped

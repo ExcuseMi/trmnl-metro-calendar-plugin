@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "timeZone": "Europe/Brussels",
+  "locale": "nl-BE",
+  "lines": [
+    {
+      "name": "Liesbeth"
+    },
+    {
+      "name": "Jonas"
+    },
+    {
+      "name": "Fien"
+    }
+  ],
+  "rules": [
+    {
+      "match": {
+        "type": "status",
+        "value": "cancelled"
+      },
+      "hide": true
+    }
+  ],
+  "calendars": [
+    {
+      "name": "Liesbeth",
+      "url": "https://calendar.google.com/calendar/ical/liesbeth.example%40gmail.com/private-3c9e1f/liesbeth.ics",
+      "keepLine": true,
+      "line": "Liesbeth"
+    },
+    {
+      "url": "https://calendar.google.com/calendar/ical/co-ouder.example%40group.calendar.google.com/private-77ab/coouderschap.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "contains",
+            "value": "Overdracht"
+          },
+          "line": [
+            "Liesbeth",
+            "Jonas",
+            "Fien"
+          ]
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Pieter"
+          },
+          "line": [
+            "Jonas",
+            "Fien"
+          ]
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "papa"
+          },
+          "line": [
+            "Jonas",
+            "Fien"
+          ]
+        }
+      ]
+    },
+    {
+      "url": "https://regenboog.smartschool.be/planner/ical/5f1a0c/school-regenboog.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "word",
+            "value": "5B"
+          },
+          "line": "Jonas"
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "5de leerjaar"
+          },
+          "line": [
+            "Liesbeth",
+            "Jonas"
+          ]
+        },
+        {
+          "match": {
+            "type": "word",
+            "value": "2A"
+          },
+          "line": "Fien"
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Alle klassen"
+          },
+          "line": [
+            "Jonas",
+            "Fien"
+          ]
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "studiedag"
+          },
+          "line": [
+            "Jonas",
+            "Fien"
+          ],
+          "holiday": true
+        },
+        {
+          "match": {
+            "type": "and",
+            "matchers": [
+              {
+                "type": "not",
+                "matcher": {
+                  "type": "word",
+                  "value": "5B"
+                }
+              },
+              {
+                "type": "not",
+                "matcher": {
+                  "type": "word",
+                  "value": "2A"
+                }
+              },
+              {
+                "type": "not",
+                "matcher": {
+                  "type": "contains",
+                  "value": "Alle klassen"
+                }
+              },
+              {
+                "type": "not",
+                "matcher": {
+                  "type": "contains",
+                  "value": "5de leerjaar"
+                }
+              },
+              {
+                "type": "not",
+                "matcher": {
+                  "type": "contains",
+                  "value": "studiedag"
+                }
+              }
+            ]
+          },
+          "hide": true
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^(?:5B|2A|Alle klassen:)\\s*(.+)$"
+          },
+          "rewrite": "$1"
+        }
+      ]
+    },
+    {
+      "url": "https://www.recycleapp.be/api/app/v1/ical/2800-mechelen/afval-recycle.ics",
+      "ignoreTimezone": true,
+      "mergeSameTime": true,
+      "line": "Liesbeth"
+    }
+  ]
+}

@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "docs": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/CONFIG.md",
+  "locale": "en-US",
+  "timeFormat": "12h",
+  "lines": [
+    {
+      "name": "Homer"
+    },
+    {
+      "name": "Marge"
+    },
+    {
+      "name": "Bart"
+    },
+    {
+      "name": "Lisa"
+    },
+    {
+      "name": "Maggie"
+    }
+  ],
+  "calendars": [
+    {
+      "name": "Homer",
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/homer.ics",
+      "line": "Homer"
+    },
+    {
+      "name": "Marge",
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/marge.ics",
+      "line": "Marge"
+    },
+    {
+      "name": "Bart",
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/bart.ics",
+      "line": "Bart"
+    },
+    {
+      "name": "Lisa",
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/lisa.ics",
+      "line": "Lisa"
+    },
+    {
+      "name": "Maggie",
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/maggie.ics",
+      "line": "Maggie"
+    },
+    {
+      "name": "School",
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/school.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "word",
+            "value": "L6"
+          },
+          "line": "Bart"
+        },
+        {
+          "match": {
+            "type": "word",
+            "value": "K3"
+          },
+          "line": "Lisa"
+        },
+        {
+          "match": {
+            "type": "regex",
+            "value": "^(?:L6|K3)\\s+"
+          },
+          "rewrite": ""
+        }
+      ]
+    },
+    {
+      "name": "Family",
+      "url": "https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/simpsons/family.ics",
+      "rules": [
+        {
+          "match": {
+            "type": "contains",
+            "value": "Family Dinner"
+          },
+          "line": [
+            "Marge",
+            "Homer",
+            "Bart",
+            "Lisa",
+            "Maggie"
+          ]
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "School Run"
+          },
+          "line": [
+            "Marge",
+            "Bart",
+            "Lisa"
+          ]
+        },
+        {
+          "match": {
+            "type": "contains",
+            "value": "Spring Break"
+          },
+          "line": "Bart",
+          "allDay": true
+        }
+      ]
+    }
+  ]
+}
