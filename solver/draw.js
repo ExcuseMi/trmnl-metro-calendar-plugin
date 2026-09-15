@@ -1529,12 +1529,10 @@ function draw(board, spec, ctx) {
         // the question a board read at nine at night is being asked.
         if (titled[fi]) {
           var tt = doc.createElement('span');
-          tt.className = 'metro-today title text--bold';
+          // a word's space from the date: "Today and the date too pushed together"
+          tt.className = 'metro-today title text--bold mr--3';
           var i18n2 = spec.metro.i18n || {};
           tt.textContent = dayIx ? (i18n2.tomorrow || 'Tomorrow') : (i18n2.today || 'Today');
-          // a word's space from the date, not the badge's own small gap:
-          // "Today and the date too pushed together"
-          tt.style.marginRight = (8 * S) + 'px';
           badge.appendChild(tt);
         }
         var d = doc.createElement('span');

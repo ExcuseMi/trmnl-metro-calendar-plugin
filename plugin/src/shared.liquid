@@ -67,6 +67,14 @@
 
   <div class="metro-canvas relative grow w--full" data-metro-view="{{ view }}" data-metro-solve-seconds="{{ solve_seconds | default: 3 }}">
     <svg class="metro-svg absolute"></svg>
+    {%- comment -%}
+      WHAT A BOARD THAT COULD NOT BE DRAWN SAYS. Every other empty board says
+      why from the data (board_notice); this is for the script failing, which
+      left a blank panel. Shown by the script below, and by nothing else.
+    {%- endcomment -%}
+    <div class="metro-failed absolute inset--0 flex flex--col flex--center p--4 text--center hidden">
+      <div class="title bg--white outline rounded--base p--2">{{ data.i18n.draw_failed | default: "The calendars could not be drawn this time. It tries again at the next refresh." | escape }}</div>
+    </div>
   </div>
 
   {%- comment -%}
@@ -281,6 +289,14 @@
   var canvas = ROOT.querySelector('.metro-canvas');
   var svg = ROOT.querySelector('.metro-svg');
   if (!canvas || !svg) return;
+  // A SCRIPT THAT FAILS SAYS SO. Over a half-drawn board when the draw itself
+  // threw, and on a blank one for any other error on the page.
+  function failed(drawing) {
+    if (!drawing && svg.childNodes.length) return;
+    var f = canvas.querySelector('.metro-failed');
+    if (f) f.classList.remove('hidden');
+  }
+  window.addEventListener('error', function () { failed(false); });
 
 /* ---- solver bundle: generated from solver/ by plugin/bundle.js ---- */
 // Do not edit here. Edit solver/*.js and run `node plugin/bundle.js`.
@@ -7985,12 +8001,10 @@ function draw(board, spec, ctx) {
         // the question a board read at nine at night is being asked.
         if (titled[fi]) {
           var tt = doc.createElement('span');
-          tt.className = 'metro-today title text--bold';
+          // a word's space from the date: "Today and the date too pushed together"
+          tt.className = 'metro-today title text--bold mr--3';
           var i18n2 = spec.metro.i18n || {};
           tt.textContent = dayIx ? (i18n2.tomorrow || 'Tomorrow') : (i18n2.today || 'Today');
-          // a word's space from the date, not the badge's own small gap:
-          // "Today and the date too pushed together"
-          tt.style.marginRight = (8 * S) + 'px';
           badge.appendChild(tt);
         }
         var d = doc.createElement('span');
@@ -9062,6 +9076,7 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
     } catch (e) {
       measure.done();
       canvas.setAttribute('data-metro-error', String((e && e.message) || e));
+      failed(true);
       throw e;
     }
   }

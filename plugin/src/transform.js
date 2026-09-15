@@ -799,7 +799,7 @@ function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, win
     now_min: nowMin != null ? nowMin : null, // minutes since local midnight; the client decides whether/where to draw it
     orientation: (extra && extra.orientation) || 'auto', // auto | horizontal | vertical — client picks for auto from the canvas aspect
     hour12: !!(extra && extra.hour12),
-    i18n: (function (st) { return { today: tr(st, 'today'), tomorrow: tr(st, 'tomorrow'), now: tr(st, 'now'), next: tr(st, 'next'), more: tr(st, 'more'), earlier: tr(st, 'earlier'), rain_pct: tr(st, 'rain_pct'), feed_down: tr(st, 'feed_down'), weather_stale: tr(st, 'weather_stale') }; })((extra && extra.strings) || I18N.en),
+    i18n: (function (st) { return { today: tr(st, 'today'), tomorrow: tr(st, 'tomorrow'), now: tr(st, 'now'), next: tr(st, 'next'), more: tr(st, 'more'), earlier: tr(st, 'earlier'), rain_pct: tr(st, 'rain_pct'), feed_down: tr(st, 'feed_down'), weather_stale: tr(st, 'weather_stale'), draw_failed: tr(st, 'notice_error') }; })((extra && extra.strings) || I18N.en),
     header_weather: headerWeather,
     // The forecast is the last one the API answered with rather than
     // today's, and it is old enough to say so. A board that quietly shows
