@@ -123,7 +123,7 @@ function withoutLines(spec, drop) {
   });
   // The solver writes its own settings onto a spec; a fresh attempt gets
   // fresh ones rather than inheriting a previous board's.
-  ['railGap', 'tieGap', 'markR', 'nameClashPrice', 'shelfClashPrice', 'nameCutPrice', 'minLift', 'leadCap', 'stepShare', 'shelfDepth', 'preRun', 'crowdShelfWorth',
+  ['railGap', 'tieGap', 'markR', 'nameClashPrice', 'shelfClashPrice', 'nameCutPrice', 'ringClashPrice', 'minLift', 'leadCap', 'stepShare', 'shelfDepth', 'preRun', 'crowdShelfWorth',
    'muddlePrice', 'branchPrice', 'latePrice', 'bumpPrice', 'bumpNear',
    'straddlePrice', 'driftPrice', 'stepPrice', 'stepWorth', 'formPrice',
    'nameH'].forEach(function (k) { delete out[k]; });

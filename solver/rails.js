@@ -143,7 +143,7 @@ function rail(key, baseC, moves, axis, room, minLift, leadCap, share) {
       // board at the group's level, or passes straight into the next group.
       m.joinAt = null; m.leaveAt = null;
       m.inAt = entry;
-      if (pts.length === 1 && from - axis.a0 < leadCap) {
+      if (pts.length === 1 && from - axis.a0 < leadCap && !m.holdStart) {
         pts[0][1] = to; lvl = to;
       } else {
         push(pts, from, lvl, m.rFirst);
@@ -153,6 +153,8 @@ function rail(key, baseC, moves, axis, room, minLift, leadCap, share) {
       var nxt = ms[mi + 1];
       var chainNext = !!(nxt && nxt.kind === 'meet' && nxt.a0 - m.a1 <= leadCap);
       var exit = chainNext ? m.a1 : m.a1 + (m.sgOut || 0);
+      // ...and out through the wall no later than that event allows.
+      if (!chainNext && m.homeBy != null && exit > m.homeBy) exit = Math.max(m.a1, m.homeBy);
       push(pts, exit, to, m.rOut);
       m.outAt = exit;
       lvl = to;
@@ -168,9 +170,12 @@ function rail(key, baseC, moves, axis, room, minLift, leadCap, share) {
       if (chainNext) { chainedPrev = true; continue; }
       chainedPrev = false;
       var gap = Math.abs(home - lvl);
-      var back = Math.min(axis.a1, exit + (gap <= leadCap && !m.upright ? gap : 0));
+      var slope = gap <= leadCap && !m.upright ? gap : 0;
+      // Home, level, before the line's next event of its own (bands.js).
+      if (m.homeBy != null && exit + slope > m.homeBy) slope = 0;
+      var back = Math.min(axis.a1, exit + slope);
       // ...AND ENDING AT IT, for the same reason at the other edge.
-      if (axis.a1 - exit < leadCap) { push(pts, axis.a1, lvl); last = axis.a1; continue; }
+      if (axis.a1 - exit < leadCap && !m.holdEnd) { push(pts, axis.a1, lvl); last = axis.a1; continue; }
       push(pts, back, home);
       m.leaveAt = [back, home];
       lvl = home;

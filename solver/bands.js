@@ -280,9 +280,29 @@ function boardFor(spec, st) {
     });
     var moves = [];
     recs.forEach(function (m) {
+      // A RING OF THIS LINE BETWEEN THE EDGE AND THE GROUP keeps the rail on
+      // its own row up to the group: started at the group's level, the school
+      // run's rings on Bart and Lisa were drawn one on top of the other.
+      var ringOn = function (lo, hi) {
+        return Object.keys(ties).some(function (id) {
+          var t = ties[id];
+          return t.lines.indexOf(m.k) >= 0 && t.a >= lo && t.a <= hi;
+        });
+      };
       var mv = { kind: 'meet', line: m.k, a0: m.ka0, a1: m.ka1, c: m.c, upright: m.upright,
         sgIn: m.sgIn, sgOut: m.sgOut, sgChain: m.sgChain,
-        rIn: m.rIn, rOut: m.rOut, rFirst: m.rFirst };
+        rIn: m.rIn, rOut: m.rOut, rFirst: m.rFirst,
+        holdStart: ringOn(spec.axis.a0, m.ka0), holdEnd: ringOn(m.ka1, spec.axis.a1),
+        // THE LINE'S NEXT OWN EVENT AFTER THE GROUP, less a corner: a rail
+        // still climbing home when Detention began had its leader on the bend.
+        homeBy: (function () {
+          var nx = null;
+          spec.wants.forEach(function (w) {
+            if (w.pill || w.allDay || w.line !== m.k || w.a0 < m.ka1) return;
+            if (nx == null || w.a0 < nx) nx = w.a0;
+          });
+          return nx == null ? null : nx - spec.corner - spec.markR * 1.7;
+        })() };
       (meets[m.k] = meets[m.k] || []).push(mv);
       moves.push(mv);
       lastMeet[m.k] = { a1: m.ka1, c: m.c };
@@ -1276,6 +1296,9 @@ function boardCost(spec, b, sol) {
   b.muddle = mud;
   b.nameClash = nameClash(b);
   b.nameCut = nameCut(b);
+  // Rings of one tie drawn over each other: priced like a cut name, so two
+  // lines are not pushed together for room a caption wanted elsewhere.
+  b.ringClash = B.ringClashes(b).length;
   b.bumps = bumps(b, spec.bumpNear);
   b.straddles = straddles(spec, b, { steps: b.wanted });
   b.lateLeavers = lateLeaver(spec);
@@ -1302,6 +1325,7 @@ function boardCost(spec, b, sol) {
        + b.nameClash * spec.nameClashPrice
        + (b.shelfClash || 0) * spec.shelfClashPrice
        + b.nameCut * spec.nameCutPrice
+       + b.ringClash * spec.ringClashPrice
        + b.bumps * spec.bumpPrice
        + (b.edgeSlack || 0) * spec.edgePrice;
 }
@@ -1760,6 +1784,7 @@ function solve(spec, opts) {
   // A rail through a line's name: the words survive, the legend suffers. Well
   // under an ambiguous caption and well over a branch.
   spec.nameCutPrice = spec.nameCutPrice != null ? spec.nameCutPrice : 6000;
+  spec.ringClashPrice = spec.ringClashPrice != null ? spec.ringClashPrice : 6000;
   // Deeper than a lead: "shelves should be further from the trunk." The
   // lead grows with it (see the branch pass), so a deep shelf is still a
   // 45 degree departure off a straight rail.

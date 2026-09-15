@@ -338,4 +338,18 @@ module.exports = function (test, h) {
     assertEqual(r.data.days[0].weather.hi, 18, 'today\'s high');
     assertEqual(r.data.header_weather.hi, 18, 'the header should agree with it');
   });
+
+  test('a sunset after the board\'s midnight is counted into the next day, not wrapped to 1am of this one', async () => {
+    // Open-Meteo answers in the board's zone; for New York on a Brussels
+    // account the sun sets at 01:04 on the following date.
+    const forecast = JSON.stringify({
+      daily: { time: ['2026-09-09', '2026-09-10'], temperature_2m_max: [24, 25], temperature_2m_min: [13, 14],
+        precipitation_probability_max: [0, 0], weathercode: [1, 1],
+        sunrise: ['2026-09-09T12:36', '2026-09-10T12:37'], sunset: ['2026-09-10T01:04', '2026-09-11T01:03'] },
+      hourly: { time: [], precipitation_probability: [] },
+    });
+    const r = await runTransform(async (url) => String(url).indexOf('api.open-meteo.com') >= 0 ? okText(forecast) : okText(BOTH), NOW).run(input());
+    assertEqual(r.data.days[0].weather.sunrise_min, 756);
+    assertEqual(r.data.days[0].weather.sunset_min, 1504);
+  });
 };

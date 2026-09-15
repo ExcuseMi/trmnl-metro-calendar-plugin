@@ -448,32 +448,45 @@ function draw(board, spec, ctx) {
     var m0min = spec.metro.day_start_min, m1min = spec.metro.day_end_min;
     var dayList = (spec.metro.days && spec.metro.days.length) ? spec.metro.days
       : [{ start_min: Math.floor(m0min / 1440) * 1440, weather: spec.metro.header_weather }];
+    // THE DARK IS WHAT LIES BETWEEN ONE DAY'S LIGHT AND THE NEXT, not each
+    // day's own evening and morning: cut at every midnight, the night had an
+    // edge drawn at twelve, and a sunset after midnight (a location far from
+    // the board's zone) left the evening lit.
+    var lights = [];
     dayList.forEach(function (d) {
       var wx = d.weather;
       if (!wx || wx.sunrise_min == null || wx.sunset_min == null) return;
       var base = d.start_min != null ? d.start_min : 0;
-      [[base, base + wx.sunrise_min], [base + wx.sunset_min, base + 1440]].forEach(function (span) {
-        var f = Math.max(span[0], m0min), t = Math.min(span[1], m1min);
-        if (!(t > f)) return;
-        var a0n = f <= m0min ? 0 : spec.scale.at(f), a1n = t >= m1min ? (horizontal ? W : H) : spec.scale.at(t);
-        var q0 = xy(a0n, strip ? strip.c1 : spec.cross.c0), q1 = xy(a1n, horizontal ? H : W);
-        var shade = svgEl(doc, 'rect', { x: Math.min(q0[0], q1[0]), y: Math.min(q0[1], q1[1]),
-          width: Math.abs(q1[0] - q0[0]), height: Math.abs(q1[1] - q0[1]),
-          stroke: 'none', 'fill-opacity': 0.08 });
-        shade.style.fill = INK;
-        put(shade, 'night');
-        nights.push([Math.min(a0n, a1n), Math.max(a0n, a1n)]);
-        // ...EDGED A TAD DARKER where the dark begins and ends, so the night
-        // has an outline rather than fading in: sunset and sunrise, drawn as
-        // the two sides of the shade and not at the paper's own edges.
-        [[f, a0n], [t, a1n]].forEach(function (e) {
-          if (e[0] <= m0min || e[0] >= m1min) return;
-          var r0 = xy(e[1], strip ? strip.c1 : spec.cross.c0), r1 = xy(e[1], horizontal ? H : W);
-          var edge = svgEl(doc, 'line', { x1: r0[0], y1: r0[1], x2: r1[0], y2: r1[1],
-            'stroke-width': 1 * S, 'stroke-opacity': 0.22 });
-          edge.style.stroke = INK;
-          put(edge, 'night');
-        });
+      lights.push([base + wx.sunrise_min, base + wx.sunset_min, base]);
+    });
+    lights.sort(function (p, q) { return p[0] - q[0]; });
+    var darks = [];
+    lights.forEach(function (l, li) {
+      if (li === 0) darks.push([l[2], l[0]]);
+      else darks.push([lights[li - 1][1], l[0]]);
+      if (li === lights.length - 1) darks.push([l[1], l[2] + 1440]);
+    });
+    darks.forEach(function (span) {
+      var f = Math.max(span[0], m0min), t = Math.min(span[1], m1min);
+      if (!(t > f)) return;
+      var a0n = f <= m0min ? 0 : spec.scale.at(f), a1n = t >= m1min ? (horizontal ? W : H) : spec.scale.at(t);
+      var q0 = xy(a0n, strip ? strip.c1 : spec.cross.c0), q1 = xy(a1n, horizontal ? H : W);
+      var shade = svgEl(doc, 'rect', { x: Math.min(q0[0], q1[0]), y: Math.min(q0[1], q1[1]),
+        width: Math.abs(q1[0] - q0[0]), height: Math.abs(q1[1] - q0[1]),
+        stroke: 'none', 'fill-opacity': 0.08 });
+      shade.style.fill = INK;
+      put(shade, 'night');
+      nights.push([Math.min(a0n, a1n), Math.max(a0n, a1n)]);
+      // ...EDGED A TAD DARKER where the dark begins and ends, so the night
+      // has an outline rather than fading in: sunset and sunrise, drawn as
+      // the two sides of the shade and not at the paper's own edges.
+      [[f, a0n], [t, a1n]].forEach(function (e) {
+        if (e[0] <= m0min || e[0] >= m1min) return;
+        var r0 = xy(e[1], strip ? strip.c1 : spec.cross.c0), r1 = xy(e[1], horizontal ? H : W);
+        var edge = svgEl(doc, 'line', { x1: r0[0], y1: r0[1], x2: r1[0], y2: r1[1],
+          'stroke-width': 1 * S, 'stroke-opacity': 0.22 });
+        edge.style.stroke = INK;
+        put(edge, 'night');
       });
     });
   }

@@ -102,4 +102,29 @@ module.exports = function (test, h) {
       assert(n(note('earlier')) <= early, f.name + ': "+earlier" says ' + note('earlier') + ', only ' + early + ' ended before the opening');
     }
   });
+
+  // THE NIGHT RUNS THROUGH MIDNIGHT. Each day's dark was its own two pieces,
+  // evening and morning, so a line was drawn at twelve as if the night ended
+  // there; and a location whose sun sets after the board's midnight (New York
+  // on a Brussels account: sunset 1:04) had its evening left light.
+  test('the night is one shade across midnight, with no edge at twelve', () => {
+    const B = require('../board');
+    const wx = (rise, set) => ({ hi: 20, lo: 10, unit: 'C', condition: 'Clear', milestones: [], rain_chance: 0, sunrise_min: rise, sunset_min: set });
+    for (const [set0, rise1] of [[1170, 400], [1504, 757]]) {
+      const metro = Object.assign({}, roll.metro, { now_min: 21 * 60,
+        days: roll.metro.days.map((d, i) => Object.assign({}, d, { weather: i === 0 ? wx(400, set0) : wx(rise1, set0) })) });
+      const built = B.build(metro, 'x-landscape');
+      const mid = built.spec.scale.at(1440);
+      const edges = [...built.svg.querySelectorAll('line[data-metro-role="night"]')]
+        .map((l) => +l.getAttribute('x1')).filter((x) => Math.abs(x - mid) < 2);
+      assertEqual(edges.length, 0, 'an edge of the night was drawn at midnight (sunset ' + set0 + ')');
+      // dark in the middle of that night, wherever its midnight falls
+      const deep = built.spec.scale.at(Math.round((set0 + 1440 + rise1) / 2));
+      const across = [...built.svg.querySelectorAll('rect[data-metro-role="night"]')].some((r) => {
+        const x = +r.getAttribute('x'), w = +r.getAttribute('width');
+        return x < deep && x + w > deep;
+      });
+      assert(across, 'the middle of the night is not shaded (sunset ' + set0 + ')');
+    }
+  });
 };

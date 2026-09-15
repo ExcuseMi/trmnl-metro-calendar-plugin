@@ -437,6 +437,8 @@ function check(board) {
       faults.push({ kind: 'onbar', what: board.caps[i].text, by: board.pills[j].id });
     }
   }
+  // TWO RINGS OF ONE TIE ON TOP OF EACH OTHER (ringClashes).
+  ringClashes(board).forEach(function (f) { faults.push(f); });
   // A rail through a caption, INCLUDING ITS OWN. The pass this replaces
   // excluded a caption's own line on the grounds that a name travels with
   // the rail it names, which stopped being true the moment a rail could
@@ -563,6 +565,27 @@ function report() { return require('./print').report.apply(null, arguments); }
 
 // Does box `b` cover a ring of tie `pl`: one on each of its lines at its
 // minute, as far round as the bar's own box reaches.
+// TWO RINGS OF ONE TIE ON TOP OF EACH OTHER. The lines it joins were set
+// closer than a ring is wide, and "B" and "L" were drawn as one blot with the
+// two rails beside each other all day: "lisa and bart track never separate".
+function ringClashes(board) {
+  var out = [];
+  board.pills.forEach(function (pl) {
+    if (!pl.tie) return;
+    var rr = (pl.r || 5) * 1.7;
+    var cs = (pl.lines || []).map(function (k) {
+      var ln = board.lineByKey(k);
+      return ln ? { k: k, c: ln.cAt(pl.a) } : null;
+    }).filter(function (x) { return x && x.c != null; }).sort(function (p, q) { return p.c - q.c; });
+    for (var q = 1; q < cs.length; q++) {
+      if (cs[q].c - cs[q - 1].c < rr * 2) {
+        out.push({ kind: 'ringclash', what: cs[q - 1].k, with: cs[q].k, px: Math.round(cs[q].c - cs[q - 1].c) });
+      }
+    }
+  });
+  return out;
+}
+
 function ringHit(board, pl, b) {
   var rr = pl.r || 5;
   return (pl.lines || []).some(function (k) {
@@ -571,7 +594,7 @@ function ringHit(board, pl, b) {
   });
 }
 
-module.exports = { CAP_CLEAR: CAP_CLEAR, ringHit: ringHit,
+module.exports = { CAP_CLEAR: CAP_CLEAR, ringHit: ringHit, ringClashes: ringClashes,
                    Board: Board, Caption: Caption, Line: Line, Stop: Stop, Pill: Pill,
                    Furniture: Furniture,
                    check: check, ascii: ascii, report: report, pairing: pairing,

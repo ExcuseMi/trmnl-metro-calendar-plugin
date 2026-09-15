@@ -1253,9 +1253,16 @@ function feedUrl(url) {
 }
 
 // "2026-09-14T07:12" as minutes after that day's midnight; null otherwise.
-function clockMin(iso) {
-  var m = /T(\d{2}):(\d{2})/.exec(String(iso || ''));
-  return m ? (+m[1]) * 60 + (+m[2]) : null;
+// Minutes into `dayKey`'s day, so a sunset after midnight is 1504 and not
+// 64: a location far from the board's own zone sets its sun on the next day
+// of that zone ("why is night stopping at 12am").
+function clockMin(iso, dayKey) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(iso || ''));
+  if (!m) return null;
+  var mins = (+m[4]) * 60 + (+m[5]);
+  var k = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dayKey || ''));
+  if (k) mins += Math.round((Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(+k[1], +k[2] - 1, +k[3])) / 86400000) * 1440;
+  return mins;
 }
 
 // Returns a SNAPSHOT (see above), not rendered strings, so the caller can
@@ -1362,8 +1369,8 @@ async function fetchWeather(latLonRaw, tz, deadline, unit) {
         hours: dayHours[pd] || [],
         // WHEN IT IS LIGHT, as minutes into that day, so the board can shade
         // the dark either side of it. Null where the service did not say.
-        sunrise_min: clockMin((daily.sunrise || [])[pd]),
-        sunset_min: clockMin((daily.sunset || [])[pd]),
+        sunrise_min: clockMin((daily.sunrise || [])[pd], (daily.time || [])[pd]),
+        sunset_min: clockMin((daily.sunset || [])[pd], (daily.time || [])[pd]),
         peak: wettestHour(dayHours[pd], null),
         milestones: milestonesFor(dayHours[pd]),
       });
