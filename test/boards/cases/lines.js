@@ -29,6 +29,31 @@ module.exports = function (test, h) {
     }
   }
 
+  // A LINE'S OWN BRANCH THROUGH ITS NAME IS A CUT NAME. The check exempted
+  // every branch of the named line, so a spur climbing straight up through
+  // "Bart" at the left edge passed as a clean board. Only the trunk the name
+  // stands over is its own.
+  test('check() reports a line\'s own branch through its name', () => {
+    const BoardM = require('../../../solver/board');
+    const b = new BoardM.Board({ axis: { a0: 10, a1: 400 }, cross: { c0: 0, c1: 200 } });
+    b.addLine({ key: 'bart', pts: [[10, 100], [400, 100]] });
+    b.addLine({ key: 'bart/e0', branchOf: 'bart', pts: [[30, 100], [30, 60], [120, 60]] });
+    b.addFixed({ id: 'name:bart', kind: 'terminus', line: 'bart', text: 'Bart', align: 'left', a0: 10, a1: 50, c0: 70, c1: 88 });
+    const cut = BoardM.check(b).filter((f) => f.kind === 'namecut');
+    assertEqual(cut.map((f) => f.what + ' by ' + f.by), ['Bart by bart/e0']);
+  });
+
+  // The rolling example in Polish at half past nine: Field Trip leaves the
+  // school day for the right edge a rail's width over the corridor, and the
+  // stacked "Bart" was set across it.
+  for (const v of ['og-landscape', 'x-landscape']) {
+    test('no branch runs through a line name on the rolling example: ' + v, () => {
+      const rep = layout({ name: 'rolling-pl', metro: require('../rolling-pl.json') }, v);
+      const bad = faults(rep, 'namecut');
+      assert(!bad.length, bad.map((x) => '"' + x.what + '" cut by ' + x.by).join('; '));
+    });
+  }
+
   test('every line is named at both ends', () => {
     for (const f of fixtures) {
       const rep = layout(f, 'x-landscape');

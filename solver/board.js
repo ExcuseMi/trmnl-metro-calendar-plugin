@@ -420,9 +420,12 @@ function check(board) {
     var nb = board.fixed[i].box();
     for (j = 0; j < board.lines.length; j++) {
       var nl = board.lines[j];
-      if (nl.key === board.fixed[i].line || nl.branchOf === board.fixed[i].line) continue;
+      // ITS OWN SPURS TOO: a branch climbing out of the rail through the
+      // line's own name cuts it as surely as a neighbour's rail. Only the
+      // trunk the name stands over is exempt.
+      if (nl.key === board.fixed[i].line) continue;
       if (!lineTouches(nl, nb)) continue;
-      faults.push({ kind: 'namecut', what: board.fixed[i].text, by: nl.key });
+      faults.push({ kind: 'namecut', what: board.fixed[i].text, by: nl.key, line: board.fixed[i].line, own: nl.branchOf === board.fixed[i].line });
     }
   }
   // A caption written across an interchange bar. The bar is the heaviest ink

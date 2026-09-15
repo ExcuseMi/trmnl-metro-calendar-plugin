@@ -805,8 +805,13 @@ function boardFor(spec, st) {
         // (its slash reaches a mark's radius past the rail, and a name under
         // it keeps a hair of paper from that too)
         if (oc < c - 0.5 && oc > prevC) prevC = oc + Math.max(spec.railGap, (spec.markR || 0) + 3);
-        // the next rail's own name sits above IT, in the same gap
-        if (oc > c + 0.5 && oc < nextC) nextC = oc - spec.railGap * 1.5 - nh;
+        // the next rail's own name sits above IT, in the same gap, as tall as
+        // THAT name is: one with a route row under it is two rows
+        var oh = nh;
+        headFx.forEach(function (g) {
+          if (g.kind === 'terminus' && g.line === o.key && Math.abs((g.at == null ? spec.axis.a1 : g.at) - atA) < 1) oh = headH(g);
+        });
+        if (oc > c + 0.5 && oc - spec.railGap * 1.5 - oh < nextC) nextC = oc - spec.railGap * 1.5 - oh;
       });
       // ...AND CLEAR OF A NAME ALREADY SET IN THAT GAP. A top line's name
       // goes under its rail, and the next line's name above ITS rail was set
@@ -840,9 +845,11 @@ function boardFor(spec, st) {
       // ...AND OUT OF ANOTHER LINE'S BRANCH. Coffee drops off Fry's rail at the
       // leading edge into the gap above Bender's, and "Bender" set above her
       // rail had the branch through it.
+      // ...OR ITS OWN: Detention climbed out of Bart's rail at the left edge
+      // straight up through "Bart" with the row under the rail clear.
       function branchIn(c0, c1) {
         return b.lines.some(function (o) {
-          if (!o.branchOf || o.branchOf === fx.line) return false;
+          if (!o.branchOf) return false;
           return o.pts.some(function (q, i) {
             if (!i) return false;
             var p0 = o.pts[i - 1];
@@ -862,6 +869,56 @@ function boardFor(spec, st) {
         f.c1 = c - lift; f.c0 = f.c1 - nh;
       } else {
         f.c0 = c + lift; f.c1 = f.c0 + nh;
+      }
+      // A BRANCH STILL THROUGH THE WORDS, where neither side is clear of one:
+      // the name steps in off the edge, past the branch, by no more than its
+      // own width and only onto paper nothing else is on. "Work" under its
+      // rail had its own spur climbing straight through the "o".
+      var nbx = { a0: f.a0, a1: f.a1, c0: f.c0, c1: f.c1 };
+      var cutters = b.lines.filter(function (o) { return o.branchOf && B.lineTouches(o, nbx); });
+      if (cutters.length) {
+        var lo = Infinity, hi = -Infinity;
+        cutters.forEach(function (o) {
+          for (var qi = 1; qi < o.pts.length; qi++) {
+            var p0 = o.pts[qi - 1], p1 = o.pts[qi];
+            if (Math.max(p0[1], p1[1]) < f.c0 - 2 || Math.min(p0[1], p1[1]) > f.c1 + 2) continue;
+            lo = Math.min(lo, p0[0], p1[0]); hi = Math.max(hi, p0[0], p1[0]);
+          }
+        });
+        var wdt = f.a1 - f.a0, gap = spec.railGap;
+        var shift = f.align === 'right' ? -(f.a1 - (lo - gap)) : (hi + gap) - f.a0;
+        if (isFinite(shift) && shift !== 0 && Math.abs(shift) <= wdt) {
+          var moved = { a0: f.a0 + shift, a1: f.a1 + shift, c0: f.c0, c1: f.c1 };
+          var clear = moved.a0 >= b.axis.a0 - 0.5 && moved.a1 <= (spec.axis.edge1 != null ? spec.axis.edge1 : b.axis.a1) + 0.5
+            && !b.lines.some(function (o) { return o.key !== fx.line && B.lineTouches(o, moved); })
+            && !b.fixed.some(function (g) { return B.capsOverlap(g.box(), moved); });
+          if (clear) { f.a0 = moved.a0; f.a1 = moved.a1; cutters = []; }
+        }
+      }
+      // ...AND WHERE THE BRANCH RUNS ON UNDER THE WHOLE NAME, out past it,
+      // away from the rail, by no more than the name's own height: Field Trip
+      // ran off the right edge a rail's width over the school day, through
+      // "Bart".
+      if (cutters.length) {
+        var above = f.c1 <= c, edge = null;
+        cutters.forEach(function (o) {
+          for (var qj = 1; qj < o.pts.length; qj++) {
+            var r0 = o.pts[qj - 1], r1 = o.pts[qj];
+            if (Math.max(r0[0], r1[0]) < f.a0 - 2 || Math.min(r0[0], r1[0]) > f.a1 + 2) continue;
+            var clo = Math.min(r0[1], r1[1]), chi = Math.max(r0[1], r1[1]);
+            if (chi < f.c0 - 2 || clo > f.c1 + 2) continue;
+            edge = edge == null ? (above ? clo : chi) : (above ? Math.min(edge, clo) : Math.max(edge, chi));
+          }
+        });
+        if (edge != null) {
+          var nc0 = above ? edge - spec.railGap - nh : edge + spec.railGap;
+          var out = { a0: f.a0, a1: f.a1, c0: nc0, c1: nc0 + nh };
+          if (Math.abs(nc0 - f.c0) <= nh && out.c0 >= b.cross.c0 && out.c1 <= b.cross.c1
+              && !b.lines.some(function (o) { return o.key !== fx.line && B.lineTouches(o, out); })
+              && !b.fixed.some(function (g) { return B.capsOverlap(g.box(), out); })) {
+            f.c0 = out.c0; f.c1 = out.c1;
+          }
+        }
       }
     }
     b.addFixed(f);
@@ -1859,9 +1916,16 @@ function solve(spec, opts) {
     // unreadable, then how well the rest sits.
     // The SAME cost the search was optimising, plus the one thing only a
     // finished board can be asked: whether anything on it is unreadable.
-    var faults = require('./board').check(bb).length;
+    // A LINE'S NAME CUT BY ITS OWN BRANCH costs what a mistakable caption
+    // does. Counted as a fault, the restarts gave up readable captions to
+    // keep the legend clean; not counted at all, a spur ran up through "Bart"
+    // when a clean board was on offer. Somebody else's rail through a name is
+    // a fault as it always was.
+    var fl = require('./board').check(bb);
+    var cuts = fl.filter(function (f) { return f.kind === 'namecut' && f.own; }).length;
+    var faults = fl.length - cuts;
     bb.edgeSlack = edgeSlack(cand.st.gaps);
-    var score = faults * 1e6 + boardCost(spec, bb, ss);
+    var score = faults * 1e6 + cuts * spec.muddlePrice + boardCost(spec, bb, ss);
     if (score < bestScore) {
       bestScore = score; bestBoard = bb; bestSol = ss; bestSt = cand.st;
       // THE WINNER'S SCRATCH, KEPT WITH THE WINNER.
