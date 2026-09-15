@@ -130,7 +130,7 @@ function withoutLines(spec, drop) {
   return out;
 }
 
-var EVAL_POOL = 42000;
+var EVAL_POOL = 72000;
 
 // Solve, and if the board cannot hold everyone, leave the quietest people
 // out until it can.
@@ -150,6 +150,16 @@ function fit(spec, opts) {
   // the whole ladder, sized above every real board measured (solver/bench.js
   // --real: the most is 2400) so they are never cut; the clock stays as the
   // backstop for a board no household has.
+  //
+  // SIZED FOR THE DENSEST REAL DAY, NOT THE AVERAGE ONE. An arrangement is
+  // charged by the square of the captions in it, so a five-line rolling day
+  // with two dozen names costs forty units apiece: at the old 42000 that day
+  // bought a thousand arrangements, the descent ran out before it had traded
+  // a single shelf, and the board came back with flat rails and four names
+  // nobody could pin -- "the shelves are gone" (test/boards/cases/budget.js).
+  // Measured on that day, every shelf it can find is found by 72000 and more
+  // buys nothing; in the browser that is under three seconds, which is what
+  // the page allows, and a slower renderer still has the clock above.
   if (!opts.pool) opts = Object.assign({}, opts, { pool: { used: 0, left: EVAL_POOL } });
   var best = Bands.solve(spec, opts);
   var bestSpec = spec, bestW = worth(spec, best), dropped = [];
