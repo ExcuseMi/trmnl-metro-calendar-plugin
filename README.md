@@ -37,7 +37,7 @@ No server of your own.
   sunset shaded, and icons where rain starts or stops. An
   optional banner along the bottom warns of rain, snow, thunderstorms, cold
   or heat, and says when it starts and ends.
-- English, French, Spanish, German and Dutch, following your TRMNL account
+- English, French, Spanish, German, Dutch, Italian, Portuguese and Polish, following your TRMNL account
   language; 12- or 24-hour clocks.
 
 ## Setup

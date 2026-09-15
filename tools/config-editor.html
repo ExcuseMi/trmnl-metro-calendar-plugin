@@ -778,7 +778,7 @@
       <div class="adv-body">
         <div class="preview-controls">
           <div class="field"><label for="pLocale">Language</label>
-            <select id="pLocale"><option value="en">English</option><option value="fr">Fran&ccedil;ais</option><option value="es">Espa&ntilde;ol</option><option value="de">Deutsch</option><option value="nl">Nederlands</option><option value="en-US">English (US, 12h)</option></select></div>
+            <select id="pLocale"><option value="en">English</option><option value="fr">Fran&ccedil;ais</option><option value="es">Espa&ntilde;ol</option><option value="de">Deutsch</option><option value="nl">Nederlands</option><option value="it">Italiano</option><option value="pt">Portugu&ecirc;s</option><option value="pl">Polski</option><option value="en-US">English (US, 12h)</option></select></div>
           <div class="field"><label for="pTime">Clock</label>
             <select id="pTime"><option value="auto">Auto</option><option value="24h">24-hour</option><option value="12h">12-hour</option></select></div>
           <div class="field"><label for="pLatLon">Location (lat, lon) for weather</label><input type="text" id="pLatLon" placeholder="50.8503, 4.3517" style="width:170px"></div>
@@ -4999,7 +4999,8 @@
     ["Belgium", "be"], ["Netherlands", "dutch"], ["United Kingdom", "uk"],
     ["Ireland", "irish"], ["United States", "usa"], ["Canada", "canadian"],
     ["Germany", "german"], ["France", "french"], ["Spain", "spain"],
-    ["Italy", "italian"], ["Australia", "australian"],
+    ["Italy", "italian"], ["Portugal", "portuguese"], ["Brazil", "brazilian"],
+    ["Poland", "polish"], ["Australia", "australian"],
   ];
   // The holidays' names in the board's language where the board speaks one:
   // Google serves every region in each of these, so `nl.be` reads
@@ -5007,7 +5008,7 @@
   function wzHolidayLang() {
     var lang = String(state.locale || (typeof navigator !== "undefined" && navigator.language) || "")
       .slice(0, 2).toLowerCase();
-    return ["en", "nl", "fr", "de", "es"].indexOf(lang) >= 0 ? lang : "en";
+    return ["en", "nl", "fr", "de", "es", "it", "pt", "pl"].indexOf(lang) >= 0 ? lang : "en";
   }
   function wzHolidayUrl(region) {
     return "https://calendar.google.com/calendar/ical/" + wzHolidayLang() + "." + region

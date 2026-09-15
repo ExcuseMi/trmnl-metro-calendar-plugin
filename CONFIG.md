@@ -12,7 +12,7 @@ misspelt key or a line a rule names that is not in `lines`.
   "timeFormat"?: "auto" | "12h" | "24h",   // the clock (default: "auto", which follows the locale)
   "temperatureUnit"?: "auto" | "c" | "f",  // (default: "auto", which follows the locale)
   "timeZone"?: string,             // overrides the TRMNL account zone; set only if that is wrong
-  "locale"?: string,               // overrides the account language: "en", "fr", "es", "de", "nl", "en-US"
+  "locale"?: string,               // overrides the account language: "en", "fr", "es", "de", "nl", "it", "pt", "pl", "en-US"
   "lines"?: Line[],
   "rules"?: Rule[],                // applied to every calendar, before the calendar's own rules
   "calendars": Calendar[]
