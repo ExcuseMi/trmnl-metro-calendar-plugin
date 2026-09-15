@@ -1980,12 +1980,26 @@ function draw(board, spec, ctx) {
   // row below the map, which is off the paper: "+2" was drawn past the
   // bottom of every board that shed anything. The count of names shed is
   // already beside each line's own name, so this says only who is missing.
+  // AND SAID SOMEWHERE, ALWAYS. Where the strip's end was already taken ("+7
+  // more" on a quadrant) the note was dropped without a word, which is the
+  // silence this exists to prevent. Tried at the strip's end, then at the
+  // end of the date's row, each first with the names and then as a count.
   if (missing.length && hoursFx) {
-    var mi = html('metro-axis-note label' + STRIP_SM + ' text--bold text-stroke' + QUIET,
-                       missing.join('   '));
-    var miC = hoursFx.c1 - (horizontal ? rowH : mi.offsetWidth) / 2;
-    var mr = place(mi, spec.axis.a1, miC, 'right');
-    if (free(mr)) taken.push(mr); else mi.remove();
+    var nDropped = board.dropped.length;
+    var shortNote = '+' + nDropped + ' not shown';
+    var spots = [hoursFx.c1 - rowH / 2];
+    // the row the date stands in, above the hours
+    if (horizontal && hoursFx.c0 >= rowH * 0.8) spots.push(hoursFx.c0 / 2);
+    var placedNote = false;
+    [missing.join('   '), shortNote].forEach(function (words) {
+      spots.forEach(function (cSpot) {
+        if (placedNote) return;
+        var mi = html('metro-axis-note label' + STRIP_SM + ' text--bold text-stroke' + QUIET, words);
+        var miC = horizontal ? cSpot : hoursFx.c1 - mi.offsetWidth / 2;
+        var mr = place(mi, spec.axis.a1, miC, 'right');
+        if (free(mr)) { taken.push(mr); placedNote = true; } else mi.remove();
+      });
+    });
   }
 
 

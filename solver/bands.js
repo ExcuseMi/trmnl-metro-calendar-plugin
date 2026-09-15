@@ -1608,7 +1608,12 @@ function solveBands(spec, opts) {
       var list = neighbours(st), best = null, bestS = cur;
       for (var i = 0; i < list.length && spent < budget; i++) {
         var s2 = score(list[i]); spent++;
-        if (opts.pool) opts.pool.used++;
+        // Charged by the size of what was priced, and more than in
+        // proportion: an arrangement of thirty captions costs twice the work
+        // of fifteen AND has twice as many neighbours to try, so a dense day
+        // gets fewer tries rather than more time. Fourteen captions, an
+        // ordinary busy day, costs one try as it always did.
+        if (opts.pool) opts.pool.used += Math.max(1, spec.wants.length * spec.wants.length / 14);
         if (opts.pool && opts.pool.left != null && opts.pool.used >= opts.pool.left) { spent = budget; break; }
         if (s2.cost < bestS.cost - 1e-9) { bestS = s2; best = list[i]; }
         // OUT OF TIME IS A BOARD, NOT A BLANK. A panel's renderer gives the

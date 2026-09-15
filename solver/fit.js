@@ -130,7 +130,7 @@ function withoutLines(spec, drop) {
   return out;
 }
 
-var EVAL_POOL = 3000;
+var EVAL_POOL = 42000;
 
 // Solve, and if the board cannot hold everyone, leave the quietest people
 // out until it can.
@@ -195,8 +195,16 @@ function fit(spec, opts) {
   var likely = spec.tracks > 0
     ? Math.min(order.length - 2, Math.max(0, order.length - 1 - spec.tracks))
     : 0;
+  // NOBODY IS DROPPED FROM A PANEL THAT HAS ROOM FOR THEM. A person left out
+  // is for a panel too small for their line, not for a busy day: a couple
+  // with fifteen meetings each lost one of the two on the largest panel there
+  // is, because eleven names nobody could pin cost more than one person
+  // did. Half the household gone is not a tidier board. Names that cannot be
+  // placed are shed or left unclear on a board that still shows everyone;
+  // rungs only go as far down as the panel's own capacity (`spec.tracks`).
+  var keepAtLeast = spec.tracks > 0 ? Math.min(order.length, spec.tracks) : 1;
   var rungs = [];
-  for (var r = 0; r < order.length - 1; r++) rungs.push(r);
+  for (var r = 0; r < order.length - 1; r++) if (order.length - (r + 1) >= keepAtLeast) rungs.push(r);
   rungs.sort(function (a, b) {
     var da = Math.abs(a - likely), db = Math.abs(b - likely);
     // Nearest the cap first, and on a tie the one dropping FEWER people:
