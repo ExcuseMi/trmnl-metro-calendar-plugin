@@ -1238,6 +1238,9 @@ function Want(spec) {
   this.ride = spec.ride || null;
   // a task rather than an appointment: its stop is a square
   this.todo = !!spec.todo;
+  // A CROWDED STRETCH'S OTHER DOTS, along the axis: the events folded into
+  // this one caption (day.js crowdsFrom). Each is still a stop on the rail.
+  this.members = spec.members && spec.members.length ? spec.members.slice() : null;
   // A state of the line rather than a stop on it: no dot, no tick, and its
   // rail may not step or branch for it. See day.js.
   this.allDay = !!spec.allDay;
@@ -1299,7 +1302,7 @@ Want.prototype.formCount = function () { return this.forms.length; };
 // needs to do.
 Want.prototype.clone = function () {
   return new Want({ id: this.id, text: this.text, line: this.line, pill: this.pill, tie: this.tie, tieFree: this.tieFree,
-                    endAt: this.endAt, ride: this.ride, todo: this.todo,
+                    endAt: this.endAt, ride: this.ride, todo: this.todo, members: this.members,
                     a0: this.a0, a1: this.a1, gap: this.gap, pad: this.pad,
                     allDay: this.allDay, open0: this.open0, open1: this.open1,
                     forms: this.forms.map(function (f) {
@@ -1802,6 +1805,12 @@ function markDots(wants, board) {
     var c = ln.cAt(w.a0);
     if (c == null) return;
     dots.push({ i: i, a: w.a0, a1: w.a1, c: c });
+    // a crowded stretch's other dots are its own too, and somebody else's
+    // name over one of them is over a mark that is not theirs
+    (w.members || []).forEach(function (a) {
+      var cm = ln.cAt(a);
+      if (cm != null) dots.push({ i: i, a: a, a1: a, c: cm, member: true });
+    });
   });
   return dots;
 }
@@ -1816,7 +1825,7 @@ function muddledAt(p, i, dots, minLift, cache) {
   if (!level) {
     level = cache[key] = { own: null, near: [] };
     for (var d0 = 0; d0 < dots.length; d0++) {
-      if (dots[d0].i === i) level.own = dots[d0];
+      if (dots[d0].i === i) { if (!dots[d0].member) level.own = dots[d0]; }
       else if (Math.abs(dots[d0].c - p.railC) <= minLift) level.near.push(dots[d0]);
     }
   }
@@ -4260,6 +4269,11 @@ function solve(spec, opts) {
     // the dot. See Want.open0 and the renderer.
     if (!w.tie || w.open0) b.addStop({ line: ln.key, a: sa0, c: ln.cAt(sa0), todo: w.todo,
                                        kind: w.open0 ? 'from' : 'start' });
+    // every event in a crowded stretch keeps its own dot
+    (w.members || []).forEach(function (a) {
+      var ma = Math.max(a, sa0 + spec.markR * 1.2);
+      b.addStop({ line: ln.key, a: ma, c: ln.cAt(ma), kind: 'start' });
+    });
     var ea = w.endAt != null ? w.endAt : w.a1;
     // a stop starting where this ends: the tick stands just before its dot,
     // wherever that dot had to go
@@ -4594,6 +4608,64 @@ function styleLine() {
 // there, named once.
 //
 // Everything else belongs to one line and is a want against that line.
+// The crowded stretches on each person's line: runs of three or more of
+// their own events (nobody else's, no all-day or ambient block) where each
+// starts closer to the one before than that one's name is wide. Returns the
+// stretch each first event heads, and every later event folded into one.
+var CROWD_MIN = 3, CROWD_MAX = 6, CROWD_GAP_MIN = 15;
+function crowdsFrom(metro, scale, measure, opts) {
+  var byHead = new Map(), members = [];
+  function clockOf(m) {
+    var h = Math.floor(m / 60) % 24, mm = ((m % 60) + 60) % 60;
+    if (!metro.hour12) return h + ':' + (mm < 10 ? '0' : '') + mm;
+    return (h % 12 || 12) + (mm ? ':' + (mm < 10 ? '0' : '') + mm : '') + (h < 12 ? 'am' : 'pm');
+  }
+  var byOwner = {};
+  (metro.events || []).forEach(function (ev) {
+    if ((ev.type && ev.type !== 'event') || !ev.owner || (ev.co_owners || []).filter(Boolean).length) return;
+    if (ambient(ev) || ev.start_min >= metro.day_end_min || (ev.end_min != null ? ev.end_min : ev.start_min) <= metro.day_start_min) return;
+    if (ev.start_min < metro.day_start_min) return;
+    (byOwner[ev.owner] = byOwner[ev.owner] || []).push(ev);
+  });
+  Object.keys(byOwner).forEach(function (k) {
+    var list = byOwner[k].sort(function (p, q) { return p.start_min - q.start_min; });
+    var run = [];
+    function close() {
+      if (run.length >= CROWD_MIN) {
+        var head = run[0];
+        var end = run.reduce(function (m, ev) { return Math.max(m, ev.end_min != null ? ev.end_min : ev.start_min); }, head.start_min);
+        var ev = Object.assign({}, head, { end_min: end,
+          parts: run.map(function (e) { return e.title; }),
+          crowd: run.map(function (e) { return { time: clockOf(e.start_min), title: e.title }; }),
+          // the strip's own "+{n} more", in the board's language
+          moreText: (metro.i18n && metro.i18n.more) || '+{n} more',
+          title: run.map(function (e) { return e.title; }).join(' \u00b7 ') });
+        // A stretch nothing can caption is not one: its events keep their own.
+        if (measure(ev, opts).length) {
+          byHead.set(head, { ev: ev, marks: run.slice(1).map(function (e) { return scale.at(e.start_min); }) });
+          run.slice(1).forEach(function (e) { members.push(e); });
+        }
+      }
+      run = [];
+    }
+    list.forEach(function (ev) {
+      if (run.length) {
+        var prev = run[run.length - 1];
+        var forms = measure(prev, opts);
+        var need = forms.length ? forms[0].w * 0.6 : 0;
+        var prevEnd = Math.max.apply(null, run.map(function (e) { return e.end_min != null ? e.end_min : e.start_min; }));
+        // back to back (within a quarter of an hour of the last one ending),
+        // too close for the names to stand side by side, and not too many
+        if (scale.at(ev.start_min) - scale.at(prev.start_min) >= need
+            || ev.start_min - prevEnd > CROWD_GAP_MIN || run.length >= CROWD_MAX) close();
+      }
+      run.push(ev);
+    });
+    close();
+  });
+  return { byHead: byHead, members: members };
+}
+
 function wantsFrom(metro, scale, measure, opts) {
   var wants = [], pills = [], n = 0;
   // CLEAR OF THE MARKS. A caption keeps this much from its rail's centre,
@@ -4636,9 +4708,22 @@ function wantsFrom(metro, scale, measure, opts) {
       head.parts.push(ev); head.who = all; head.end = Math.max(head.end, ev.end_min); folded.push(ev);
     } else heads.push({ who: who, ev: ev, parts: [ev], end: ev.end_min, bar: barLike(ev, who) });
   });
+  // A CROWDED STRETCH IS ONE CAPTION. Fifteen meetings a quarter of an hour
+  // apart on one person's line cannot each have a name beside their own dot:
+  // a rail has two sides, so from the third name on every name is nearer
+  // somebody else's dot than its own, and the board either leaves names off
+  // or scatters them where nobody can pair them. Three or more back-to-back
+  // events whose names cannot stand side by side are one stop's worth of
+  // words instead: every dot stays, and one caption lists them in time order
+  // ("9:00 Standup", "9:15 Sync"), shortened the way a merged stop's list is
+  // when the room runs out.
+  var crowds = crowdsFrom(metro, scale, measure, opts);
+  crowds.members.forEach(function (ev) { folded.push(ev); });
   (metro.events || []).forEach(function (ev0) {
     if (folded.indexOf(ev0) >= 0) return;
     var ev = ev0;
+    var crowd = crowds.byHead.get(ev0) || null;
+    if (crowd) ev = crowd.ev;
     var mine = heads.filter(function (h) { return h.ev === ev0 && h.parts.length > 1; })[0];
     if (mine) {
       ev = Object.assign({}, ev0, { end_min: mine.end, stack: mine.parts,
@@ -4768,6 +4853,7 @@ function wantsFrom(metro, scale, measure, opts) {
     }
     wants.push(new C.Want({ id: id, text: ev.title, line: ev.owner, todo: !!ev.todo,
                             open0: open0, open1: open1,
+                            members: crowd ? crowd.marks : null,
                             a0: a0, a1: a1, forms: forms, gap: gap }));
   });
   // In start order, which is the order a reader scans in and therefore the
@@ -5739,6 +5825,26 @@ function foldTitle(title) {
 // in order (see wantsFrom).
 function stackRows(ev, t, halves, timeText) {
   var rows = [];
+  if (t.parts && ev.crowd && ev.crowd.length > 1) {
+    // A CROWDED STRETCH, one row an event: its time small, its name after it.
+    // No two-to-a-row form: a row is already a time and a name.
+    // The whole list; then the first few and how many more; then one name
+    // and a count. Taller forms say more and cost more room, and the search
+    // picks the richest that fits.
+    var ccls = t.rows[0].cls, list = ev.crowd;
+    if (t.parts === 'list' || t.parts === 'columns') {
+      var show = t.parts === 'list' ? Math.min(list.length, 4) : Math.min(list.length, 2);
+      if (t.parts === 'list' && list.length > 4) show = 3;
+      if (t.parts === 'columns' && list.length <= 2) return [];
+      list.slice(0, show).forEach(function (c) { rows.push({ text: c.time + '\u2002' + c.title, cls: ccls }); });
+      if (list.length > show) rows.push({ text: String(ev.moreText || '+{n} more').replace('{n}', list.length - show), cls: TIME_CLS });
+      return rows;
+    }
+    // the count survives a cut: it is the fact that there is more
+    rows.push({ text: ev.crowd[0].title + ' +' + (ev.crowd.length - 1), cls: ccls, tail: ' +' + (ev.crowd.length - 1) });
+    if (t.rows[1] && timeText) rows.push({ text: timeText(ev), cls: t.rows[1].cls });
+    return rows;
+  }
   if (t.parts && ev.parts && ev.parts.length > 1) {
     var tcls = t.rows[0].cls, p = ev.parts;
     if (t.parts === 'list') p.forEach(function (name) { rows.push({ text: name, cls: tcls }); });
@@ -5794,6 +5900,15 @@ function domMeasure(doc, opts) {
   host.style.top = '0';
   root.appendChild(host);
 
+  // A row's own width. Rows are blocks, and a block is as wide as the widest
+  // row beside it, so each is measured shrunk to its words.
+  function ownWidth(el) {
+    var d = el.style.display;
+    el.style.display = 'inline-block';
+    var wd = el.offsetWidth;
+    el.style.display = d;
+    return wd;
+  }
   function row(cls, text) {
     var r = doc.createElement('span');
     r.className = cls;
@@ -5869,13 +5984,24 @@ function domMeasure(doc, opts) {
       var capW = t.clip ? Math.round(maxW * t.clip) : maxW;
       if (t.clip && box.childNodes[ti].offsetWidth <= capW) { host.removeChild(box); return; }
       if (b.width > capW) {
-        var el = box.childNodes[ti], cut = rows[ti].text;
+        var el = box.childNodes[ti], tail = rows[ti].tail || '', cut = rows[ti].text.slice(0, rows[ti].text.length - tail.length);
         while (cut.length > 1) {
-          el.textContent = cut + '…';
-          if (box.offsetWidth <= capW) break;
+          el.textContent = cut + '…' + tail;
+          if (ev.crowd ? ownWidth(el) <= capW : box.offsetWidth <= capW) break;
           cut = cut.slice(0, -1);
         }
         rows[ti].text = el.textContent;
+        // A CROWDED STRETCH IS A ROW AN EVENT, and any of them can be the wide
+        // one: each is cut to the width on its own.
+        if (ev.crowd) {
+          rows.forEach(function (r, ri) {
+            var e2 = box.childNodes[ri];
+            if (!e2 || r.tail || ownWidth(e2) <= capW) return;
+            var c2 = r.text;
+            while (c2.length > 1 && ownWidth(e2) > capW) { c2 = c2.slice(0, -1); e2.textContent = c2 + '…'; }
+            r.text = e2.textContent;
+          });
+        }
         b = { width: box.offsetWidth, height: box.offsetHeight };
       }
       host.removeChild(box);

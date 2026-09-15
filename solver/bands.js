@@ -1876,6 +1876,11 @@ function solve(spec, opts) {
     // the dot. See Want.open0 and the renderer.
     if (!w.tie || w.open0) b.addStop({ line: ln.key, a: sa0, c: ln.cAt(sa0), todo: w.todo,
                                        kind: w.open0 ? 'from' : 'start' });
+    // every event in a crowded stretch keeps its own dot
+    (w.members || []).forEach(function (a) {
+      var ma = Math.max(a, sa0 + spec.markR * 1.2);
+      b.addStop({ line: ln.key, a: ma, c: ln.cAt(ma), kind: 'start' });
+    });
     var ea = w.endAt != null ? w.endAt : w.a1;
     // a stop starting where this ends: the tick stands just before its dot,
     // wherever that dot had to go

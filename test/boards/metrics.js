@@ -64,9 +64,17 @@ function measure(o) {
       var capW = t.clip ? Math.round(maxW * t.clip) : maxW;
       if (t.clip && widthOf(tableFor(rows[ti].cls), rows[ti].text) <= capW) return;
       if (w > capW) {
-        var cut = rows[ti].text, tb = tableFor(rows[ti].cls);
-        while (cut.length > 1 && widthOf(tb, cut + '…') > capW) cut = cut.slice(0, -1);
-        rows[ti].text = cut + '…';
+        var tail = rows[ti].tail || '', cut = rows[ti].text.slice(0, rows[ti].text.length - tail.length), tb = tableFor(rows[ti].cls);
+        while (cut.length > 1 && widthOf(tb, cut + '…' + tail) > capW) cut = cut.slice(0, -1);
+        rows[ti].text = cut + '…' + tail;
+        // a crowded stretch: each row cut to the width on its own (measure-dom)
+        if (ev.crowd) rows.forEach(function (r) {
+          var t2 = tableFor(r.cls);
+          if (r.tail || widthOf(t2, r.text) <= capW) return;
+          var c2 = r.text;
+          while (c2.length > 1 && widthOf(t2, c2 + '…') > capW) c2 = c2.slice(0, -1);
+          r.text = c2 + '…';
+        });
         w = widthNow();
       }
       var h = rows.reduce(function (n, r) { return /metro-inline/.test(r.cls) ? n : n + tableFor(r.cls).h; }, 0);

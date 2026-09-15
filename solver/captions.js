@@ -63,6 +63,9 @@ function Want(spec) {
   this.ride = spec.ride || null;
   // a task rather than an appointment: its stop is a square
   this.todo = !!spec.todo;
+  // A CROWDED STRETCH'S OTHER DOTS, along the axis: the events folded into
+  // this one caption (day.js crowdsFrom). Each is still a stop on the rail.
+  this.members = spec.members && spec.members.length ? spec.members.slice() : null;
   // A state of the line rather than a stop on it: no dot, no tick, and its
   // rail may not step or branch for it. See day.js.
   this.allDay = !!spec.allDay;
@@ -124,7 +127,7 @@ Want.prototype.formCount = function () { return this.forms.length; };
 // needs to do.
 Want.prototype.clone = function () {
   return new Want({ id: this.id, text: this.text, line: this.line, pill: this.pill, tie: this.tie, tieFree: this.tieFree,
-                    endAt: this.endAt, ride: this.ride, todo: this.todo,
+                    endAt: this.endAt, ride: this.ride, todo: this.todo, members: this.members,
                     a0: this.a0, a1: this.a1, gap: this.gap, pad: this.pad,
                     allDay: this.allDay, open0: this.open0, open1: this.open1,
                     forms: this.forms.map(function (f) {
@@ -627,6 +630,12 @@ function markDots(wants, board) {
     var c = ln.cAt(w.a0);
     if (c == null) return;
     dots.push({ i: i, a: w.a0, a1: w.a1, c: c });
+    // a crowded stretch's other dots are its own too, and somebody else's
+    // name over one of them is over a mark that is not theirs
+    (w.members || []).forEach(function (a) {
+      var cm = ln.cAt(a);
+      if (cm != null) dots.push({ i: i, a: a, a1: a, c: cm, member: true });
+    });
   });
   return dots;
 }
@@ -641,7 +650,7 @@ function muddledAt(p, i, dots, minLift, cache) {
   if (!level) {
     level = cache[key] = { own: null, near: [] };
     for (var d0 = 0; d0 < dots.length; d0++) {
-      if (dots[d0].i === i) level.own = dots[d0];
+      if (dots[d0].i === i) { if (!dots[d0].member) level.own = dots[d0]; }
       else if (Math.abs(dots[d0].c - p.railC) <= minLift) level.near.push(dots[d0]);
     }
   }

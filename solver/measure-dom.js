@@ -156,6 +156,26 @@ function foldTitle(title) {
 // in order (see wantsFrom).
 function stackRows(ev, t, halves, timeText) {
   var rows = [];
+  if (t.parts && ev.crowd && ev.crowd.length > 1) {
+    // A CROWDED STRETCH, one row an event: its time small, its name after it.
+    // No two-to-a-row form: a row is already a time and a name.
+    // The whole list; then the first few and how many more; then one name
+    // and a count. Taller forms say more and cost more room, and the search
+    // picks the richest that fits.
+    var ccls = t.rows[0].cls, list = ev.crowd;
+    if (t.parts === 'list' || t.parts === 'columns') {
+      var show = t.parts === 'list' ? Math.min(list.length, 4) : Math.min(list.length, 2);
+      if (t.parts === 'list' && list.length > 4) show = 3;
+      if (t.parts === 'columns' && list.length <= 2) return [];
+      list.slice(0, show).forEach(function (c) { rows.push({ text: c.time + '\u2002' + c.title, cls: ccls }); });
+      if (list.length > show) rows.push({ text: String(ev.moreText || '+{n} more').replace('{n}', list.length - show), cls: TIME_CLS });
+      return rows;
+    }
+    // the count survives a cut: it is the fact that there is more
+    rows.push({ text: ev.crowd[0].title + ' +' + (ev.crowd.length - 1), cls: ccls, tail: ' +' + (ev.crowd.length - 1) });
+    if (t.rows[1] && timeText) rows.push({ text: timeText(ev), cls: t.rows[1].cls });
+    return rows;
+  }
   if (t.parts && ev.parts && ev.parts.length > 1) {
     var tcls = t.rows[0].cls, p = ev.parts;
     if (t.parts === 'list') p.forEach(function (name) { rows.push({ text: name, cls: tcls }); });
@@ -211,6 +231,15 @@ function domMeasure(doc, opts) {
   host.style.top = '0';
   root.appendChild(host);
 
+  // A row's own width. Rows are blocks, and a block is as wide as the widest
+  // row beside it, so each is measured shrunk to its words.
+  function ownWidth(el) {
+    var d = el.style.display;
+    el.style.display = 'inline-block';
+    var wd = el.offsetWidth;
+    el.style.display = d;
+    return wd;
+  }
   function row(cls, text) {
     var r = doc.createElement('span');
     r.className = cls;
@@ -286,13 +315,24 @@ function domMeasure(doc, opts) {
       var capW = t.clip ? Math.round(maxW * t.clip) : maxW;
       if (t.clip && box.childNodes[ti].offsetWidth <= capW) { host.removeChild(box); return; }
       if (b.width > capW) {
-        var el = box.childNodes[ti], cut = rows[ti].text;
+        var el = box.childNodes[ti], tail = rows[ti].tail || '', cut = rows[ti].text.slice(0, rows[ti].text.length - tail.length);
         while (cut.length > 1) {
-          el.textContent = cut + '…';
-          if (box.offsetWidth <= capW) break;
+          el.textContent = cut + '…' + tail;
+          if (ev.crowd ? ownWidth(el) <= capW : box.offsetWidth <= capW) break;
           cut = cut.slice(0, -1);
         }
         rows[ti].text = el.textContent;
+        // A CROWDED STRETCH IS A ROW AN EVENT, and any of them can be the wide
+        // one: each is cut to the width on its own.
+        if (ev.crowd) {
+          rows.forEach(function (r, ri) {
+            var e2 = box.childNodes[ri];
+            if (!e2 || r.tail || ownWidth(e2) <= capW) return;
+            var c2 = r.text;
+            while (c2.length > 1 && ownWidth(e2) > capW) { c2 = c2.slice(0, -1); e2.textContent = c2 + '…'; }
+            r.text = e2.textContent;
+          });
+        }
         b = { width: box.offsetWidth, height: box.offsetHeight };
       }
       host.removeChild(box);

@@ -297,6 +297,64 @@ function styleLine() {
 // there, named once.
 //
 // Everything else belongs to one line and is a want against that line.
+// The crowded stretches on each person's line: runs of three or more of
+// their own events (nobody else's, no all-day or ambient block) where each
+// starts closer to the one before than that one's name is wide. Returns the
+// stretch each first event heads, and every later event folded into one.
+var CROWD_MIN = 3, CROWD_MAX = 6, CROWD_GAP_MIN = 15;
+function crowdsFrom(metro, scale, measure, opts) {
+  var byHead = new Map(), members = [];
+  function clockOf(m) {
+    var h = Math.floor(m / 60) % 24, mm = ((m % 60) + 60) % 60;
+    if (!metro.hour12) return h + ':' + (mm < 10 ? '0' : '') + mm;
+    return (h % 12 || 12) + (mm ? ':' + (mm < 10 ? '0' : '') + mm : '') + (h < 12 ? 'am' : 'pm');
+  }
+  var byOwner = {};
+  (metro.events || []).forEach(function (ev) {
+    if ((ev.type && ev.type !== 'event') || !ev.owner || (ev.co_owners || []).filter(Boolean).length) return;
+    if (ambient(ev) || ev.start_min >= metro.day_end_min || (ev.end_min != null ? ev.end_min : ev.start_min) <= metro.day_start_min) return;
+    if (ev.start_min < metro.day_start_min) return;
+    (byOwner[ev.owner] = byOwner[ev.owner] || []).push(ev);
+  });
+  Object.keys(byOwner).forEach(function (k) {
+    var list = byOwner[k].sort(function (p, q) { return p.start_min - q.start_min; });
+    var run = [];
+    function close() {
+      if (run.length >= CROWD_MIN) {
+        var head = run[0];
+        var end = run.reduce(function (m, ev) { return Math.max(m, ev.end_min != null ? ev.end_min : ev.start_min); }, head.start_min);
+        var ev = Object.assign({}, head, { end_min: end,
+          parts: run.map(function (e) { return e.title; }),
+          crowd: run.map(function (e) { return { time: clockOf(e.start_min), title: e.title }; }),
+          // the strip's own "+{n} more", in the board's language
+          moreText: (metro.i18n && metro.i18n.more) || '+{n} more',
+          title: run.map(function (e) { return e.title; }).join(' \u00b7 ') });
+        // A stretch nothing can caption is not one: its events keep their own.
+        if (measure(ev, opts).length) {
+          byHead.set(head, { ev: ev, marks: run.slice(1).map(function (e) { return scale.at(e.start_min); }) });
+          run.slice(1).forEach(function (e) { members.push(e); });
+        }
+      }
+      run = [];
+    }
+    list.forEach(function (ev) {
+      if (run.length) {
+        var prev = run[run.length - 1];
+        var forms = measure(prev, opts);
+        var need = forms.length ? forms[0].w * 0.6 : 0;
+        var prevEnd = Math.max.apply(null, run.map(function (e) { return e.end_min != null ? e.end_min : e.start_min; }));
+        // back to back (within a quarter of an hour of the last one ending),
+        // too close for the names to stand side by side, and not too many
+        if (scale.at(ev.start_min) - scale.at(prev.start_min) >= need
+            || ev.start_min - prevEnd > CROWD_GAP_MIN || run.length >= CROWD_MAX) close();
+      }
+      run.push(ev);
+    });
+    close();
+  });
+  return { byHead: byHead, members: members };
+}
+
 function wantsFrom(metro, scale, measure, opts) {
   var wants = [], pills = [], n = 0;
   // CLEAR OF THE MARKS. A caption keeps this much from its rail's centre,
@@ -339,9 +397,22 @@ function wantsFrom(metro, scale, measure, opts) {
       head.parts.push(ev); head.who = all; head.end = Math.max(head.end, ev.end_min); folded.push(ev);
     } else heads.push({ who: who, ev: ev, parts: [ev], end: ev.end_min, bar: barLike(ev, who) });
   });
+  // A CROWDED STRETCH IS ONE CAPTION. Fifteen meetings a quarter of an hour
+  // apart on one person's line cannot each have a name beside their own dot:
+  // a rail has two sides, so from the third name on every name is nearer
+  // somebody else's dot than its own, and the board either leaves names off
+  // or scatters them where nobody can pair them. Three or more back-to-back
+  // events whose names cannot stand side by side are one stop's worth of
+  // words instead: every dot stays, and one caption lists them in time order
+  // ("9:00 Standup", "9:15 Sync"), shortened the way a merged stop's list is
+  // when the room runs out.
+  var crowds = crowdsFrom(metro, scale, measure, opts);
+  crowds.members.forEach(function (ev) { folded.push(ev); });
   (metro.events || []).forEach(function (ev0) {
     if (folded.indexOf(ev0) >= 0) return;
     var ev = ev0;
+    var crowd = crowds.byHead.get(ev0) || null;
+    if (crowd) ev = crowd.ev;
     var mine = heads.filter(function (h) { return h.ev === ev0 && h.parts.length > 1; })[0];
     if (mine) {
       ev = Object.assign({}, ev0, { end_min: mine.end, stack: mine.parts,
@@ -471,6 +542,7 @@ function wantsFrom(metro, scale, measure, opts) {
     }
     wants.push(new C.Want({ id: id, text: ev.title, line: ev.owner, todo: !!ev.todo,
                             open0: open0, open1: open1,
+                            members: crowd ? crowd.marks : null,
                             a0: a0, a1: a1, forms: forms, gap: gap }));
   });
   // In start order, which is the order a reader scans in and therefore the

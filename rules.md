@@ -678,6 +678,20 @@ applies when something changes.
     person's first letter, two where two people share it, in the board's own
     face, so a reader need not trace the line to see whose turn it is.
 
+38c. **A crowded stretch is one caption.** Three to six of one person's own
+    events back to back (each starting within a quarter of an hour of the
+    last one ending) whose names cannot stand side by side are captioned
+    once: a row per event, its time then its name, in time order. Every event
+    keeps its own dot. Short of room the list shows its first few and
+    "+N more", then the first name and a count. A rail has two sides, so
+    from the third name on, a name per dot is nearer somebody else's dot
+    than its own.
+
+38d. **Nobody is left out of a panel that has room for their line.** People
+    are dropped only down to what the panel can hold, never to tidy names,
+    and whoever is left out is named on the strip, or counted where the
+    names do not fit.
+
 ## 6. Which order the lines go in
 
 38a. **A rule THROUGH a name is not the same fault as a rail behind it.**
