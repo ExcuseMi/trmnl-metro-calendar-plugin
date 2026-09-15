@@ -158,4 +158,42 @@ module.exports = function (test, h) {
     assert(r.data.weather.every((i) => i.type === 'weather'),
       'the real forecast put a sun marker back on the board: ' + JSON.stringify(r.data.weather));
   });
+
+  // THE EXAMPLE DAY'S SUN IS THE LOCATION'S OWN CLOCK. A location six hours
+  // from the account's zone (New York on a Brussels account) gave the example
+  // board a sunrise at half past twelve and a sunset after midnight, so the
+  // night ran through the middle of the day. A real day still gets the true
+  // times, which is the whole point of them.
+  function sunQuery(seen) {
+    return async (url) => {
+      seen.push(String(url));
+      if (String(url).indexOf('api.open-meteo.com') >= 0) {
+        return okText(JSON.stringify({
+          daily: { temperature_2m_max: [24], temperature_2m_min: [14],
+            precipitation_probability_max: [0], weathercode: [0],
+            sunrise: ['2026-09-09T06:36'], sunset: ['2026-09-09T19:04'], time: ['2026-09-09'] },
+          hourly: { time: [], precipitation_probability: [] },
+        }));
+      }
+      if (String(url).indexOf('/main/demo/') >= 0) {
+        const full = path.join(DEMO_DIR, relOf(url));
+        return fs.existsSync(full) ? okText(fs.readFileSync(full, 'utf-8')) : fail(404);
+      }
+      return okText(icsWithEvents([{ start: '20260909T090000Z', end: '20260909T100000Z', summary: 'Standup' }]));
+    };
+  }
+
+  test('the example day asks for the sun in the location\'s own clock; a real day does not', async () => {
+    const demoSeen = [];
+    await runTransform(sunQuery(demoSeen), NOW).run(baseInput(NOW, { use_demo_data: 'true', lat_lon: '40.71,-74.00' }));
+    const demoWx = demoSeen.find((u) => u.indexOf('api.open-meteo.com') >= 0);
+    assert(/timezone=auto/.test(demoWx), 'the example day asked in the account zone: ' + demoWx);
+
+    const realSeen = [];
+    const r = await runTransform(sunQuery(realSeen), NOW).run(baseInput(NOW,
+      { config_json: 'https://calendar.example.com/a.ics', lat_lon: '40.71,-74.00' }));
+    const realWx = realSeen.find((u) => u.indexOf('api.open-meteo.com') >= 0);
+    assert(!/timezone=auto/.test(realWx), 'a real day lost the account zone: ' + realWx);
+    assert((r.data.days[0].weather || {}).sunrise_min === 396, 'the real day should keep the true sunrise');
+  });
 };

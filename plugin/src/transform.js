@@ -1267,7 +1267,12 @@ function clockMin(iso, dayKey) {
 
 // Returns a SNAPSHOT (see above), not rendered strings, so the caller can
 // put it straight into trmnl_state.
-async function fetchWeather(latLonRaw, tz, deadline, unit) {
+// `opts.localSun` is the EXAMPLE DAY'S weather: the sun is asked for in the
+// location's own clock, so an example board whose location is six hours from
+// the account's zone still gets a morning sunrise and an evening sunset. A
+// real day does not do this: if the calendars are yours and the location is
+// New York, the dark hours on a Brussels clock really do run to lunchtime.
+async function fetchWeather(latLonRaw, tz, deadline, unit, opts) {
   var latlon = parseLatLon(latLonRaw);
   if (!latlon) return null;
   try {
@@ -1279,7 +1284,7 @@ async function fetchWeather(latLonRaw, tz, deadline, unit) {
       // for the day as a whole.
       hourly: 'precipitation_probability,weathercode',
       temperature_unit: unit === 'F' ? 'fahrenheit' : 'celsius',
-      timezone: tz, forecast_days: String(DAY_SPAN),
+      timezone: (opts && opts.localSun) ? 'auto' : tz, forecast_days: String(DAY_SPAN),
     });
     var budget = msUntil(deadline);
     if (budget <= 0) return null;
@@ -1389,7 +1394,9 @@ async function fetchWeather(latLonRaw, tz, deadline, unit) {
       // taken at 23:30 is read at 04:00 as if its first day were the day
       // the reader is standing in, which is how yesterday's rain becomes
       // this morning's alert.
-      date: (daily.time || [])[0] || dayKeys[0] || null,
+      // (an example day's run is read against the board's own day, since its
+      // dates are the location's and may be a day either side of it)
+      date: (opts && opts.localSun && opts.dateKey) || (daily.time || [])[0] || dayKeys[0] || null,
       peak: peak,
       perDay: perDay,
       milestones: milestones,
@@ -1412,9 +1419,9 @@ async function fetchWeather(latLonRaw, tz, deadline, unit) {
 // materializeWeather has already turned those into header strings by the
 // time the caller sees them. Reading it back off the header would mean
 // parsing "60" out of a localized string.
-async function resolveWeather(latLonRaw, tz, deadline, state, unit, strings, started) {
+async function resolveWeather(latLonRaw, tz, deadline, state, unit, strings, started, opts) {
   if (!latLonRaw) return { weather: null, stale: false, snapshot: null };
-  var snap = started ? await started : await fetchWeather(latLonRaw, typeof tz === 'string' ? tz : 'GMT', deadline, unit);
+  var snap = started ? await started : await fetchWeather(latLonRaw, typeof tz === 'string' ? tz : 'GMT', deadline, unit, opts);
   var nowS = Math.floor(Date.now() / 1000);
   if (snap) {
     if (state) { state.weather = snap; state.weatherFetchedAt = nowS; }
@@ -3637,11 +3644,16 @@ async function run(input) {
     var u = feedUrl(cal.url), k = feedKey(u, cal.headers);
     if (!prefetched[k]) prefetched[k] = fetchFeedText(u, deadline, cal.headers);
   });
-  var wxStarted = null;
+  var wxStarted = null, wxOpts = null;
   if (latLonRaw) {
     try {
       var wxTz = resolveTz(effectiveCfg.timeZone, input);
-      wxStarted = fetchWeather(latLonRaw, typeof wxTz === 'string' ? wxTz : 'GMT', deadline, tempUnit);
+      // The example day borrows the location's own clock for the sun.
+      if (useDemo || noUsableConfig) {
+        var nowTsW = (input.trmnl && input.trmnl.system && input.trmnl.system.timestamp_utc) || Math.floor(Date.now() / 1000);
+        wxOpts = { localSun: true, dateKey: isoDate(fromEpoch(nowTsW * 1000, wxTz)) };
+      }
+      wxStarted = fetchWeather(latLonRaw, typeof wxTz === 'string' ? wxTz : 'GMT', deadline, tempUnit, wxOpts);
     } catch (e) { wxStarted = null; }
   }
 
@@ -3683,7 +3695,7 @@ async function run(input) {
       demoNowMin = demoToday.h * 60 + demoToday.mi;
       demoDate = dateLabel(demoToday, locale);
     } catch (e) { /* no clock rather than an invented one */ }
-    var demoWx = await resolveWeather(latLonRaw, demoTz, deadline, state, tempUnit, strings, wxStarted);
+    var demoWx = await resolveWeather(latLonRaw, demoTz, deadline, state, tempUnit, strings, wxStarted, wxOpts);
     if (configProblem) {
       return done(buildEmpty(demoWx.weather, demoNowMin, Object.assign({ dateLabel: demoDate }, extra,
         { weatherStale: demoWx.stale, wxSnapshot: demoWx.snapshot, notice: boardNotice(null, configProblem, strings) })));
