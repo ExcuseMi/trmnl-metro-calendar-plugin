@@ -131,7 +131,28 @@ var PART_TIERS = partTiersAt('text--base').concat([
 var LARGE_PART_TIERS = partTiersAt('text--large').concat(PART_TIERS.map(function (t) {
   return Object.assign({}, t, { rung: t.rung + 0.8 });
 }));
-function tiersFor(large, parts) {
+// A CROWDED STRETCH OFFERS EVERY LENGTH OF ITS LIST: all of it, then one
+// fewer and "+1 more", down to two and a count of the rest, each a small
+// step poorer. With only "four, or three and more, or two and more" a list
+// of six stood at two rows with room under it for two more ("why not show 2
+// more lines").
+function tiersFor(large, parts, crowdLen) {
+  if (crowdLen > 1) {
+    var out = [];
+    (large ? LARGE_PART_TIERS : PART_TIERS).forEach(function (t) {
+      if (t.parts === 'columns') return;
+      // a count hides every name but one, so it costs more than any list
+      if (t.parts !== 'list') { out.push(Object.assign({}, t, { rung: t.rung + 1 })); return; }
+      // the whole list and three short ones, not every length: each form is a
+      // move the search prices on every pass
+      var lens = [crowdLen, 4, 3, 2].filter(function (k, i, all) {
+        return k >= 2 && k <= crowdLen && all.indexOf(k) === i;
+      });
+      // each row left off is a name the reader does not get
+      lens.forEach(function (k) { out.push(Object.assign({}, t, { show: k, rung: t.rung + (crowdLen - k) * 0.2 })); });
+    });
+    return out;
+  }
   if (parts) return large ? LARGE_PART_TIERS : PART_TIERS;
   return large ? LARGE_TIERS : TIERS;
 }
@@ -163,10 +184,9 @@ function stackRows(ev, t, halves, timeText) {
     // and a count. Taller forms say more and cost more room, and the search
     // picks the richest that fits.
     var ccls = t.rows[0].cls, list = ev.crowd;
-    if (t.parts === 'list' || t.parts === 'columns') {
-      var show = t.parts === 'list' ? Math.min(list.length, 4) : Math.min(list.length, 2);
-      if (t.parts === 'list' && list.length > 4) show = 3;
-      if (t.parts === 'columns' && list.length <= 2) return [];
+    if (t.parts === 'columns') return [];
+    if (t.parts === 'list') {
+      var show = Math.min(list.length, t.show || list.length);
       list.slice(0, show).forEach(function (c) { rows.push({ text: c.time + '\u2002' + c.title, cls: ccls }); });
       if (list.length > show) rows.push({ text: String(ev.moreText || '+{n} more').replace('{n}', list.length - show), cls: TIME_CLS });
       return rows;
@@ -284,7 +304,7 @@ function domMeasure(doc, opts) {
   function measure(ev, o) {
     var title = ev.title || '';
     var forms = [];
-    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1)).forEach(function (t) {
+    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0).forEach(function (t) {
       var halves = t.fold ? foldTitle(title) : null;
       if (t.fold && (!halves || ev.stack)) return;
       var rows = stackRows(ev, t, halves, o && o.timeText);

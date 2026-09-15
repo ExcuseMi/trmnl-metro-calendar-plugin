@@ -589,6 +589,7 @@ function boardFor(spec, st) {
     if (!br) return;
     var added = b.addLine({ key: br.key, pts: br.pts, width: ln.width, branchOf: w.line,
                             style: ln.style });
+    if (w.members) added.crowd = true;
     shelvesMade.push({ line: added, w: w, trunk: ln._trunk, dist: dist, dir: m > 0 ? 1 : -1, room: ln._room, roomSide: ln._roomSide,
                        lead: level ? dist : 0, pre: pre, floor: floor });
     w._rail = key;
@@ -1008,9 +1009,9 @@ function boardFor(spec, st) {
       }
     });
   });
-  b.bends = 0; b.branches = 0;
+  b.bends = 0; b.branches = 0; b.crowdShelves = 0;
   b.lines.forEach(function (l) {
-    if (l.branchOf) { b.branches++; return; }
+    if (l.branchOf) { b.branches++; if (l.crowd) b.crowdShelves++; return; }
     for (var i = 1; i < l.pts.length; i++) {
       if (Math.abs(l.pts[i][1] - l.pts[i - 1][1]) > 0.5) b.bends++;
     }
@@ -1287,6 +1288,10 @@ function boardCost(spec, b, sol) {
        // to place for that." Rewarded the way a step was, with the same
        // ceiling, and vetoed by everything a shelf can break.
        - (b.branches || 0) * spec.shelfWorth
+       // A CROWDED STRETCH ON ITS OWN SHELF: its dots and its list travel
+       // together there, where on the trunk the list stood wherever the
+       // trunk's neighbours left room, rows away from the dots it names.
+       - (b.crowdShelves || 0) * spec.crowdShelfWorth
        + (b.branches || 0) * spec.branchPrice
        + (b.crossings || 0) * spec.crossPrice
        + b.lateLeavers * spec.latePrice
@@ -1651,10 +1656,19 @@ function solveBands(spec, opts) {
   // answer for a day whose events are all crowded together. And the ladder
   // one rung down starts small, which a board that will end up small should
   // not have to discover a caption at a time.
+  // A CROWDED STRETCH STARTS AT A SHORT LIST, and grows into a longer one
+  // where the room is there (a richer form is offered back to any name
+  // wearing a poorer one). Started at the whole list, a list too tall for its
+  // band was a name in trouble, and the moves for a name in trouble ended it
+  // at "Standup client ACME +5" with room for four rows under it.
+  function crowdStart(w) {
+    for (var fi = 0; fi < w.forms.length; fi++) if ((w.forms[fi].rows || []).length <= 4) return fi;
+    return 0;
+  }
   function start(steps, forms) {
     return { gaps: evenGaps(),
              steps: new Array(spec.wants.length).fill(steps),
-             forms: new Array(spec.wants.length).fill(forms) };
+             forms: spec.wants.map(function (w) { return forms === 0 && w.members ? crowdStart(w) : forms; }) };
   }
   // SHELVES FIRST. A shelf is the form an event takes (see shelfWorth), and
   // the search only offers a move to a caption in trouble, so a flat start
@@ -1752,6 +1766,7 @@ function solve(spec, opts) {
   spec.shelfDepth = spec.shelfDepth != null ? spec.shelfDepth : Math.max(spec.leadCap * 1.6, spec.minLift + spec.markR);
   spec.branchPrice = spec.branchPrice != null ? spec.branchPrice : 0;
   spec.shelfWorth = spec.shelfWorth != null ? spec.shelfWorth : 60;
+  spec.crowdShelfWorth = spec.crowdShelfWorth != null ? spec.crowdShelfWorth : 3000;
   // A spur through another rail: dearer than any preference, cheaper than
   // a name lost, so the shelf goes the other way before anything is shed.
   spec.crossPrice = spec.crossPrice != null ? spec.crossPrice : 3000;
@@ -1905,7 +1920,39 @@ function solve(spec, opts) {
   b.lateLeavers = lateLeaver(spec);
   b.bumps = bumps(b, spec.bumpNear);
   b.straddles = straddles(spec, b, band.st);
+  growCrowds(spec, b, band.st);
   return b;
+}
+
+// A CROWDED STRETCH'S LIST TAKES THE ROOM THAT IS THERE. The search prices a
+// longer list against everything else on the board and does not always get
+// to it: "it says +4 more even though there is vertical space left, why not
+// show 2 more lines." Once the board is laid out, each list is grown in place
+// to its longest form that fits: from the same edge along the axis, growing
+// away from its own rail, and kept only where the board has no more faults
+// than it had.
+function growCrowds(spec, b, st) {
+  var before = B.check(b).length;
+  spec.wants.forEach(function (w, i) {
+    if (!w.members) return;
+    var cp = null;
+    for (var ci = 0; ci < b.caps.length; ci++) if (b.caps[ci].id === w.id) cp = b.caps[ci];
+    if (!cp) return;
+    var cur = st.forms[i] || 0;
+    var ln = b.lineByKey(cp.line);
+    var railC = ln && cp.at != null ? ln.cAt(cp.at) : null;
+    var below = railC == null || cp.c >= railC;
+    for (var k = 0; k < cur; k++) {
+      var f = w.forms[k];
+      if (!f || f.h <= cp.h) continue;
+      var was = { c: cp.c, a: cp.a, w: cp.w, h: cp.h, rows: cp.rows, rowCls: cp.rowCls, el: cp.el, text: cp.text, size: cp.size };
+      cp.c = below ? cp.c : cp.c + cp.h - f.h;
+      cp.a = Math.min(cp.a, b.axis.a1 - f.w);
+      cp.w = f.w; cp.h = f.h; cp.rows = f.rows; cp.rowCls = f.rowCls; cp.el = f.el || null; cp.size = f.size;
+      if (B.check(b).length <= before) { st.forms[i] = k; w.wear(k); return; }
+      Object.keys(was).forEach(function (key) { cp[key] = was[key]; });
+    }
+  });
 }
 
 

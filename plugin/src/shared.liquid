@@ -1,4 +1,11 @@
 {%- comment -%}
+  HOW LONG THE BOARD MAY SPEND LAYING ITSELF OUT, in seconds.
+  TRMNL gives a page about five seconds to be ready; three leaves room for
+  the fonts and the drawing. Past it the layout search stops and draws the
+  best board it has found. Change the number here.
+{%- endcomment -%}
+{%- assign solve_seconds = 3 -%}
+{%- comment -%}
   Metro Timeline — all canvas geometry is computed client-side.
 
   transform.js is a pure data normalizer (events with start_min/end_min,
@@ -58,7 +65,7 @@
   {%- endcomment -%}
   <div class="divider divider--on-white flex-none"></div>
 
-  <div class="metro-canvas relative grow w--full" data-metro-view="{{ view }}">
+  <div class="metro-canvas relative grow w--full" data-metro-view="{{ view }}" data-metro-solve-seconds="{{ solve_seconds | default: 3 }}">
     <svg class="metro-svg absolute"></svg>
   </div>
 
@@ -1957,9 +1964,27 @@ function solve(wants, board, opts) {
   // without its time is still a caption, and an event nobody drew is a thing
   // that happened and was not told.
   var SHED = 200000, CLASH = 300000;
+  // A SHARED EVENT'S NAME IN A ROW OF SOMEBODY ELSE'S. "School Day" stood
+  // between Maggie's Playgroup and Nap, level with them, a row above the
+  // corridor it names, and read as Maggie's: a name is read with the names in
+  // line with it. A corridor's name level with the names of a line that is
+  // not in it, and near them along the axis, costs what a mistakable name
+  // does.
+  var pillLines = {};
+  (board.pills || []).forEach(function (pl) { if (!pl.tie) pillLines[pl.id] = pl.lines; });
+  function rowMate(pw, ow, pa, ob) {
+    var lines = pillLines[pw.pill];
+    if (!lines || ow.pill || lines.indexOf(ow.line) >= 0) return false;
+    var overlap = Math.min(pa.c1, ob.c1) - Math.max(pa.c0, ob.c0);
+    if (overlap < Math.min(pa.c1 - pa.c0, ob.c1 - ob.c0) * 0.5) return false;
+    var apart = pa.a0 > ob.a1 ? pa.a0 - ob.a1 : (ob.a0 > pa.a1 ? ob.a0 - pa.a1 : 0);
+    return apart < Math.max(pa.c1 - pa.c0, ob.c1 - ob.c0) * 4;
+  }
   function pairCost(i, j) {
     if (pick[i] < 0 || pick[j] < 0) return 0;
     var a = posBox(cands[i][pick[i]]), b = posBox(cands[j][pick[j]]);
+    var wi = wants[i], wj = wants[j];
+    if ((wi.pill && rowMate(wi, wj, a, b)) || (wj.pill && rowMate(wj, wi, b, a))) return MUD;
     // At a CLEARANCE, not at contact: two boxes that merely touch draw with
     // their paper outlines interlocked and read as one word. See capsOverlap.
     if (!B.capsOverlap(a, b)) {
@@ -2982,6 +3007,7 @@ function boardFor(spec, st) {
     if (!br) return;
     var added = b.addLine({ key: br.key, pts: br.pts, width: ln.width, branchOf: w.line,
                             style: ln.style });
+    if (w.members) added.crowd = true;
     shelvesMade.push({ line: added, w: w, trunk: ln._trunk, dist: dist, dir: m > 0 ? 1 : -1, room: ln._room, roomSide: ln._roomSide,
                        lead: level ? dist : 0, pre: pre, floor: floor });
     w._rail = key;
@@ -3401,9 +3427,9 @@ function boardFor(spec, st) {
       }
     });
   });
-  b.bends = 0; b.branches = 0;
+  b.bends = 0; b.branches = 0; b.crowdShelves = 0;
   b.lines.forEach(function (l) {
-    if (l.branchOf) { b.branches++; return; }
+    if (l.branchOf) { b.branches++; if (l.crowd) b.crowdShelves++; return; }
     for (var i = 1; i < l.pts.length; i++) {
       if (Math.abs(l.pts[i][1] - l.pts[i - 1][1]) > 0.5) b.bends++;
     }
@@ -3680,6 +3706,10 @@ function boardCost(spec, b, sol) {
        // to place for that." Rewarded the way a step was, with the same
        // ceiling, and vetoed by everything a shelf can break.
        - (b.branches || 0) * spec.shelfWorth
+       // A CROWDED STRETCH ON ITS OWN SHELF: its dots and its list travel
+       // together there, where on the trunk the list stood wherever the
+       // trunk's neighbours left room, rows away from the dots it names.
+       - (b.crowdShelves || 0) * spec.crowdShelfWorth
        + (b.branches || 0) * spec.branchPrice
        + (b.crossings || 0) * spec.crossPrice
        + b.lateLeavers * spec.latePrice
@@ -4044,10 +4074,19 @@ function solveBands(spec, opts) {
   // answer for a day whose events are all crowded together. And the ladder
   // one rung down starts small, which a board that will end up small should
   // not have to discover a caption at a time.
+  // A CROWDED STRETCH STARTS AT A SHORT LIST, and grows into a longer one
+  // where the room is there (a richer form is offered back to any name
+  // wearing a poorer one). Started at the whole list, a list too tall for its
+  // band was a name in trouble, and the moves for a name in trouble ended it
+  // at "Standup client ACME +5" with room for four rows under it.
+  function crowdStart(w) {
+    for (var fi = 0; fi < w.forms.length; fi++) if ((w.forms[fi].rows || []).length <= 4) return fi;
+    return 0;
+  }
   function start(steps, forms) {
     return { gaps: evenGaps(),
              steps: new Array(spec.wants.length).fill(steps),
-             forms: new Array(spec.wants.length).fill(forms) };
+             forms: spec.wants.map(function (w) { return forms === 0 && w.members ? crowdStart(w) : forms; }) };
   }
   // SHELVES FIRST. A shelf is the form an event takes (see shelfWorth), and
   // the search only offers a move to a caption in trouble, so a flat start
@@ -4145,6 +4184,7 @@ function solve(spec, opts) {
   spec.shelfDepth = spec.shelfDepth != null ? spec.shelfDepth : Math.max(spec.leadCap * 1.6, spec.minLift + spec.markR);
   spec.branchPrice = spec.branchPrice != null ? spec.branchPrice : 0;
   spec.shelfWorth = spec.shelfWorth != null ? spec.shelfWorth : 60;
+  spec.crowdShelfWorth = spec.crowdShelfWorth != null ? spec.crowdShelfWorth : 3000;
   // A spur through another rail: dearer than any preference, cheaper than
   // a name lost, so the shelf goes the other way before anything is shed.
   spec.crossPrice = spec.crossPrice != null ? spec.crossPrice : 3000;
@@ -4298,7 +4338,39 @@ function solve(spec, opts) {
   b.lateLeavers = lateLeaver(spec);
   b.bumps = bumps(b, spec.bumpNear);
   b.straddles = straddles(spec, b, band.st);
+  growCrowds(spec, b, band.st);
   return b;
+}
+
+// A CROWDED STRETCH'S LIST TAKES THE ROOM THAT IS THERE. The search prices a
+// longer list against everything else on the board and does not always get
+// to it: "it says +4 more even though there is vertical space left, why not
+// show 2 more lines." Once the board is laid out, each list is grown in place
+// to its longest form that fits: from the same edge along the axis, growing
+// away from its own rail, and kept only where the board has no more faults
+// than it had.
+function growCrowds(spec, b, st) {
+  var before = B.check(b).length;
+  spec.wants.forEach(function (w, i) {
+    if (!w.members) return;
+    var cp = null;
+    for (var ci = 0; ci < b.caps.length; ci++) if (b.caps[ci].id === w.id) cp = b.caps[ci];
+    if (!cp) return;
+    var cur = st.forms[i] || 0;
+    var ln = b.lineByKey(cp.line);
+    var railC = ln && cp.at != null ? ln.cAt(cp.at) : null;
+    var below = railC == null || cp.c >= railC;
+    for (var k = 0; k < cur; k++) {
+      var f = w.forms[k];
+      if (!f || f.h <= cp.h) continue;
+      var was = { c: cp.c, a: cp.a, w: cp.w, h: cp.h, rows: cp.rows, rowCls: cp.rowCls, el: cp.el, text: cp.text, size: cp.size };
+      cp.c = below ? cp.c : cp.c + cp.h - f.h;
+      cp.a = Math.min(cp.a, b.axis.a1 - f.w);
+      cp.w = f.w; cp.h = f.h; cp.rows = f.rows; cp.rowCls = f.rowCls; cp.el = f.el || null; cp.size = f.size;
+      if (B.check(b).length <= before) { st.forms[i] = k; w.wear(k); return; }
+      Object.keys(was).forEach(function (key) { cp[key] = was[key]; });
+    }
+  });
 }
 
 
@@ -5800,7 +5872,28 @@ var PART_TIERS = partTiersAt('text--base').concat([
 var LARGE_PART_TIERS = partTiersAt('text--large').concat(PART_TIERS.map(function (t) {
   return Object.assign({}, t, { rung: t.rung + 0.8 });
 }));
-function tiersFor(large, parts) {
+// A CROWDED STRETCH OFFERS EVERY LENGTH OF ITS LIST: all of it, then one
+// fewer and "+1 more", down to two and a count of the rest, each a small
+// step poorer. With only "four, or three and more, or two and more" a list
+// of six stood at two rows with room under it for two more ("why not show 2
+// more lines").
+function tiersFor(large, parts, crowdLen) {
+  if (crowdLen > 1) {
+    var out = [];
+    (large ? LARGE_PART_TIERS : PART_TIERS).forEach(function (t) {
+      if (t.parts === 'columns') return;
+      // a count hides every name but one, so it costs more than any list
+      if (t.parts !== 'list') { out.push(Object.assign({}, t, { rung: t.rung + 1 })); return; }
+      // the whole list and three short ones, not every length: each form is a
+      // move the search prices on every pass
+      var lens = [crowdLen, 4, 3, 2].filter(function (k, i, all) {
+        return k >= 2 && k <= crowdLen && all.indexOf(k) === i;
+      });
+      // each row left off is a name the reader does not get
+      lens.forEach(function (k) { out.push(Object.assign({}, t, { show: k, rung: t.rung + (crowdLen - k) * 0.2 })); });
+    });
+    return out;
+  }
   if (parts) return large ? LARGE_PART_TIERS : PART_TIERS;
   return large ? LARGE_TIERS : TIERS;
 }
@@ -5832,10 +5925,9 @@ function stackRows(ev, t, halves, timeText) {
     // and a count. Taller forms say more and cost more room, and the search
     // picks the richest that fits.
     var ccls = t.rows[0].cls, list = ev.crowd;
-    if (t.parts === 'list' || t.parts === 'columns') {
-      var show = t.parts === 'list' ? Math.min(list.length, 4) : Math.min(list.length, 2);
-      if (t.parts === 'list' && list.length > 4) show = 3;
-      if (t.parts === 'columns' && list.length <= 2) return [];
+    if (t.parts === 'columns') return [];
+    if (t.parts === 'list') {
+      var show = Math.min(list.length, t.show || list.length);
       list.slice(0, show).forEach(function (c) { rows.push({ text: c.time + '\u2002' + c.title, cls: ccls }); });
       if (list.length > show) rows.push({ text: String(ev.moreText || '+{n} more').replace('{n}', list.length - show), cls: TIME_CLS });
       return rows;
@@ -5953,7 +6045,7 @@ function domMeasure(doc, opts) {
   function measure(ev, o) {
     var title = ev.title || '';
     var forms = [];
-    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1)).forEach(function (t) {
+    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0).forEach(function (t) {
       var halves = t.fold ? foldTitle(title) : null;
       if (t.fold && (!halves || ev.stack)) return;
       var rows = stackRows(ev, t, halves, o && o.timeText);
@@ -6152,7 +6244,7 @@ function withoutLines(spec, drop) {
   });
   // The solver writes its own settings onto a spec; a fresh attempt gets
   // fresh ones rather than inheriting a previous board's.
-  ['railGap', 'tieGap', 'markR', 'nameClashPrice', 'shelfClashPrice', 'nameCutPrice', 'minLift', 'leadCap', 'stepShare', 'shelfDepth', 'preRun',
+  ['railGap', 'tieGap', 'markR', 'nameClashPrice', 'shelfClashPrice', 'nameCutPrice', 'minLift', 'leadCap', 'stepShare', 'shelfDepth', 'preRun', 'crowdShelfWorth',
    'muddlePrice', 'branchPrice', 'latePrice', 'bumpPrice', 'bumpNear',
    'straddlePrice', 'driftPrice', 'stepPrice', 'stepWorth', 'formPrice',
    'nameH'].forEach(function (k) { delete out[k]; });
@@ -8964,10 +9056,12 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
     draw();
     observe();
   }
-  // The page's clock: two seconds for the first draw, three for every draw.
-  // A test harness running many pages at once on one box sets its own, so a
-  // board is judged by the count the solver stops at, not by the load.
-  var SOLVE_ALL = window.METRO_SOLVE_MS || 3000, SOLVE_FIRST = window.METRO_SOLVE_MS || 2000;
+  // The page's clock: `solve_seconds` at the top of this file, for the first
+  // draw and every redraw together. A test harness running many pages at once
+  // on one box sets its own, so a board is judged by the count the solver
+  // stops at, not by the load.
+  var SOLVE_ALL = window.METRO_SOLVE_MS || (parseFloat(canvas.getAttribute('data-metro-solve-seconds')) || 3) * 1000;
+  var SOLVE_FIRST = SOLVE_ALL;
   var SOLVE_UNTIL = Date.now() + SOLVE_ALL;
   var faces = document.fonts;
   if (faces && faces.ready && faces.status !== 'loaded') {

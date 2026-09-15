@@ -782,9 +782,27 @@ function solve(wants, board, opts) {
   // without its time is still a caption, and an event nobody drew is a thing
   // that happened and was not told.
   var SHED = 200000, CLASH = 300000;
+  // A SHARED EVENT'S NAME IN A ROW OF SOMEBODY ELSE'S. "School Day" stood
+  // between Maggie's Playgroup and Nap, level with them, a row above the
+  // corridor it names, and read as Maggie's: a name is read with the names in
+  // line with it. A corridor's name level with the names of a line that is
+  // not in it, and near them along the axis, costs what a mistakable name
+  // does.
+  var pillLines = {};
+  (board.pills || []).forEach(function (pl) { if (!pl.tie) pillLines[pl.id] = pl.lines; });
+  function rowMate(pw, ow, pa, ob) {
+    var lines = pillLines[pw.pill];
+    if (!lines || ow.pill || lines.indexOf(ow.line) >= 0) return false;
+    var overlap = Math.min(pa.c1, ob.c1) - Math.max(pa.c0, ob.c0);
+    if (overlap < Math.min(pa.c1 - pa.c0, ob.c1 - ob.c0) * 0.5) return false;
+    var apart = pa.a0 > ob.a1 ? pa.a0 - ob.a1 : (ob.a0 > pa.a1 ? ob.a0 - pa.a1 : 0);
+    return apart < Math.max(pa.c1 - pa.c0, ob.c1 - ob.c0) * 4;
+  }
   function pairCost(i, j) {
     if (pick[i] < 0 || pick[j] < 0) return 0;
     var a = posBox(cands[i][pick[i]]), b = posBox(cands[j][pick[j]]);
+    var wi = wants[i], wj = wants[j];
+    if ((wi.pill && rowMate(wi, wj, a, b)) || (wj.pill && rowMate(wj, wi, b, a))) return MUD;
     // At a CLEARANCE, not at contact: two boxes that merely touch draw with
     // their paper outlines interlocked and read as one word. See capsOverlap.
     if (!B.capsOverlap(a, b)) {

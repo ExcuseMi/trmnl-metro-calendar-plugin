@@ -44,7 +44,7 @@ function measure(o) {
   function fn(ev) {
     var title = ev.title || '';
     var forms = [];
-    MD.tiersFor(o.large, !!(ev.parts && ev.parts.length > 1)).forEach(function (t) {
+    MD.tiersFor(o.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0).forEach(function (t) {
       var halves = t.fold ? foldTitle(title) : null;
       if (t.fold && (!halves || ev.stack)) return;
       var rows = MD.stackRows(ev, t, halves, function (part) { return part.start_min != null ? timeText(part) : null; });
