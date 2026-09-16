@@ -705,16 +705,19 @@ function draw(board, spec, ctx) {
           var wipe = svgEl(doc, 'path', { d: dMid, fill: 'none', 'stroke-width': wq + 0.6 * S,
             'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
           wipe.style.stroke = PAPER;
+          wipe._metroOwner = k;
           away.push(wipe);
           var quiet = svgEl(doc, 'path', { d: dMid, fill: 'none', 'stroke-width': wq,
             'stroke-linecap': 'butt', 'stroke-linejoin': 'round', 'stroke-opacity': 0.42 });
           quiet.style.stroke = inkOf(k);
+          quiet._metroOwner = k;
           away.push(quiet);
           var tq = treatment(tr.style, S, wq);
           if (tq) {
             var qov = svgEl(doc, 'path', { d: dMid, fill: 'none', 'stroke-width': tq.core,
               'stroke-linecap': tq.cap, 'stroke-linejoin': 'round', 'stroke-dasharray': tq.dash || null });
             qov.style.stroke = PAPER;
+            qov._metroOwner = k;
             away.push(qov);
           }
         });
@@ -863,7 +866,11 @@ function draw(board, spec, ctx) {
     }
   });
   overlays.forEach(function (ov) { svg.appendChild(ov); });
-  away.forEach(function (n) { put(n, 'away'); });
+  // ...AND EACH ONE SAYS WHOSE LINE IT IS. A quiet stretch went out with no
+  // owner on it, which is invisible on the board and fatal to a test: a case
+  // asking "is anybody drawn quiet inside a corridor" matched nothing, found
+  // nothing, and passed. Every other mark carries its line; so does this one.
+  away.forEach(function (n) { put(n, 'away', n._metroOwner); });
 
   // ---- where the day turns over -----------------------------------------
   //
