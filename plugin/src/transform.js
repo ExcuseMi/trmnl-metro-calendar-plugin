@@ -2039,8 +2039,23 @@ function rBeforeUntil(r, ord) {
   if (ord !== r.until.ord) return ord < r.until.ord;
   return r.start.h * 60 + r.start.mi <= r.until.min;
 }
-function rruleFiresOn(rruleValue, dtstart, y, mo, d, tz) {
-  var r = compileRrule(rruleValue, dtstart, tz);
+// COMPILED ONCE PER EVENT, not once per (day, back-step) it is asked about.
+// `occurrenceBack` asks this for every day the board's window spans, and
+// again for every day of an all-day event's own span looking backwards for
+// which occurrence covers it -- a custody week asks it up to seven times
+// over for the SAME series. `compileRrule` re-parses the RRULE string and
+// rebuilds `start`/`weekStart` from scratch each time, all of it a pure
+// function of the event alone. Keyed on the event object rather than the
+// rrule string: two different VEVENTs sharing byte-identical RRULE text
+// (a shared weekly meeting, say) still have their own DTSTART and must not
+// share a cache entry.
+var RRULE_CACHE = new WeakMap();
+function compiledRruleFor(ev, tz) {
+  if (!RRULE_CACHE.has(ev)) RRULE_CACHE.set(ev, compileRrule(ev.rrule, ev.dtstart, tz));
+  return RRULE_CACHE.get(ev);
+}
+function rruleFiresOn(ev, y, mo, d, tz) {
+  var r = compiledRruleFor(ev, tz);
   if (!r) return false;
   var target = rOrd(y, mo, d);
   if (target < r.start.ord || !rBeforeUntil(r, target)) return false;
@@ -2176,7 +2191,7 @@ function parseIcs(text, tz, days, includeDescription, floating) {
       var y = od.getUTCFullYear(), mo = od.getUTCMonth() + 1, d = od.getUTCDate();
       var key = y + '-' + mo + '-' + d;
       var hit = (ev.dtstart.y === y && ev.dtstart.mo === mo && ev.dtstart.d === d)
-        || (ev.rrule && rruleFiresOn(ev.rrule, ev.dtstart, y, mo, d, tz));
+        || (ev.rrule && rruleFiresOn(ev, y, mo, d, tz));
       if (!hit) continue;
       if (!ev.recurrenceId && ev.uid && overriddenDates[ev.uid + '|' + key]) continue;
       if (ev.exdates && ev.exdates[key]) continue;   // taken out of the series
