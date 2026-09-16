@@ -877,10 +877,17 @@ function solve(wants, board, opts) {
     if (pick[i] < 0 || pick[j] < 0) return 0;
     var a = posBox(cands[i][pick[i]]), b = posBox(cands[j][pick[j]]);
     var wi = wants[i], wj = wants[j];
-    if ((wi.pill && rowMate(wi, wj, a, b)) || (wj.pill && rowMate(wj, wi, b, a))) return MUD;
+    // ...BUT ONLY WHERE THEY ARE NOT ON TOP OF EACH OTHER. Answered before
+    // the boxes were compared at all, a corridor's name in somebody else's
+    // row was charged as merely mistakable even when it was written straight
+    // over the other name: "School Day" over "Grocery Run" on the flat slot,
+    // priced at a mistakable caption instead of at a clash, so the search
+    // kept it. Ink on ink first, and the row it stands in second.
+    var mate = (wi.pill && rowMate(wi, wj, a, b)) || (wj.pill && rowMate(wj, wi, b, a));
     // At a CLEARANCE, not at contact: two boxes that merely touch draw with
     // their paper outlines interlocked and read as one word. See capsOverlap.
     if (!B.capsOverlap(a, b)) {
+      if (mate) return MUD;
       // CLOSE IS NOT CLEAN. Two names a pad apart read as one block --
       // "move Book Club down because it's too close to School Run" -- so
       // standing within two pads of another name costs a little, well under

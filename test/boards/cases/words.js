@@ -83,4 +83,15 @@ module.exports = function (test, h) {
       });
     }
   }
+
+  // A CORRIDOR'S NAME OVER SOMEBODY ELSE'S NAME. Two captions on top of each
+  // other were priced as merely mistakable, not as a clash: the row test for
+  // a shared event's name answered before the boxes had been compared at all.
+  // On the rolling board at 800x240 that put "School Day" across "Grocery
+  // Run", 51 pixels of one name written over the other.
+  test('a shared event\'s name is not written over another name: rolling/og-half-horizontal', () => {
+    const rep = layout({ name: 'rolling-x', metro: require('../rolling-x.json') }, 'og-half-horizontal');
+    const bad = check(rep.board).filter((x) => x.kind === 'overlap');
+    assert(!bad.length, bad.map((x) => '"' + x.what + '" over "' + x.with + '"').join('; '));
+  });
 };
