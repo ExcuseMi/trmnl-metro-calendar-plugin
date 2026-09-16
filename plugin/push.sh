@@ -41,6 +41,8 @@ trap restore EXIT
 [ -x "$ESBUILD" ] || (cd "$ROOT/tools" && npm install --no-audit --no-fund --silent)
 [ -x "$ESBUILD" ] || { echo "no esbuild in tools/node_modules; run 'npm install' in tools/" >&2; exit 1; }
 
+echo "push: start $(date '+%H:%M:%S')"
+
 python3 "$HERE/squeeze.py" "$LIQUID" "$TRANSFORM" "$ESBUILD"
 
 # The squeezed copies have to build, load, and actually lay a map out.
@@ -54,3 +56,4 @@ for v in full half_horizontal half_vertical quadrant; do
 done
 
 (cd "$HERE" && echo "y" | trmnlp push)
+echo "push: done $(date '+%H:%M:%S')"

@@ -225,3 +225,6 @@ calendar-config.json
 progress.md
 node_modules/
 image.png
+
+# working notes for the performance loop (not part of the plugin)
+track.md

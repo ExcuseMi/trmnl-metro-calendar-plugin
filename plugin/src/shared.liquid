@@ -9203,6 +9203,12 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
   function draw() {
     var w = Math.round(canvas.clientWidth), h = Math.round(canvas.clientHeight);
     if (!(w > 40) || !(h > 40)) return;
+    // SAID OUT LOUD, both ends. The device's own logs are the only place a
+    // board that came out wrong can be asked how long it took and whether it
+    // finished at all: a render that is killed mid-solve says "start" and
+    // never says "drawn".
+    if (window.console && console.log) console.log('metro: start ' + w + 'x' + h + (drawn ? ' (again)' : ''));
+    drawn++;
     // Standing up, the day runs down the panel: the axis is the long side
     // whichever that is, and the renderer maps (a, c) back to (x, y).
     var horiz = METRO.orientation === 'vertical' ? false
@@ -9337,6 +9343,11 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
         // disagreed with a caption's time would be two clocks on one map.
         rowH: rowH, clock: clock,
       });
+      if (window.console && console.log) {
+        console.log('metro: drawn in ' + (Date.now() - t0) + 'ms (solve ' + solveMs
+          + 'ms, draw ' + (Date.now() - t0 - solveMs) + 'ms), ' + board.caps.length + ' name(s), '
+          + board.shed + ' shed, ' + board.muddle + ' mistakable');
+      }
       canvas.setAttribute('data-metro-debug', JSON.stringify({
         W: w, H: h, S: S, horizontal: horiz,
         // How long the solve and the drawing took on this machine, so a
@@ -9356,6 +9367,7 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
       }));
     } catch (e) {
       measure.done();
+      if (window.console && console.error) console.error('metro: failed after ' + (Date.now() - t0) + 'ms', e);
       canvas.setAttribute('data-metro-error', String((e && e.message) || e));
       failed(true);
       throw e;
@@ -9376,14 +9388,28 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
   });
   canvas.appendChild(probe);
   void probe.offsetWidth;   // styled now, so the faces it needs are requested now
-  var started = false;
+  var started = false, drawn = 0;
   function start() {
     if (started) return;
     started = true;
     probe.remove();
-    SOLVE_UNTIL = Date.now() + SOLVE_ALL;
-    draw();
-    observe();
+    // ONE SOLVE, NOT TWO. The framework settles its own layout after the
+    // first paint, so the canvas measured at load is often not the canvas
+    // that ends up on the panel: the board was solved, the box changed by a
+    // few pixels, and the whole search ran again -- twice in the preview's
+    // log, and the second run with whatever was left of the three seconds.
+    // A frame is waited for, and the box is asked again; only if it is still
+    // settling does the first draw go ahead anyway.
+    var box = function () { return Math.round(canvas.clientWidth) + 'x' + Math.round(canvas.clientHeight); };
+    var was = box(), tries = 0;
+    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    (function settle() {
+      var now = box();
+      if (now !== was && tries < 10) { was = now; tries++; raf(settle); return; }
+      SOLVE_UNTIL = Date.now() + SOLVE_ALL;
+      draw();
+      observe();
+    })();
   }
   // The page's clock: `solve_seconds` at the top of this file, for the first
   // draw and every redraw together. A test harness running many pages at once
@@ -9409,7 +9435,12 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
       new ResizeObserver(function () {
         var k = Math.round(canvas.clientWidth) + 'x' + Math.round(canvas.clientHeight);
         if (k === last) return;
-        last = k; draw();
+        // A REDRAW GETS ITS OWN CLOCK. Sharing the first draw's, a board that
+        // was resized after three seconds was solved with nothing left and
+        // came out worse than the one it replaced.
+        last = k;
+        SOLVE_UNTIL = Date.now() + SOLVE_ALL;
+        draw();
       }).observe(canvas);
     }
   }
