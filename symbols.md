@@ -156,12 +156,17 @@ the other is not drawn:
 - `stop-from` replaces the dot an event would otherwise start with, and a rail
   that has gone quiet takes no end tick for the event that quieted it.
 
-### The gap, stated plainly
+### A branch takes the dots and nothing else
 
-**A branch has no interrupted form at all.** The end-mark loop skips anything
-with a `branchOf` (`solver/draw.js:1626`), so a spur takes no slash, no
-arrowhead and no dots at either end, whether or not the board cut it off. A
-branch that runs past the edge simply stops. Everything above is about a rail.
+A branch has no *end* marks: no slash, because it does not end, it rejoins;
+no arrowhead, because it is not a line whose whole day is a slice of
+something longer. For a long time it had no dots either, which was the same
+skip applied to all three, and it was wrong: the dots are not an end mark.
+They say the paper ran out, which is a fact about the board and just as true
+of a branch. Bart's rail said "there was more before this" with three dots
+while his Field Trip, one row above and cut at the same minute, said it with
+a half mark pressed against the edge.
 
-That is a real hole rather than a decision, and it is the one behind "replace
-this by a `...` for Bart's interrupted branch line".
+A branch now takes the dots wherever the window clipped it, which is any end
+sitting exactly on the axis. Its half mark stays: that stands in for the
+slash, not for the dots.

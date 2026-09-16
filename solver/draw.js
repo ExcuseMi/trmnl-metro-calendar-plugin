@@ -1636,7 +1636,39 @@ function draw(board, spec, ctx) {
     put(tie, 'origin-tie', st.owners[0]);
   });
   board.lines.forEach(function (ln) {
-    if (ln.branchOf || ln.pts.length < 2) return;
+    if (ln.pts.length < 2) return;
+    // A BRANCH CUT BY THE PAPER SAYS SO THE WAY A RAIL DOES.
+    //
+    // A branch takes none of the end marks below: no slash, because it does
+    // not end, it rejoins; no arrow, because it is not a line whose whole day
+    // is a slice of something longer. That was read as "a branch needs no end
+    // mark", and the dots went with them. But the dots are not an end mark.
+    // They say the paper ran out, which is a fact about the BOARD and is just
+    // as true of a branch: Bart's rail said "there was more before this" with
+    // three dots while his Field Trip, one row above it and cut at the same
+    // minute, said it with a half mark pressed against the edge. Two marks
+    // for one fact, side by side.
+    //
+    // The half mark stays. It stands in for the slash, and the note above the
+    // slash below says so in as many words: "a half mark at the edge stands
+    // in for the slash, but not for the dots".
+    if (ln.branchOf) {
+      [ln.pts[0], ln.pts[ln.pts.length - 1]].forEach(function (p, end) {
+        // Only where the paper cut it. A branch starts where it leaves its
+        // rail and ends where it rejoins, both of them inside the board; one
+        // sitting exactly on the axis end is one the window clipped.
+        if (Math.abs(p[0] - (end ? axisA1 : axisA0)) > 1) return;
+        var bDir = end ? 1 : -1;
+        var bGap = Math.max(RAIL_W * 1.3, 2.6 * S), bR = Math.max(1.2 * S, RAIL_W * 0.42);
+        for (var bi = 1; bi <= 3; bi++) {
+          var bq = xy(p[0] + bDir * bGap * bi, p[1]);
+          var bd = svgEl(doc, 'circle', { cx: bq[0], cy: bq[1], r: bR, stroke: 'none' });
+          bd.style.fill = inkOf(ln.branchOf);
+          put(bd, 'terminal-more', ln.key);
+        }
+      });
+      return;
+    }
     var r = 4 * S, w = Math.max(2 * S, (ln.width || 3) * S);
     [ln.pts[0], ln.pts[ln.pts.length - 1]].forEach(function (p, end) {
       // THE EDGE RING IS THIS END'S MARK, AND THE ONLY ONE. A shared event
