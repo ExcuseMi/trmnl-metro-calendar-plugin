@@ -47,6 +47,19 @@ function ptsKey(pts) {
   return k;
 }
 
+// HOISTED OUT OF positions(), which is the hottest function in a solve and
+// was reallocating both of these array literals on every call (thousands
+// per solve) even though neither is ever written to after it is built.
+//
+// A finer step near the mark: at three tenths the folded "Mensa Meeting"
+// missed a ninety-pixel notch between two verticals by a few pixels on
+// either slide, and was shed on a board that had room for it.
+var POSITION_SLIDES = [0, 0.3, -0.3, 0.55, -0.55, 1.0, -1.0];
+// ...and only against the rail, where a notch between two verticals is
+// worth threading; a row out, every candidate costs a test against every
+// rail and the finer step bought nothing but time.
+var POSITION_FINE = [0, 0.15, -0.15, 0.3, -0.3, 0.55, -0.55, 1.0, -1.0];
+
 // ---------------------------------------------------------------- the wants
 //
 // WHAT A CAPTION IS BEFORE IT HAS A PLACE. `anchor` is the minute it names
@@ -176,14 +189,7 @@ function positions(want, board, opts, ownLine) {
   opts = opts || {};
   var rows = opts.rows || 4;
   var out = [];
-  // A finer step near the mark: at three tenths the folded "Mensa Meeting"
-  // missed a ninety-pixel notch between two verticals by a few pixels on
-  // either slide, and was shed on a board that had room for it.
-  var slides = [0, 0.3, -0.3, 0.55, -0.55, 1.0, -1.0];
-  // ...and only against the rail, where a notch between two verticals is
-  // worth threading; a row out, every candidate costs a test against every
-  // rail and the finer step bought nothing but time.
-  var fine = [0, 0.15, -0.15, 0.3, -0.3, 0.55, -0.55, 1.0, -1.0];
+  var slides = POSITION_SLIDES, fine = POSITION_FINE;
   var step = want.h + 3;
   // A CONVERGENCE'S NAME HANGS OFF ITS BAR. Above it or below it, stepped
   // out and slid along exactly as any other caption is -- the only
