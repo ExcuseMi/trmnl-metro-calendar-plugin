@@ -1225,6 +1225,52 @@ function draw(board, spec, ctx) {
         });
         // The bar itself, solid and the same weight as any other.
         bar(pl.a, pl.c0, pl.c1, pl.id, capGaps(pl));
+        // ...AND A SHELF OFF IT, SAYING HOW FAR THE EVENT RUNS.
+        //
+        // The ring column says three people are together and the quiet rails
+        // say for how long, but quietly: "delivery run doesn't have a shelf
+        // which it should." Every other event of any length is drawn as
+        // something with a length, so this one is too, in the same hollow the
+        // bar and the corridor use -- one wall, one paper core, "the
+        // connector and the branch don't use the exact same style" is a
+        // complaint this grammar already answered once.
+        //
+        // It hangs a bar's depth under the lowest member, which is clear of
+        // that rail and of the name the solver put below it. Only where it is
+        // really clear: the solver booked no paper for this, so a shelf that
+        // would cross any caption is not drawn at all. A missing shelf costs
+        // the reader a duration they can still get from the rails; a shelf
+        // through a name costs them the name.
+        var shTo = null;
+        (pl.ends || []).forEach(function (en) { if (!en.open1 && en.to != null) shTo = en.to; });
+        if (shTo == null && !pl.open1) shTo = pl.to;
+        var shC = pl.c1 + BAR_W;
+        if (shTo != null && shTo > pl.a + NODE_R * 3) {
+          var shClear = (board.caps || []).every(function (cp3) {
+            var cb3 = cp3.box();
+            return !(cb3.a0 < shTo + NODE_R && cb3.a1 > pl.a - NODE_R
+                     && cb3.c0 < shC + BAR_W * 0.5 + 1 * S && cb3.c1 > shC - BAR_W * 0.5 - 1 * S);
+          });
+          if (shClear) {
+            var shD = 'M ' + xy(pl.a, pl.c1).join(' ') + ' L ' + xy(pl.a, shC).join(' ')
+              + ' L ' + xy(shTo, shC).join(' ');
+            var shOut = svgEl(doc, 'path', { d: shD, fill: 'none', 'stroke-width': TUBE_W,
+              'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
+            shOut.style.stroke = INK;
+            put(shOut, 'capsule', pl.id);
+            var shIn = svgEl(doc, 'path', { d: shD, fill: 'none', 'stroke-width': BAR_CORE,
+              'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
+            shIn.style.stroke = PAPER;
+            put(shIn, 'capsule-core', pl.id);
+            // ...ENDING IN A TICK, the way everything that stops does.
+            var shH = Math.max(NODE_R * 1.05, TUBE_W * 0.75);
+            var e0s = xy(shTo, shC - shH), e1s = xy(shTo, shC + shH);
+            var shEnd = svgEl(doc, 'line', { x1: e0s[0], y1: e0s[1], x2: e1s[0], y2: e1s[1],
+              'stroke-width': NODE_STROKE, 'stroke-linecap': 'butt' });
+            shEnd.style.stroke = INK;
+            put(shEnd, 'stop', pl.id);
+          }
+        }
       }
       // THE BAR TUNNELS UNDER A NAME WRITTEN ACROSS IT (captions.js lets one
       // stand there), and under a busy line, and a line with nothing on it
