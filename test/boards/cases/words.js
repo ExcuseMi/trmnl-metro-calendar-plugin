@@ -14,7 +14,13 @@ module.exports = function (test, h) {
 
   // Known, by board: what is wrong, and what it is waiting on.
   const NARROW = 'a narrow column has nowhere to slide two names twenty minutes apart: E36';
+  // A name cut by its OWN spur, on a board the panel has always drawn that
+  // way: the offline ruler was twelve pixels narrow for a name until the
+  // table learned about padding, so this suite called these boards clean
+  // while Chromium reported the cut. See lines.js for the same two boards.
+  const CUT = 'a spur through the line\'s own name, which the panel draws too: the escape cannot reach clear paper';
   const KNOWN = {
+    'seven-lines/og-landscape': CUT,
   };
 
   for (const f of fixtures) {

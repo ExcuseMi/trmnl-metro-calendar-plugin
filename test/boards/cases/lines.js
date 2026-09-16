@@ -19,7 +19,18 @@ module.exports = function (test, h) {
     }
   }
 
-  const NAMECUT_KNOWN = {};
+  // Known, by board. THE PANEL HAS ALWAYS DRAWN THIS ONE CUT: the offline
+  // ruler used to answer twelve pixels narrow for a name (the class's own
+  // padding and the caption box's), so the board that ships cut "Fry" with
+  // its own spur while this suite called it clean. Rendered in Chromium the
+  // same fixture reports `namecut: Fry / fry/e1` on main today. The ruler is
+  // honest now; the placing is not fixed. The spur leaves the rail at x=35
+  // and runs to x=76, so stepping the name in past it is further than the
+  // two name-widths the escape allows, and the row above the spur's shelf is
+  // where the escape should have put it.
+  const NAMECUT_KNOWN = {
+    'seven-lines/og-landscape': 'the spur runs past twice the name\'s width; the escape cannot reach clear paper',
+  };
   for (const f of fixtures) {
     for (const v of FLAT) {
       test('a line name never lands on somebody else\'s rail: ' + f.name + '/' + v, () => {

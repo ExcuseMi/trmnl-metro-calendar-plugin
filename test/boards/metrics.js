@@ -3,20 +3,52 @@
 // A CAPTION'S SIZE WITHOUT A BROWSER, from the real faces' advances.
 //
 // `metrics.json` is written by `calibrate.js` in Chromium: every printable
-// character's width in each class a caption is built from, per device class.
-// This builds the same forms `solver/measure-dom.js` builds -- the same tiers,
-// the same fold, the same cut at the width cap -- and sums the table instead
-// of asking the DOM. It is within a pixel or two of the panel, which is what a
-// solver question needs and not what a question about the words does.
+// character's advance in each class a caption is built from, per device class,
+// with the padding that class and the caption box carry. This builds the same
+// forms `solver/measure-dom.js` builds -- the same tiers, the same fold, the
+// same cut at the width cap -- and sums the table instead of asking the DOM.
+//
+// THE BOX, NOT THE LETTERS. What the solver is handed is the width of the
+// caption's BOX: the widest row, plus that row's own padding, plus the box's.
+// Summing advances alone answered five to sixteen per cent narrow -- "School
+// Run" ruled at 78 and drawn at 90 -- and a narrow answer is the dangerous
+// one, because the paper it does not ask for is handed to somebody else and
+// the suite then passes boards the panel draws on top of each other.
+//
+// Every width here is rounded the way `offsetWidth` rounds, so the answer is
+// the integer the DOM would have given for the same rows.
 
 var path = require('path');
 var TABLE = require('./metrics.json');
 var MD = require(path.join(__dirname, '../../solver/measure-dom'));
 
+// The letters alone, fractional: the sum of the advances, with no padding.
+// BY CHARACTER AND NOT BY CODE UNIT: an emoji is a surrogate pair, and
+// counted as two unknown characters a birthday cake was charged two capital
+// Ms -- eleven pixels of room nobody needed.
 function widthOf(t, s) {
   var n = 0;
-  String(s).split('').forEach(function (ch) { n += t.w[ch] != null ? t.w[ch] : t.w.M; });
+  Array.from(String(s)).forEach(function (ch) {
+    if (t.w[ch] != null) n += t.w[ch];
+    // anything outside the basic plane is an emoji or a symbol, and square
+    else if (ch.codePointAt(0) > 0xffff) n += t.w.emoji != null ? t.w.emoji : t.w.M * 2;
+    else n += t.w.M;
+  });
   return n;
+}
+
+// One block row, as the DOM would measure it: its letters plus the class's
+// own padding (`metro-hour` and `metro-terminus` carry six).
+//
+// ROUNDED THE WAY `offsetWidth` ROUNDS, to nearest, because this number is
+// not only a reservation: it is also what decides whether a caption is too
+// wide for its cap and has to be cut. Rounded up "for safety" it was a
+// pixel over the cap on a caption the panel draws whole, and the bins came
+// out as "Restaf…" on a board where Chromium fits "Restafval · GF(t)/
+// keukenafval". A hair wide is safe in a reservation and wrong in a
+// decision, and the same number is used for both.
+function rowWidth(t, s) {
+  return Math.round(widthOf(t, s) + (t.pad || 0));
 }
 
 function foldTitle(title) {
@@ -41,6 +73,26 @@ function measure(o) {
     if (/text--large/.test(cls)) return dev.large;
     return dev.title;
   }
+  // The caption box round a set of rows: an inline row runs on after the line
+  // before it, an en space apart, so it widens that line rather than adding
+  // one of its own.
+  function lineWidths(rows) {
+    var lines = [];
+    rows.forEach(function (r) {
+      var t = tableFor(r.cls);
+      var wd = widthOf(t, r.text);
+      if (/metro-inline/.test(r.cls) && lines.length) {
+        lines[lines.length - 1] += wd + (t.w[' '] != null ? t.w[' '] : widthOf(t, ' ') * 2);
+      } else {
+        lines.push(wd + (t.pad || 0));
+      }
+    });
+    return lines;
+  }
+  function boxWidth(rows) {
+    var pad = rows.length ? (tableFor(rows[0].cls).boxPad || 0) : 0;
+    return Math.round(Math.max.apply(null, lineWidths(rows)) + pad);
+  }
   function fn(ev) {
     var title = ev.title || '';
     var forms = [];
@@ -50,32 +102,28 @@ function measure(o) {
       var rows = MD.stackRows(ev, t, halves, function (part) { return part.start_min != null ? timeText(part) : null; });
       if (!rows.length) return;
       var ti = MD.titleRow(rows);
-      function widthNow() {
-        // an inline row runs on after the line before it, an en space apart
-        var lines = [];
-        rows.forEach(function (r) {
-          var wd = widthOf(tableFor(r.cls), r.text);
-          if (/metro-inline/.test(r.cls) && lines.length) lines[lines.length - 1] += wd + widthOf(tableFor(r.cls), ' ') * 2;
-          else lines.push(wd);
-        });
-        return Math.max.apply(null, lines);
-      }
-      var w = widthNow();
+      var w = boxWidth(rows);
       var capW = t.clip ? Math.round(maxW * t.clip) : maxW;
-      if (t.clip && widthOf(tableFor(rows[ti].cls), rows[ti].text) <= capW) return;
+      // the clip test is the title ROW's own width, as measure-dom asks it
+      if (t.clip && rowWidth(tableFor(rows[ti].cls), rows[ti].text) <= capW) return;
       if (w > capW) {
-        var tail = rows[ti].tail || '', cut = rows[ti].text.slice(0, rows[ti].text.length - tail.length), tb = tableFor(rows[ti].cls);
-        while (cut.length > 1 && widthOf(tb, cut + '…' + tail) > capW) cut = cut.slice(0, -1);
-        rows[ti].text = cut + '…' + tail;
+        var tail = rows[ti].tail || '', cut = rows[ti].text.slice(0, rows[ti].text.length - tail.length);
+        var tb = tableFor(rows[ti].cls);
+        while (cut.length > 1) {
+          rows[ti].text = cut + '…' + tail;
+          // a crowded stretch is cut row by row, everything else by the box
+          if (ev.crowd ? rowWidth(tb, rows[ti].text) <= capW : boxWidth(rows) <= capW) break;
+          cut = cut.slice(0, -1);
+        }
         // a crowded stretch: each row cut to the width on its own (measure-dom)
         if (ev.crowd) rows.forEach(function (r) {
           var t2 = tableFor(r.cls);
-          if (r.tail || widthOf(t2, r.text) <= capW) return;
+          if (r.tail || rowWidth(t2, r.text) <= capW) return;
           var c2 = r.text;
-          while (c2.length > 1 && widthOf(t2, c2 + '…') > capW) c2 = c2.slice(0, -1);
+          while (c2.length > 1 && rowWidth(t2, c2 + '…') > capW) c2 = c2.slice(0, -1);
           r.text = c2 + '…';
         });
-        w = widthNow();
+        w = boxWidth(rows);
       }
       var h = rows.reduce(function (n, r) { return /metro-inline/.test(r.cls) ? n : n + tableFor(r.cls).h; }, 0);
       forms.push({ w: w, h: h, size: t.size, rung: t.rung,
@@ -85,9 +133,12 @@ function measure(o) {
     });
     return forms;
   }
-  fn.plain = function (title) { return { w: widthOf(dev.title, title), h: dev.title.h }; };
+  // The plugin's own `plain`: the single-row, full-size form, box and all.
+  fn.plain = function (title) {
+    return { w: boxWidth([{ cls: 'metro-title-text text--base text--bold', text: String(title) }]), h: dev.title.h };
+  };
   fn.done = function () {};
   return fn;
 }
 
-module.exports = { measure: measure, widthOf: widthOf, TABLE: TABLE };
+module.exports = { measure: measure, widthOf: widthOf, rowWidth: rowWidth, TABLE: TABLE };

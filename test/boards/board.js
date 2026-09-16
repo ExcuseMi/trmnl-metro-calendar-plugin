@@ -117,8 +117,16 @@ function specOf(metro, v, o, extra) {
   var measure = metrics.measure({ dev: o.dev, base: o.base, maxWidth: Math.round(o.along * 0.3), large: !v.slot,
                                   hour12: !!metro.hour12, clock: clockFor(metro) });
   var probe = measure.plain('Mg');
+  // A NAME IN ITS OWN CLASS AS WELL AS THE TITLE'S, which is what the template
+  // asks: a terminus is `metro-terminus`, and that class carries six pixels of
+  // padding the title row does not.
+  var nameTab = metrics.TABLE[o.dev].name;
+  var nameH = Math.max(Math.round(probe.h), nameTab.h);
   var nameW = {};
-  (metro.legend || []).forEach(function (p) { nameW[p.key] = Math.round(measure.plain(p.name || p.key).w); });
+  (metro.legend || []).forEach(function (p) {
+    var t = p.name || p.key;
+    nameW[p.key] = Math.max(Math.round(measure.plain(t).w), metrics.rowWidth(nameTab, t));
+  });
   // Standing up the strip is a column as thick as the clock pill (see the
   // template): the small bold face plus the pill's own inset.
   var stripThick = 0;
@@ -126,13 +134,13 @@ function specOf(metro, v, o, extra) {
     var small = metrics.TABLE[o.dev].small;
     var clock = clockFor(metro);
     [10 * 60, 12 * 60, 23 * 60].forEach(function (m) {
-      stripThick = Math.max(stripThick, metrics.widthOf(small, clock(m)) + 6);
+      stripThick = Math.max(stripThick, Math.ceil(metrics.widthOf(small, clock(m)) + 6));
     });
     stripThick += Math.round(4 * o.S);
   }
   return Day.specFor(metro, { w: o.along, h: o.across }, Object.assign({
     standing: !o.horiz, stripThick: stripThick,
-    nameH: Math.round(probe.h), nameW: nameW,
+    nameH: nameH, nameW: nameW,
     markR: Math.round(6 * 1.15 * o.S), corner: Math.round(13 * o.S),
     pad: Math.round(4 * o.S), rowH: o.rowH, cell: Math.round(o.base * 0.55),
     alert: null, measure: measure, oneName: !!v.slot,
