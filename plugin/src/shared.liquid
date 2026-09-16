@@ -3513,6 +3513,18 @@ function boardFor(spec, st) {
     if (!m) return fx;
     return Object.assign({}, fx, { route: m.movedRoute, rows: 2, a0: fx.a1 - Math.max(fx.nameW, m.routeW) });
   });
+  // EVERY LINE'S NAMES, BY LINE. Deciding where one name goes asks, for each
+  // rail on the board, how tall THAT rail's name is at this end -- which was
+  // a scan of all the board's fixed ink, inside a loop over the lines, inside
+  // a loop over the names. Three deep on a seven-line board is ten million
+  // comparisons over a hard solve, and every one of them is looking for one
+  // of two entries. They are indexed here instead, in the order they would
+  // have been found, so the last match still wins.
+  var headsOf = {};
+  headFx.forEach(function (g) {
+    if (g.kind !== 'terminus') return;
+    (headsOf[g.line] = headsOf[g.line] || []).push(g);
+  });
   headFx.forEach(function (fx) {
     var f = { id: fx.id, kind: fx.kind, text: fx.text, align: fx.align,
               // Carried through rather than looked up again at drawing time:
@@ -3616,10 +3628,11 @@ function boardFor(spec, st) {
         if (oc < c - 0.5 && oc > prevC) prevC = oc + Math.max(spec.railGap, (spec.markR || 0) + 3);
         // the next rail's own name sits above IT, in the same gap, as tall as
         // THAT name is: one with a route row under it is two rows
-        var oh = nh;
-        headFx.forEach(function (g) {
-          if (g.kind === 'terminus' && g.line === o.key && Math.abs((g.at == null ? spec.axis.a1 : g.at) - atA) < 1) oh = headH(g);
-        });
+        var oh = nh, mine = headsOf[o.key];
+        if (mine) for (var mi = 0; mi < mine.length; mi++) {
+          var g = mine[mi];
+          if (Math.abs((g.at == null ? spec.axis.a1 : g.at) - atA) < 1) oh = headH(g);
+        }
         if (oc > c + 0.5 && oc - spec.railGap * 1.5 - oh < nextC) nextC = oc - spec.railGap * 1.5 - oh;
       });
       // ...AND CLEAR OF A NAME ALREADY SET IN THAT GAP. A top line's name
