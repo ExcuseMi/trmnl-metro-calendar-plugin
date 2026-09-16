@@ -1244,7 +1244,16 @@ function draw(board, spec, ctx) {
         var shTo = null;
         (pl.ends || []).forEach(function (en) { if (!en.open1 && en.to != null) shTo = en.to; });
         if (shTo == null && !pl.open1) shTo = pl.to;
-        var shC = pl.c1 + BAR_W;
+        // A FULL RAIL GAP OF PAPER UNDER THE RAIL, measured off that rail's
+        // own weight rather than guessed: a bar's depth from the line's
+        // centre left about three units of white between the two and they
+        // read as one thick thing -- "its too close to the other track".
+        var shHalf = 0;
+        members.forEach(function (k6) {
+          var l6 = board.lineByKey(k6);
+          if (l6) shHalf = Math.max(shHalf, railStroke(l6, k6).width / 2);
+        });
+        var shC = pl.c1 + shHalf + LINE_GAP + TUBE_W / 2;
         if (shTo != null && shTo > pl.a + NODE_R * 3) {
           var shClear = (board.caps || []).every(function (cp3) {
             var cb3 = cp3.box();
