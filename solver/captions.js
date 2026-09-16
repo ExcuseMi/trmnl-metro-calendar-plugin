@@ -748,7 +748,29 @@ function solve(wants, board, opts) {
     // of the event, the envelope was narrower than a caption that slides:
     // "Groceries" set a long way right of its mark was never tested against
     // "Sam" at the edge, and was written against it.
-    var ps0 = positions(w, board, opts, own);
+    // ...AND THE CANDIDATES THEMSELVES ARE REMEMBERED THE SAME WAY. The
+    // cache below is asked only once the candidates have been built and the
+    // neighbourhood gathered, so a hit still paid for `positions`, which is
+    // the single hottest function in a solve. Where a caption's words, its
+    // rail's points and its trunk's points are the ones it saw last time,
+    // the answer cannot have changed: every slide and row is arithmetic on
+    // those. `overBar` is the one thing `readable` writes onto a candidate,
+    // so it is cleared on the way out rather than carried from a board where
+    // the bar stood somewhere else.
+    var ps0, pKey = null;
+    if (cache) {
+      var trunkLn = own && own.branchOf ? board.lineByKey(own.branchOf) : null;
+      pKey = 'P|' + w.id + '|' + w.form + '|' + w.w + 'x' + w.h + '|' + (opts.rows || 4) + '|' + w.gap + '|' + w.pad
+        + '|' + w.a0 + ',' + w.a1 + ',' + (w.endAt == null ? '' : w.endAt) + ',' + (w.beside ? 1 : 0)
+        + '|' + (own ? own.key + ':' + ptsKey(own.pts) : '')
+        + '|' + (trunkLn ? trunkLn.key + ':' + ptsKey(trunkLn.pts) : '')
+        + '|' + (pill ? pill.id + ':' + pill.a0 + ',' + pill.a1 + ',' + pill.c0 + ',' + pill.c1 + ',' + pill.r + ',' + pill.tie : '');
+      ps0 = cache[pKey];
+    }
+    if (!ps0) {
+      ps0 = positions(w, board, opts, own);
+      if (cache) cache[pKey] = ps0;
+    }
     var env = { a0: w.a0 - w.w * 1.2 - w.pad - 4, a1: w.a1 + w.w * 1.2 + w.pad + 4,
                 c0: ob.c0 - reach, c1: ob.c1 + reach };
     ps0.forEach(function (p) {
