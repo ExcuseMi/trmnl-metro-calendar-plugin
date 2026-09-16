@@ -225,7 +225,7 @@ function report(built) {
       faults: BoardM.check(b).map(function (f) {
         return f.kind + ': ' + (f.what || '') + (f.with ? ' / ' + f.with : '') + (f.by ? ' / ' + f.by : '');
       }),
-      drawn: b.drawn, gaps: (b.gaps || []).map(Math.round),
+      drawn: b.drawn, gaps: Array.prototype.slice.call(b.gaps || []).map(Math.round),
       win: [spec.metro.day_start_min, spec.metro.day_end_min],
       days: (spec.metro.days || []).length || 1,
       midnights: (spec.cuts || []).map(function (a) { return [a, a]; }),

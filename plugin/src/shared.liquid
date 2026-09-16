@@ -9864,7 +9864,13 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
           return f.kind + ': ' + (f.what || '') + (f.with ? ' / ' + f.with : '')
             + (f.by ? ' / ' + f.by : '');
         }),
-        drawn: board.drawn, gaps: (board.gaps || []).map(Math.round),
+        // A REAL ARRAY, WHATEVER THE SEARCH KEEPS ITS GAPS IN. The band
+        // search holds them in a Float64Array now, and a typed array's own
+        // `map` gives back another typed array, which JSON writes as
+        // {"0":..,"1":..} with no length at all: verify-build printed "NaN
+        // line(s) laid out" on every deploy, and anything reading the gaps
+        // out of data-metro-debug got an object where it wanted a list.
+        drawn: board.drawn, gaps: Array.prototype.slice.call(board.gaps || []).map(Math.round),
         tried: board.tried
       }));
     } catch (e) {
