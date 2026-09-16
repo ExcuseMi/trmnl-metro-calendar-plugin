@@ -8192,6 +8192,61 @@ function draw(board, spec, ctx) {
       // first minute of the paper: no bar and no rings at the edge, only
       // its spur arriving under the half dot (rule 2g).
       var atEdge = pl.open0 && pl.a <= axisA0 + 1;
+      // ...BUT ITS NAME STILL HAS TO HANG ON SOMETHING. With no bar and no
+      // rings there was nothing on the paper for the caption to belong to,
+      // and a shared event already running when the board opened left its
+      // name loose beside the frame: "Delivery Run is just floating now, not
+      // attached to anything." It takes the form rule 56 gives a holiday
+      // several people share, a dashed tie standing just outside the frame.
+      // Dashed and outside is the whole point: it says they met off the
+      // paper rather than at its first minute, which is what the missing bar
+      // was protecting, while still giving the name a thing to be tied to.
+      if (atEdge) {
+        var ecs = members.map(function (k2) {
+          var el2 = board.lineByKey(k2);
+          return el2 && el2.pts.length ? el2.pts[0][1] : null;
+        }).filter(function (c3) { return c3 != null; });
+        if (ecs.length > 1) {
+          var eAt = axisA0 - NODE_R;
+          var eLo = Math.min.apply(null, ecs), eHi = Math.max.apply(null, ecs);
+          // ...AND IT RUNS ON INTO THE NAME. Ending at the last member the tie
+          // was a mark the caption merely sat near, which is what it was for:
+          // the name has to be JOINED to it. So where the words are outside
+          // the members' own span it carries on past the last of them, turns
+          // at the first row's height and stops a hair short of the letters.
+          // Short of them, never across them: a stroke over the words is ink
+          // on ink, and the tie would cost the reader the name it came to
+          // fetch.
+          var eSeg = [[eAt, eLo], [eAt, eHi]];
+          var eCap = null;
+          (board.caps || []).forEach(function (c4) { if (c4.pill === pl.id) eCap = c4; });
+          if (eCap) {
+            var eb = eCap.box();
+            var eSign = eb.c0 >= eHi ? 1 : (eb.c1 <= eLo ? -1 : 0);
+            if (eSign) {
+              var eRows = eCap.rows && eCap.rows.length ? eCap.rows.filter(function (t2, i2) {
+                return !(eCap.rowCls && /metro-inline/.test(eCap.rowCls[i2] || ''));
+              }).length : 0;
+              var eRowH = eRows ? eCap.h / eRows : eCap.h;
+              var eMid = eSign > 0 ? eb.c0 + eRowH / 2 : eb.c1 - eRowH / 2;
+              var eEnd = eb.a0 - 2 * S;
+              if (eEnd > eAt + 2 * S) {
+                eSeg = eSign > 0 ? [[eAt, eLo], [eAt, eMid], [eEnd, eMid]]
+                                 : [[eAt, eHi], [eAt, eMid], [eEnd, eMid]];
+              }
+            }
+          }
+          var eD = eSeg.map(function (q, i3) {
+            var xyq = xy(q[0], q[1]);
+            return (i3 ? 'L ' : 'M ') + xyq[0] + ' ' + xyq[1];
+          }).join(' ');
+          var eTie = svgEl(doc, 'path', { d: eD,
+            fill: 'none', 'stroke-width': 1.5 * S, 'stroke-dasharray': (3 * S) + ' ' + (4 * S),
+            'stroke-linecap': 'butt', 'stroke-linejoin': 'miter' });
+          eTie.style.stroke = INK;
+          put(eTie, 'open-tie', members[0]);
+        }
+      }
       // THE BAR TUNNELS UNDER A NAME WRITTEN ACROSS IT (captions.js lets one
       // stand there), and under a busy line, and a line with nothing on it
       // bridges it: in every case the bar leaves a gap and whatever crosses
