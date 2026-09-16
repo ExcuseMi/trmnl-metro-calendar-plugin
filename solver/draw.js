@@ -1032,6 +1032,13 @@ function draw(board, spec, ctx) {
   function cut(pl, end) {
     (pl.lines || []).forEach(function (k) { (uncapped[k] = uncapped[k] || [])[end] = true; });
   }
+  // A branch's own event, by the rail key the solver gave it: open0 and open1
+  // are the transform's answer to "does this run past the window", which is
+  // what the three dots are for.
+  var branchOpen = {};
+  (spec.wants || []).forEach(function (w) {
+    if (w._rail) branchOpen[w._rail] = [!!w.open0, !!w.open1];
+  });
   var edgeDots = {};  // line -> its "..." has moved inside, past the edge ring
   var edgeShift = {}; // line -> where its name has to start to clear that ring
   var tiedAt = {};   // line -> [a]: a ring already marks this minute
@@ -1266,6 +1273,14 @@ function draw(board, spec, ctx) {
           var l6 = board.lineByKey(k6);
           if (l6) shHalf = Math.max(shHalf, railStroke(l6, k6).width / 2);
         });
+        // UNDER THE LOWEST MEMBER, where the event's own name usually is, so
+        // the two read together. Only where the paper there is clear: the
+        // solver books none for this, so a shelf that would cross a caption
+        // is not drawn. Measured on the demo days at five times of day across
+        // six views, sixteen boards want a shelf and sixteen get one, so the
+        // guard costs nothing in practice; an "if it does not fit below, try
+        // above" fallback was written, measured at the same sixteen, and
+        // dropped as a path nothing reaches.
         var shC = pl.c1 + shHalf + LINE_GAP + TUBE_W / 2;
         if (shTo != null && shTo > pl.a + NODE_R * 3) {
           var shClear = (board.caps || []).every(function (cp3) {
@@ -1653,10 +1668,19 @@ function draw(board, spec, ctx) {
     // slash below says so in as many words: "a half mark at the edge stands
     // in for the slash, but not for the dots".
     if (ln.branchOf) {
+      // WHAT THE PAYLOAD SAYS, CONFIRMED BY WHERE THE BRANCH ENDS. An event
+      // carries open0 and open1 from the transform, which set them by
+      // comparing its own minutes to the window's: that is the board saying
+      // "there was more of this than fits", and it is the fact the dots
+      // report. The geometry alone was a guess that happened to hold -- a
+      // branch beginning at the board's very first minute of its own accord
+      // would have been given dots it had no right to.
+      var bOpen = branchOpen[ln.key] || [false, false];
       [ln.pts[0], ln.pts[ln.pts.length - 1]].forEach(function (p, end) {
-        // Only where the paper cut it. A branch starts where it leaves its
-        // rail and ends where it rejoins, both of them inside the board; one
-        // sitting exactly on the axis end is one the window clipped.
+        if (!bOpen[end]) return;
+        // ...AND CUT HERE. The payload says the event runs past the window;
+        // this says the branch drawn for it really does reach the paper's
+        // edge, so the dots are put where the ink stops.
         if (Math.abs(p[0] - (end ? axisA1 : axisA0)) > 1) return;
         var bDir = end ? 1 : -1;
         var bGap = Math.max(RAIL_W * 1.3, 2.6 * S), bR = Math.max(1.2 * S, RAIL_W * 0.42);
