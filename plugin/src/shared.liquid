@@ -1395,7 +1395,13 @@ Want.prototype.clone = function () {
 // four numbers and it covers everything the old pass expressed as five
 // separate mechanisms.
 
-function positions(want, board, opts) {
+// `ownLine` is the rail already resolved by the caller (solve() below always
+// has it, having just looked it up itself to build `near`), so it is passed
+// through rather than looked up a second time -- `board.lineByKey` is a
+// linear scan and this is the hottest function in a solve (profiled at over
+// 8% on its own). Optional and re-derived when absent so positions() still
+// stands alone for anything that calls it directly.
+function positions(want, board, opts, ownLine) {
   opts = opts || {};
   var rows = opts.rows || 4;
   var out = [];
@@ -1472,7 +1478,7 @@ function positions(want, board, opts) {
   }
   // The rail this event actually sits on, which is its own branch when it
   // took a shelf and its owner's trunk otherwise.
-  var line = board.lineByKey(want._rail || want.line);
+  var line = ownLine !== undefined ? ownLine : board.lineByKey(want._rail || want.line);
   if (!line) return out;
   // TWO RAILS TO STAND BESIDE, WHERE THE EVENT IS A SLOPE.
   //
@@ -1959,7 +1965,7 @@ function solve(wants, board, opts) {
     // of the event, the envelope was narrower than a caption that slides:
     // "Groceries" set a long way right of its mark was never tested against
     // "Sam" at the edge, and was written against it.
-    var ps0 = positions(w, board, opts);
+    var ps0 = positions(w, board, opts, own);
     var env = { a0: w.a0 - w.w * 1.2 - w.pad - 4, a1: w.a1 + w.w * 1.2 + w.pad + 4,
                 c0: ob.c0 - reach, c1: ob.c1 + reach };
     ps0.forEach(function (p) {
