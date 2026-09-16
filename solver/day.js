@@ -1179,6 +1179,9 @@ function fixedFor(metro, scale, axis, cross, opts) {
   // name with the same ruler it measures captions with and passes them in;
   // a caller without a ruler still gets the character count.
   var wide = (opts && opts.nameW) || {};
+  // Room for a name and a row under it, on every line the board carries.
+  var nameH1 = (opts && opts.nameH) || (rowH + 6);
+  var deepEnough = (cross.c1 - cross.c0) / Math.max(1, (metro.legend || []).length) >= nameH1 * 2 + 6;
   // A few pixels clear of the caption that ends against it: measured flush,
   // "Moe's Tavern" standing up ran six pixels into "Homer" on the panel.
   var NAME_CLEAR = 4;
@@ -1198,7 +1201,14 @@ function fixedFor(metro, scale, axis, cross, opts) {
     // state that only starts on a later day is named at the far end, where
     // that day is: "Away in Leeds · Tue" at the left was read as tonight's.
     var one = !!(opts && opts.oneName);
-    var routes = routeRows((opts && opts.states) || [], p.key, one);
+    // ...AND NOT AT ALL ON A PANEL WITH NO ROOM FOR TWO ROWS. A name with a
+    // route row under it is twice as deep, and a flat slot five lines deep in
+    // a hundred and sixty pixels has thirty for each of them: the second row
+    // was drawn across the line below ("Daan" with the next rail through it),
+    // and the band search cannot mend that -- kept off the rail it landed on
+    // the next name instead. Withheld here, the board never sees the taller
+    // box, and what the line is today is said by the band behind the rail.
+    var routes = deepEnough ? routeRows((opts && opts.states) || [], p.key, one) : [null, null];
     var rw1 = routes[1] ? routes[1].length * cell * 0.85 + rowH : 0;
     if (!one) out.push({ id: 'name:' + p.key, kind: 'terminus', line: p.key, text: t, level: lv,
                route: routes[1], rows: routes[1] ? 2 : 1, nameW: w + NAME_CLEAR,
