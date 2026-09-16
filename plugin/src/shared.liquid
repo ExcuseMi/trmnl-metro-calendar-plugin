@@ -7142,6 +7142,8 @@ function draw(board, spec, ctx) {
   // and the same walls, "the connector and the branch don't use the exact same
   // style".
   var BAR_W = NODE_R * 1.3, TUBE_W = BAR_W, BAR_CORE = BAR_W - 2 * NODE_STROKE * 0.8;
+  // How much of a crossing's ring an edge ring is. See the note where it is drawn.
+  var EDGE_RING = 0.75;
 
   function X(a, c) { return horizontal ? a : c; }
   function Y(a, c) { return horizontal ? c : a; }
@@ -8122,15 +8124,16 @@ function draw(board, spec, ctx) {
     im.style.width = size + 'px'; im.style.height = size + 'px';
     return im;
   }
-  function initialIn(q, k) {
+  function initialIn(q, k, scale) {
     if (spec.oneName || !initials[k]) return;
+    scale = scale == null ? 1 : scale;
     var txt = initials[k], two = txt.length > 1;
     var t = svgEl(doc, 'text', { x: q[0], y: q[1] });
     // the size as a style property: the template's linter counts the
     // hyphenated names of a few CSS properties anywhere in the markup
     t.setAttribute('text-anchor', 'middle');
     t.setAttribute('dominant-baseline', 'central');
-    t.style.fontSize = (NODE_R * (two ? 1.2 : 1.55)) + 'px';
+    t.style.fontSize = (NODE_R * (two ? 1.2 : 1.55) * scale) + 'px';
     t.style.fontWeight = '700';
     t.textContent = txt;
     t.style.fill = INK;
@@ -8217,7 +8220,13 @@ function draw(board, spec, ctx) {
       // and the track." The ring takes the rail's start, the dots stand to
       // its right, and the rail's ink begins after them.
       if (atEdge) {
-        var eRingR = NODE_R * 1.4 + NODE_STROKE * 0.5;
+        // SMALLER THAN A CROSSING'S RING. An edge ring is not an interchange
+        // in the middle of the board, it is a note at the edge saying these
+        // three were already together, and at a crossing's full size it sat
+        // in the gutter like the main event of that corner and pushed every
+        // name out past the dots. Three quarters of one reads as the same
+        // mark, quieter, and gives the row above it back to the names.
+        var eRingR = NODE_R * 1.4 * EDGE_RING + NODE_STROKE * 0.5;
         var eGap = Math.max(RAIL_W * 1.3, 2.6 * S);
         var eDr = Math.max(1.2 * S, RAIL_W * 0.42);
         var eFrom = pl.a + eRingR + eGap * 4;
@@ -8227,7 +8236,11 @@ function draw(board, spec, ctx) {
           // The rail's own ink pulled back off the ring and the dots, so they
           // stand on paper rather than on top of the line they belong to.
           edgeDots[k5] = true;
-          edgeShift[k5] = eFrom;
+          // RIGHT NEXT TO THE CONNECTOR. The name used to start after the
+          // dots, which is where the RAIL starts; but a name sits a row above
+          // its rail, so the dots are never in its way and only the ring ever
+          // was. Clear of the ring is far enough.
+          edgeShift[k5] = pl.a + eRingR + eGap;
           var w5 = railStroke(l5, k5).width + 1.2 * S;
           var c5 = l5.cAt(pl.a);
           if (c5 == null) return;
@@ -8368,7 +8381,7 @@ function draw(board, spec, ctx) {
         if (c == null) return;
         var q = xy(pl.a, c);
         var lettered = !spec.oneName && initials[k];
-        var rr = NODE_R * (lettered ? 1.4 : 1);
+        var rr = NODE_R * (lettered ? 1.4 : 1) * (atEdge ? EDGE_RING : 1);
         // (a task's rings are squares, as its stop is)
         var ring = pl.todo
           ? svgEl(doc, 'rect', { x: q[0] - rr * 0.9, y: q[1] - rr * 0.9, width: rr * 1.8, height: rr * 1.8,
@@ -8383,7 +8396,7 @@ function draw(board, spec, ctx) {
         // rule that every ring is a crossing is real and stays, so this one
         // carries its own name rather than quietly weakening it.
         put(ring, atEdge ? 'ring-edge' : 'ring', k);
-        if (lettered) initialIn(q, k);
+        if (lettered) initialIn(q, k, atEdge ? EDGE_RING : 1);
         (tiedAt[k] = tiedAt[k] || []).push(pl.a);
       });
       return;
