@@ -9388,6 +9388,27 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
   });
   canvas.appendChild(probe);
   void probe.offsetWidth;   // styled now, so the faces it needs are requested now
+  // ...AND ONE MORE, IF THE PANEL REALLY DOES CHANGE SIZE LATER.
+  //
+  // Armed two seconds after the board is drawn, so the staging a preview does
+  // while it loads is over before anything is listening, and it fires at most
+  // once: a board laid out for a box that no longer exists is worth one more
+  // search, and a panel that keeps moving is not worth an unbounded number.
+  function watchLate(was) {
+    if (!window.ResizeObserver) return;
+    setTimeout(function () {
+      var ro = new ResizeObserver(function () {
+        var now = Math.round(canvas.clientWidth) + 'x' + Math.round(canvas.clientHeight);
+        if (now === was) return;
+        ro.disconnect();
+        if (window.console && console.log) console.log('metro: panel is now ' + now + ', laying out again');
+        SOLVE_UNTIL = Date.now() + SOLVE_ALL;
+        draw();
+      });
+      ro.observe(canvas);
+    }, 2000);
+  }
+
   var started = false, drawn = 0;
   function start() {
     if (started) return;
@@ -9417,6 +9438,7 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
       }
       SOLVE_UNTIL = Date.now() + SOLVE_ALL;
       draw();
+      watchLate(box());
     })();
   }
   // The page's clock: `solve_seconds` at the top of this file, for the first
