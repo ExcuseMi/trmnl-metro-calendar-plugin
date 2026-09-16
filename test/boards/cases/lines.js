@@ -238,7 +238,16 @@ module.exports = function (test, h) {
       const inIt = new Set();
       f.metro.all_day.forEach((a) => a.owners.forEach((k) => inIt.add(k)));
       const open = pathsWhere(rep, 'terminal-open');
-      for (const k of inIt) assertEqual(open.filter((p) => p.owner === k).length, 2, k + '\'s open ends');
+      // AN EDGE RING IS AN OPEN END TOO, drawn differently. Where a shared
+      // event that was already running when the board opened puts a ring on a
+      // rail's first point, an arrow there is drawn straight through the
+      // line's own initial, so that end is carried by the ring and the three
+      // dots beside it instead. Same statement to the reader, "there was more
+      // before this", in the mark the crossing leaves room for.
+      const edgeRings = rep.circles.filter((c) => c.role === 'ring-edge');
+      const opensFor = (k) => open.filter((p) => p.owner === k).length
+        + edgeRings.filter((c) => c.owner === k).length;
+      for (const k of inIt) assertEqual(opensFor(k), 2, k + '\'s open ends');
       assert(open.every((p) => inIt.has(p.owner)), 'a line not in any all-day state ends open');
       if (f.metro.all_day.some((a) => a.owners.length > 1)) {
         assert(pathsWhere(rep, 'origin-tie').length > 0, 'a shared state names one head and ties nothing to the others');

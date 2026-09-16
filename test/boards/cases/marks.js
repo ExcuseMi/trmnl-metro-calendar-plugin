@@ -21,7 +21,7 @@ module.exports = function (test, h) {
         const rep = layout(f, v);
         const rs = rails(rep);
         const bad = [];
-        const marks = rep.circles.filter((c) => /^(ring|stop|stop-start)$/.test(c.role));
+        const marks = rep.circles.filter((c) => /^(ring|ring-edge|stop|stop-start)$/.test(c.role));
         for (const c of marks) {
           const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
           let best = Infinity;
@@ -35,6 +35,12 @@ module.exports = function (test, h) {
   }
 
   // A RING IS AN INTERCHANGE, so its line runs through it, not up to it.
+  //
+  // `ring-edge` is the one exception and it is a different mark: a shared
+  // event that was already running when the board opened meets at the paper's
+  // first minute, so its rail STARTS under the ring and there is nothing to
+  // the left of it to run through. The dots beside it carry what came before.
+  // It is still held to sitting on a rail, above.
   for (const f of fixtures) {
     test('a line passes through every ring from both sides: ' + f.name, () => {
       const rep = layout(f, 'x-landscape');

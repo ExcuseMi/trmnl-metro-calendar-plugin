@@ -8050,6 +8050,8 @@ function draw(board, spec, ctx) {
   function cut(pl, end) {
     (pl.lines || []).forEach(function (k) { (uncapped[k] = uncapped[k] || [])[end] = true; });
   }
+  var edgeDots = {};  // line -> its "..." has moved inside, past the edge ring
+  var edgeShift = {}; // line -> where its name has to start to clear that ring
   var tiedAt = {};   // line -> [a]: a ring already marks this minute
   // WHOSE RING IT IS, IN LETTERS. "Put small inline initials directly inside
   // the event nodes, so she doesn't have to follow line patterns to figure
@@ -8198,60 +8200,51 @@ function draw(board, spec, ctx) {
       // first minute of the paper: no bar and no rings at the edge, only
       // its spur arriving under the half dot (rule 2g).
       var atEdge = pl.open0 && pl.a <= axisA0 + 1;
-      // ...BUT ITS NAME STILL HAS TO HANG ON SOMETHING. With no bar and no
-      // rings there was nothing on the paper for the caption to belong to,
-      // and a shared event already running when the board opened left its
-      // name loose beside the frame: "Delivery Run is just floating now, not
-      // attached to anything." It takes the form rule 56 gives a holiday
-      // several people share, a dashed tie standing just outside the frame.
-      // Dashed and outside is the whole point: it says they met off the
-      // paper rather than at its first minute, which is what the missing bar
-      // was protecting, while still giving the name a thing to be tied to.
+      // ...BUT ITS NAME STILL HAS TO HANG ON SOMETHING, AND IT HAS TO LOOK
+      // LIKE AN INTERCHANGE. A shared event already running when the board
+      // opened left its name loose beside the frame: "Delivery Run is just
+      // floating now, not attached to anything." A dashed rule in the gutter
+      // did not fix it, because nothing about it was the shape the board
+      // uses for people meeting: "the connector is just like the normal one."
+      //
+      // So it IS the normal one, a ring on each member's rail and a solid bar
+      // joining them, and the fact that they met before the paper began is
+      // carried by the three dots instead. Those dots already exist at this
+      // end of every rail that runs on past the edge, sitting in the gutter
+      // and spilling off it -- there is no room out there for a ring, the
+      // gutter being twelve units wide and a lettered ring twenty-nine. So
+      // they change sides: "the 3 dots go between the Hollow Dot with letter
+      // and the track." The ring takes the rail's start, the dots stand to
+      // its right, and the rail's ink begins after them.
       if (atEdge) {
-        var ecs = members.map(function (k2) {
-          var el2 = board.lineByKey(k2);
-          return el2 && el2.pts.length ? el2.pts[0][1] : null;
-        }).filter(function (c3) { return c3 != null; });
-        if (ecs.length > 1) {
-          var eAt = axisA0 - NODE_R;
-          var eLo = Math.min.apply(null, ecs), eHi = Math.max.apply(null, ecs);
-          // ...AND IT RUNS ON INTO THE NAME. Ending at the last member the tie
-          // was a mark the caption merely sat near, which is what it was for:
-          // the name has to be JOINED to it. So where the words are outside
-          // the members' own span it carries on past the last of them, turns
-          // at the first row's height and stops a hair short of the letters.
-          // Short of them, never across them: a stroke over the words is ink
-          // on ink, and the tie would cost the reader the name it came to
-          // fetch.
-          var eSeg = [[eAt, eLo], [eAt, eHi]];
-          var eCap = null;
-          (board.caps || []).forEach(function (c4) { if (c4.pill === pl.id) eCap = c4; });
-          if (eCap) {
-            var eb = eCap.box();
-            var eSign = eb.c0 >= eHi ? 1 : (eb.c1 <= eLo ? -1 : 0);
-            if (eSign) {
-              var eRows = eCap.rows && eCap.rows.length ? eCap.rows.filter(function (t2, i2) {
-                return !(eCap.rowCls && /metro-inline/.test(eCap.rowCls[i2] || ''));
-              }).length : 0;
-              var eRowH = eRows ? eCap.h / eRows : eCap.h;
-              var eMid = eSign > 0 ? eb.c0 + eRowH / 2 : eb.c1 - eRowH / 2;
-              var eEnd = eb.a0 - 2 * S;
-              if (eEnd > eAt + 2 * S) {
-                eSeg = eSign > 0 ? [[eAt, eLo], [eAt, eMid], [eEnd, eMid]]
-                                 : [[eAt, eHi], [eAt, eMid], [eEnd, eMid]];
-              }
-            }
+        var eRingR = NODE_R * 1.4 + NODE_STROKE * 0.5;
+        var eGap = Math.max(RAIL_W * 1.3, 2.6 * S);
+        var eDr = Math.max(1.2 * S, RAIL_W * 0.42);
+        var eFrom = pl.a + eRingR + eGap * 4;
+        members.forEach(function (k5) {
+          var l5 = board.lineByKey(k5);
+          if (!l5) return;
+          // The rail's own ink pulled back off the ring and the dots, so they
+          // stand on paper rather than on top of the line they belong to.
+          edgeDots[k5] = true;
+          edgeShift[k5] = eFrom;
+          var w5 = railStroke(l5, k5).width + 1.2 * S;
+          var c5 = l5.cAt(pl.a);
+          if (c5 == null) return;
+          var p5 = xy(pl.a - eRingR, c5), q5 = xy(eFrom, c5);
+          var wipe5 = svgEl(doc, 'line', { x1: p5[0], y1: p5[1], x2: q5[0], y2: q5[1],
+            'stroke-width': w5, 'stroke-linecap': 'butt' });
+          wipe5.style.stroke = PAPER;
+          put(wipe5, 'edge-clear', k5);
+          for (var d5 = 1; d5 <= 3; d5++) {
+            var t5 = xy(pl.a + eRingR + eGap * d5, c5);
+            var dot5 = svgEl(doc, 'circle', { cx: t5[0], cy: t5[1], r: eDr, stroke: 'none' });
+            dot5.style.fill = inkOf(k5);
+            put(dot5, 'terminal-more', k5);
           }
-          var eD = eSeg.map(function (q, i3) {
-            var xyq = xy(q[0], q[1]);
-            return (i3 ? 'L ' : 'M ') + xyq[0] + ' ' + xyq[1];
-          }).join(' ');
-          var eTie = svgEl(doc, 'path', { d: eD,
-            fill: 'none', 'stroke-width': 1.5 * S, 'stroke-dasharray': (3 * S) + ' ' + (4 * S),
-            'stroke-linecap': 'butt', 'stroke-linejoin': 'miter' });
-          eTie.style.stroke = INK;
-          put(eTie, 'open-tie', members[0]);
-        }
+        });
+        // The bar itself, solid and the same weight as any other.
+        bar(pl.a, pl.c0, pl.c1, pl.id, capGaps(pl));
       }
       // THE BAR TUNNELS UNDER A NAME WRITTEN ACROSS IT (captions.js lets one
       // stand there), and under a busy line, and a line with nothing on it
@@ -8317,7 +8310,7 @@ function draw(board, spec, ctx) {
       members.forEach(function (k) {
         var ln = board.lineByKey(k);
         var c = ln ? ln.cAt(pl.a) : null;
-        if (c == null || atEdge) return;
+        if (c == null) return;
         var q = xy(pl.a, c);
         var lettered = !spec.oneName && initials[k];
         var rr = NODE_R * (lettered ? 1.4 : 1);
@@ -8328,7 +8321,13 @@ function draw(board, spec, ctx) {
           : svgEl(doc, 'circle', { cx: q[0], cy: q[1], r: rr,
               'stroke-width': NODE_STROKE * (lettered ? 0.8 : 1) });
         ring.style.fill = PAPER; ring.style.stroke = INK;
-        put(ring, 'ring', k);
+        // A RING AT THE BOARD'S OPENING EDGE IS NAMED APART. Its rail starts
+        // underneath it and runs away to the right, so the line does not pass
+        // THROUGH it the way it passes through every other ring; what came
+        // before is off the paper, and the three dots beside it say so. The
+        // rule that every ring is a crossing is real and stays, so this one
+        // carries its own name rather than quietly weakening it.
+        put(ring, atEdge ? 'ring-edge' : 'ring', k);
         if (lettered) initialIn(q, k);
         (tiedAt[k] = tiedAt[k] || []).push(pl.a);
       });
@@ -8592,6 +8591,14 @@ function draw(board, spec, ctx) {
     if (ln.branchOf || ln.pts.length < 2) return;
     var r = 4 * S, w = Math.max(2 * S, (ln.width || 3) * S);
     [ln.pts[0], ln.pts[ln.pts.length - 1]].forEach(function (p, end) {
+      // THE EDGE RING IS THIS END'S MARK, AND THE ONLY ONE. A shared event
+      // already running when the board opened puts a ring on the rail's first
+      // point with the line's own initial in it, and the three dots beside it
+      // say what came before. A slash or an arrow as well is a second mark for
+      // one end and it lands inside the ring: Leela's rail drew its open arrow
+      // straight through her own initial. "Arrow for Leela needs to go, just
+      // her first letter(s)."
+      if (!end && edgeDots[ln.key]) return;
       var open = !!(openEnded[ln.key] || [])[end];
       // (a half mark at the edge stands in for the slash, but not for the dots:
       // "..." still says there was more before it)
@@ -9020,8 +9027,16 @@ function draw(board, spec, ctx) {
         })) tn.removeChild(more);
       }
       if (!fx.route) {
-        place(tn, fx.align === 'right' ? fx.a1 : fx.a0, c,
-              fx.align === 'right' ? 'right' : 'left');
+        // CLEAR OF AN EDGE RING. Where a shared event that was already
+        // running put a ring on this rail's first point, the name set at the
+        // rail's own start lands on the ring and on the dots beside it:
+        // "label need to offset a bit to the right." It starts after them
+        // instead. Only at that end, and only on those lines, so every other
+        // name on the board is where the solver put it.
+        var tA = fx.align === 'right' ? fx.a1 : fx.a0;
+        if (fx.align !== 'right' && edgeShift[fx.line] != null
+            && Math.abs(tA - axisA0) < NODE_R * 2) tA = edgeShift[fx.line];
+        place(tn, tA, c, fx.align === 'right' ? 'right' : 'left');
         // A NAME AT THE FAR EDGE IS HELD BY THAT EDGE, not by a left offset
         // worked out from its width: the face settles after the board is laid
         // out, a few pixels wider, and "Professor" ran eleven pixels off the
@@ -9051,8 +9066,17 @@ function draw(board, spec, ctx) {
       var own = board.lineByKey(fx.line), railC = own ? own.cAt(fx.at == null ? spec.axis.a1 : fx.at) : null;
       var top0 = railC != null && fx.c0 >= railC ? fx.c0 : Math.min(fx.c0, fx.c1 - nThick - rThick);
       var far = fx.align === 'right';
-      place(tn, far ? fx.a1 : fx.a0, top0 + nThick / 2, far ? 'right' : 'left');
-      place(rt, far ? fx.a1 : fx.a0, top0 + nThick + rThick / 2, far ? 'right' : 'left');
+      // ...AND THE SAME CLEARANCE WHERE THE NAME CARRIES A ROUTE UNDER IT.
+      // Leela's name and her "Ship Inspection" stayed hard left while Bender
+      // and Fry moved, because a name with a route beneath it is placed here
+      // rather than above, and only the other one had been told about the
+      // ring. Two names on one board obeying different rules is worse than
+      // either rule.
+      var rA = far ? fx.a1 : fx.a0;
+      if (!far && edgeShift[fx.line] != null
+          && Math.abs(rA - axisA0) < NODE_R * 2) rA = edgeShift[fx.line];
+      place(tn, rA, top0 + nThick / 2, far ? 'right' : 'left');
+      place(rt, rA, top0 + nThick + rThick / 2, far ? 'right' : 'left');
       if (far && horizontal) {
         [tn, rt].forEach(function (n) { n.style.left = 'auto'; n.style.right = Math.max(0, W - fx.a1) + 'px'; });
       }
