@@ -30,12 +30,6 @@ module.exports = function (test, h) {
 
   // BACK TO BACK IS ONE BAR: "hard to tell what even is the second event".
   //
-  // Per view, so that the wide board keeps saying so while the small one is
-  // known: at the widths the panel really draws, an 800 by 480 board with
-  // seven lines on it cannot name both of them and sheds the second.
-  const BAR_KNOWN = {
-    'og-landscape': 'seven lines on a small board cannot name both halves of the bar at the widths the panel draws',
-  };
   FLAT.forEach(function (v) {
   test('shared events back to back are one bar and one branch, each a stop with its own name: ' + v, () => {
     const f = fixtures.find((x) => x.name === 'seven-lines');
@@ -59,7 +53,7 @@ module.exports = function (test, h) {
       const end = (early[0].ends || []).filter((e) => e.lines.length === early[0].lines.length)[0];
       assert(end && Math.abs(end.to - rep.spec.scale.at(16 * 60)) < 1, v + ': no end at 16:00 on the lines');
     }
-  }, BAR_KNOWN[v] && { known: BAR_KNOWN[v] });
+  });
   });
 
   // SEVERAL THINGS AT ONE STOP ARE A LIST: "merged events/todo should get more

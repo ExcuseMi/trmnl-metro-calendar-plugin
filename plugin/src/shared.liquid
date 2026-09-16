@@ -3222,6 +3222,8 @@ function boardFor(spec, st) {
     // 8:00-19:00" under the name) is moved the same way, where a move clears
     // both: the search prices a cut name, and still took one when the tier
     // that avoided it was a tidy-up away.
+    // ...and a spur through its OWN line's name is moved too: the word that
+    // says whose rail this is, with the rail's own branch through it.
     var cutting = cutsHead(sh.line, true);
     if (!clash(sh.line, trunkKey, sh.trunk) && !cutting) return;
     var old = sh.line.pts;
@@ -4487,16 +4489,17 @@ function solve(spec, opts) {
     // unreadable, then how well the rest sits.
     // The SAME cost the search was optimising, plus the one thing only a
     // finished board can be asked: whether anything on it is unreadable.
-    // A LINE'S NAME CUT BY ITS OWN BRANCH costs what a mistakable caption
-    // does. Counted as a fault, the restarts gave up readable captions to
-    // keep the legend clean; not counted at all, a spur ran up through "Bart"
-    // when a clean board was on offer. Somebody else's rail through a name is
-    // a fault as it always was.
+    // A LINE'S NAME CUT BY ITS OWN BRANCH costs four mistakable captions.
+    // Counted as a fault, the restarts gave up readable captions to keep the
+    // legend clean; at one caption's price, a seven-line board still took the
+    // cut with a clean answer a restart away -- the name that says whose rail
+    // this is, with the rail's own branch through it, is worth more than that.
+    // Somebody else's rail through a name is a fault as it always was.
     var fl = require('./board').check(bb);
     var cuts = fl.filter(function (f) { return f.kind === 'namecut' && f.own; }).length;
     var faults = fl.length - cuts;
     bb.edgeSlack = edgeSlack(cand.st.gaps);
-    var score = faults * 1e6 + cuts * spec.muddlePrice + boardCost(spec, bb, ss);
+    var score = faults * 1e6 + cuts * spec.muddlePrice * 4 + boardCost(spec, bb, ss);
     if (score < bestScore) {
       bestScore = score; bestBoard = bb; bestSol = ss; bestSt = cand.st;
       // THE WINNER'S SCRATCH, KEPT WITH THE WINNER.
