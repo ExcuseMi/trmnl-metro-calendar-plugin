@@ -31,20 +31,123 @@
 
 var B = require('./board');
 
-// MEMOISED BY THE ARRAY ITSELF, not by the line. `boardFor` (bands.js)
-// builds a fresh Board with fresh `pts` arrays every trial, so a WeakMap
-// keyed on `l.pts` can never see a stale answer -- a line whose rail moved
-// has a new array and therefore a new key, and the old entry is simply
-// unreachable once that trial is done. What it buys: within ONE trial,
-// several captions near the same rail all put that rail in their own
-// `near.lines` and each built the identical JSON.stringify(l.pts) for the
-// cache key that then usually hits anyway -- stringifying the same points
-// five times to ask a question the first stringify already answered.
-var ptsKeyCache = new WeakMap();
-function ptsKey(pts) {
-  var k = ptsKeyCache.get(pts);
-  if (k === undefined) { k = JSON.stringify(pts); ptsKeyCache.set(pts, k); }
-  return k;
+// KEYS THAT ARE NUMBERS, NOT SENTENCES.
+//
+// The two caches in `solve` are asked once per caption per trial, and a
+// board prices hundreds of trials. Measured on one og-landscape day, building
+// their keys cost 2.6 of a solve's 4.5 seconds against 1.8 spent actually
+// reading candidates: the board spent longer asking the question than
+// answering it. A key was a string naming everything a candidate's answer
+// depends on -- its rail's points, the points of every rail near it, every
+// box of furniture near it -- so a forty-point rail was written out in full
+// and hashed in full to ask something that usually came back "as before".
+//
+// The same facts go into a scratch buffer of numbers instead. The buffer is
+// mixed into a 32-bit hash that chooses a bucket, and the entries in that
+// bucket are compared against the buffer VALUE BY VALUE. So a collision can
+// only cost a comparison, never return another caption's candidates: the
+// hash picks what to compare, the numbers still decide. Nothing about the
+// answer changes, which is the whole point -- this is the same cache, asked
+// more cheaply.
+//
+// Everything that is not a number becomes one: a line's key, a want's id and
+// a piece of furniture's id are interned to small integers. The interning,
+// the buckets and the points below all hang off the caller's cache object,
+// so they live exactly as long as it does and a new solve starts clean.
+var SIG = new Float64Array(512);
+var SIGN = 0;
+function sigReset() { SIGN = 0; }
+function sigPush(v) {
+  if (SIGN === SIG.length) { var g = new Float64Array(SIG.length * 2); g.set(SIG); SIG = g; }
+  SIG[SIGN++] = v;
+}
+// A string is a number too. Interned per cache, so the ids restart with it.
+function sigPushId(st, v) {
+  if (v == null) { sigPush(0); return; }
+  var k = String(v), i = st.ids.get(k);
+  if (i === undefined) { i = ++st.nextId; st.ids.set(k, i); }
+  sigPush(i);
+}
+// FNV-ish over the halves of each double: the coordinates here are fractional
+// and `| 0` would call two rails that differ by a pixel's fraction the same
+// bucket, which costs comparisons rather than correctness but costs them on
+// exactly the boards that are hardest.
+var HB = new Float64Array(1), HW = new Uint32Array(HB.buffer);
+function sigHash() {
+  var h = 0x811c9dc5;
+  for (var i = 0; i < SIGN; i++) {
+    HB[0] = SIG[i];
+    h = Math.imul(h ^ HW[0], 0x01000193);
+    h = Math.imul(h ^ HW[1], 0x01000193);
+  }
+  return h >>> 0;
+}
+// The buffer as it stands, against an entry's own copy of one.
+function sigSame(sig) {
+  if (sig.length !== SIGN) return false;
+  for (var i = 0; i < SIGN; i++) if (sig[i] !== SIG[i]) return false;
+  return true;
+}
+function sigCopy() {
+  var c = new Float64Array(SIGN);
+  for (var i = 0; i < SIGN; i++) c[i] = SIG[i];
+  return c;
+}
+// Look the buffer up in one of the cache's tables, and remember `val` under
+// it on a miss. `tab` is a Map from hash to a list of {sig, val}.
+function sigGet(tab) {
+  var b = tab.get(sigHash());
+  if (b) for (var i = 0; i < b.length; i++) if (sigSame(b[i].sig)) return b[i];
+  return null;
+}
+function sigPut(tab, val) {
+  var h = sigHash(), b = tab.get(h);
+  if (!b) { b = []; tab.set(h, b); }
+  b.push({ sig: sigCopy(), val: val });
+}
+
+// A RAIL'S POINTS AS ONE NUMBER. `boardFor` builds fresh `pts` arrays every
+// trial, so the array itself cannot be the identity -- two trials that left a
+// rail exactly where it was must still agree, or the cache never hits. The
+// points are therefore interned BY VALUE into a small integer, once per rail
+// per trial (memoised on the array), and it is that integer the signatures
+// carry. A near rail costs two numbers instead of its whole shape.
+function ptsId(st, pts) {
+  var v = st.byPts.get(pts);
+  if (v !== undefined) return v;
+  var h = 0x811c9dc5, i;
+  for (i = 0; i < pts.length; i++) {
+    HB[0] = pts[i][0]; h = Math.imul(h ^ HW[0], 0x01000193); h = Math.imul(h ^ HW[1], 0x01000193);
+    HB[0] = pts[i][1]; h = Math.imul(h ^ HW[0], 0x01000193); h = Math.imul(h ^ HW[1], 0x01000193);
+  }
+  h = h >>> 0;
+  var b = st.ptsBuckets.get(h);
+  if (!b) { b = []; st.ptsBuckets.set(h, b); }
+  for (i = 0; i < b.length; i++) {
+    var q = b[i].pts;
+    if (q.length !== pts.length) continue;
+    var same = true;
+    for (var j = 0; j < pts.length; j++) {
+      if (q[j][0] !== pts[j][0] || q[j][1] !== pts[j][1]) { same = false; break; }
+    }
+    if (same) { st.byPts.set(pts, b[i].id); return b[i].id; }
+  }
+  var id = ++st.nextPts;
+  b.push({ pts: pts, id: id });
+  st.byPts.set(pts, id);
+  return id;
+}
+
+// The state above, hung off whatever object the caller passed as its cache.
+var SIGSTATE = new WeakMap();
+function stateFor(cache) {
+  var st = SIGSTATE.get(cache);
+  if (!st) {
+    st = { ids: new Map(), nextId: 0, byPts: new WeakMap(), ptsBuckets: new Map(),
+           nextPts: 0, posTab: new Map(), capTab: new Map() };
+    SIGSTATE.set(cache, st);
+  }
+  return st;
 }
 
 // HOISTED OUT OF positions(), which is the hottest function in a solve and
@@ -732,6 +835,7 @@ function solve(wants, board, opts) {
   opts = opts || {};
   var n = wants.length;
   var cache = opts.cache || null;
+  var sst = cache ? stateFor(cache) : null;
   var cands = wants.map(function (w) {
     // THE PART OF THE BOARD THESE CANDIDATES CAN REACH, once per caption:
     // the rows either side of its own rail (or its bar), a name's width
@@ -757,19 +861,26 @@ function solve(wants, board, opts) {
     // those. `overBar` is the one thing `readable` writes onto a candidate,
     // so it is cleared on the way out rather than carried from a board where
     // the bar stood somewhere else.
-    var ps0, pKey = null;
+    var ps0, pEnt = null;
     if (cache) {
       var trunkLn = own && own.branchOf ? board.lineByKey(own.branchOf) : null;
-      pKey = 'P|' + w.id + '|' + w.form + '|' + w.w + 'x' + w.h + '|' + (opts.rows || 4) + '|' + w.gap + '|' + w.pad
-        + '|' + w.a0 + ',' + w.a1 + ',' + (w.endAt == null ? '' : w.endAt) + ',' + (w.beside ? 1 : 0)
-        + '|' + (own ? own.key + ':' + ptsKey(own.pts) : '')
-        + '|' + (trunkLn ? trunkLn.key + ':' + ptsKey(trunkLn.pts) : '')
-        + '|' + (pill ? pill.id + ':' + pill.a0 + ',' + pill.a1 + ',' + pill.c0 + ',' + pill.c1 + ',' + pill.r + ',' + pill.tie : '');
-      ps0 = cache[pKey];
+      sigReset();
+      sigPushId(sst, w.id); sigPush(w.form); sigPush(w.w); sigPush(w.h);
+      sigPush(opts.rows || 4); sigPush(w.gap); sigPush(w.pad);
+      sigPush(w.a0); sigPush(w.a1); sigPush(w.endAt == null ? -1e9 : w.endAt); sigPush(w.beside ? 1 : 0);
+      if (own) { sigPush(1); sigPushId(sst, own.key); sigPush(ptsId(sst, own.pts)); } else sigPush(0);
+      if (trunkLn) { sigPush(1); sigPushId(sst, trunkLn.key); sigPush(ptsId(sst, trunkLn.pts)); } else sigPush(0);
+      if (pill) {
+        sigPush(1); sigPushId(sst, pill.id);
+        sigPush(pill.a0); sigPush(pill.a1); sigPush(pill.c0); sigPush(pill.c1); sigPush(pill.r);
+        sigPushId(sst, pill.tie);
+      } else sigPush(0);
+      pEnt = sigGet(sst.posTab);
+      if (pEnt) ps0 = pEnt.val;
     }
     if (!ps0) {
       ps0 = positions(w, board, opts, own);
-      if (cache) cache[pKey] = ps0;
+      if (cache) sigPut(sst.posTab, ps0);
     }
     var env = { a0: w.a0 - w.w * 1.2 - w.pad - 4, a1: w.a1 + w.w * 1.2 + w.pad + 4,
                 c0: ob.c0 - reach, c1: ob.c1 + reach };
@@ -799,18 +910,34 @@ function solve(wants, board, opts) {
     // captions see exactly the rails and furniture they saw last time.
     // The key is everything a candidate's readability depends on: the
     // words' size, the rail they hang off, and what is near.
-    var key = null;
     if (cache) {
-      key = w.id + '|' + w.w + 'x' + w.h + '|' + (w._rail || w.line || w.pill) + '|';
-      near.lines.forEach(function (l) { key += l.key + ':' + ptsKey(l.pts) + ';'; });
-      near.fixed.forEach(function (f) { var fb = f.box(); key += f.id + ':' + fb.a0 + ',' + fb.a1 + ',' + fb.c0 + ',' + fb.c1 + ';'; });
-      near.pills.forEach(function (pl) { key += pl.id + ':' + pl.a + ',' + pl.a0 + ',' + pl.a1 + ',' + pl.c0 + ',' + pl.c1 + ',' + pl.r + ',' + pl.tie + ';'; });
-      key += '|' + (board.cuts || []).join(',') + '|' + board.axis.a0 + ',' + board.axis.a1 + ',' + board.cross.c0 + ',' + board.cross.c1;
-      if (cache[key]) return cache[key];
+      sigReset();
+      sigPushId(sst, w.id); sigPush(w.w); sigPush(w.h);
+      sigPushId(sst, w._rail || w.line || w.pill);
+      sigPush(near.lines.length);
+      near.lines.forEach(function (l) { sigPushId(sst, l.key); sigPush(ptsId(sst, l.pts)); });
+      sigPush(near.fixed.length);
+      near.fixed.forEach(function (f) {
+        var fb = f.box();
+        sigPushId(sst, f.id); sigPush(fb.a0); sigPush(fb.a1); sigPush(fb.c0); sigPush(fb.c1);
+      });
+      sigPush(near.pills.length);
+      near.pills.forEach(function (pl) {
+        sigPushId(sst, pl.id);
+        sigPush(pl.a); sigPush(pl.a0); sigPush(pl.a1); sigPush(pl.c0); sigPush(pl.c1); sigPush(pl.r);
+        sigPushId(sst, pl.tie);
+      });
+      var cuts = board.cuts || [];
+      sigPush(cuts.length);
+      for (var ci2 = 0; ci2 < cuts.length; ci2++) sigPush(cuts[ci2]);
+      sigPush(board.axis.a0); sigPush(board.axis.a1); sigPush(board.cross.c0); sigPush(board.cross.c1);
+      var ent = sigGet(sst.capTab);
+      if (ent) return ent.val;
+      var ps2 = ps0.filter(function (p) { return readable(p, board, near); });
+      sigPut(sst.capTab, ps2);
+      return ps2;
     }
-    var ps = ps0.filter(function (p) { return readable(p, board, near); });
-    if (cache) cache[key] = ps;
-    return ps;
+    return ps0.filter(function (p) { return readable(p, board, near); });
   });
   // Every candidate knows whether a reader could mistake it, before any
   // price is paid.
