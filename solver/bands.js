@@ -920,10 +920,13 @@ function boardFor(spec, st) {
         if (edge != null) {
           var nc0 = above ? edge - spec.railGap - nh : edge + spec.railGap;
           var out = { a0: f.a0, a1: f.a1, c0: nc0, c1: nc0 + nh };
-          // a row and a half of its own: "Homer" sat a row under the strip
-          // with the spur's flat leg across the letters, and the row above
-          // was free
-          if (Math.abs(nc0 - f.c0) <= nh * 1.5 && out.c0 >= b.cross.c0 && out.c1 <= b.cross.c1
+          // TWO ROWS OF ITS OWN and a little: "Homer" sat a row under the
+          // strip with the spur's flat leg across the letters, and the row
+          // above was free. At a row and a half the reach fell fifteen pixels
+          // short of the clear row on a two-line board, and the name was left
+          // with the branch through it; the name still reads as its rail's
+          // from two rows away, and a cut one reads as nothing.
+          if (Math.abs(nc0 - f.c0) <= nh * 2.2 && out.c0 >= b.cross.c0 && out.c1 <= b.cross.c1
               && !b.lines.some(function (o) { return o.key !== fx.line && B.lineTouches(o, out); })
               && !b.fixed.some(function (g) { return B.capsOverlap(g.box(), out); })) {
             f.c0 = out.c0; f.c1 = out.c1;
