@@ -9393,22 +9393,30 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
     if (started) return;
     started = true;
     probe.remove();
-    // ONE SOLVE, NOT TWO. The framework settles its own layout after the
-    // first paint, so the canvas measured at load is often not the canvas
-    // that ends up on the panel: the board was solved, the box changed by a
-    // few pixels, and the whole search ran again -- twice in the preview's
-    // log, and the second run with whatever was left of the three seconds.
-    // A frame is waited for, and the box is asked again; only if it is still
-    // settling does the first draw go ahead anyway.
+    // ONCE, ON LOAD. The board is laid out one time, for the box the page
+    // has when the script runs -- no redraw when the box changes afterwards.
+    //
+    // The preview lays its panel out at one size and expands it a second
+    // later, and the device's log showed the cost: 760x204 solved in 1.7s
+    // and thrown away, then 1000x354 solved again. Two of the three seconds
+    // on a board nobody sees. The panel on the wall has one size, so the
+    // second solve only ever paid for the preview's own staging.
+    //
+    // The box is given a quarter of a second to hold still first, and drawn
+    // anyway after seven tenths, so a layout that settles a frame late is
+    // still measured properly.
+    var SETTLE_MS = 250, SETTLE_CAP = 700;
     var box = function () { return Math.round(canvas.clientWidth) + 'x' + Math.round(canvas.clientHeight); };
-    var was = box(), tries = 0;
-    var raf = window.requestAnimationFrame || function (f) { return setTimeout(f, 16); };
+    var was = box(), still = Date.now(), waited = Date.now();
     (function settle() {
       var now = box();
-      if (now !== was && tries < 10) { was = now; tries++; raf(settle); return; }
+      if (now !== was) { was = now; still = Date.now(); }
+      if (Date.now() - still < SETTLE_MS && Date.now() - waited < SETTLE_CAP) { setTimeout(settle, 50); return; }
+      if (window.console && console.log && Date.now() - waited > 60) {
+        console.log('metro: box settled at ' + was + ' after ' + (Date.now() - waited) + 'ms');
+      }
       SOLVE_UNTIL = Date.now() + SOLVE_ALL;
       draw();
-      observe();
     })();
   }
   // The page's clock: `solve_seconds` at the top of this file, for the first
@@ -9424,25 +9432,6 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
     setTimeout(start, 1000);
   } else {
     start();
-  }
-  function observe() {
-    // REDRAWN WHEN THE BOX CHANGES, and only then. The framework settles its
-    // own layout after first paint, so the first measurement of the canvas is
-    // not always its last. Seeded with the box just drawn: an observer reports
-    // once on observing, and unseeded that report redrew the same board.
-    if (window.ResizeObserver) {
-      var last = Math.round(canvas.clientWidth) + 'x' + Math.round(canvas.clientHeight);
-      new ResizeObserver(function () {
-        var k = Math.round(canvas.clientWidth) + 'x' + Math.round(canvas.clientHeight);
-        if (k === last) return;
-        // A REDRAW GETS ITS OWN CLOCK. Sharing the first draw's, a board that
-        // was resized after three seconds was solved with nothing left and
-        // came out worse than the one it replaced.
-        last = k;
-        SOLVE_UNTIL = Date.now() + SOLVE_ALL;
-        draw();
-      }).observe(canvas);
-    }
   }
 })();
 </script>
