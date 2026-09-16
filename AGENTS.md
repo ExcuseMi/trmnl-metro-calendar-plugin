@@ -31,8 +31,45 @@ Read it before changing geometry: most of what looks like a free choice in
 `shared.liquid` is one of those rules, and the reason is usually a picture
 somebody looked at.
 
+`MAINTENANCE.md` is the method for changing any of it without making the board
+worse: what to measure, in what order of badness (a person dropped, then ink on
+ink, then an event unnamed, then a name that could be misread), and a list of
+changes that looked obvious and measured worse. Read it before the first
+"obvious" optimisation or layout tweak; three of them in one session had to be
+reverted after measuring.
+
+## How the board says somebody is elsewhere
+
+Four shapes, and they are not interchangeable. Texture on this board means
+WHO -- each line wears its own -- so a new texture cannot be used to mean
+anything else.
+
+- A BRIEF shared event is one bar with a ring on each line in it.
+- A LONG one is drawn once, as its own tube off that bar (or as a corridor
+  where the rails converge). It hangs off whichever rail hosts it, which is
+  not necessarily a rail of anybody in it: who joined is in the payload
+  (`co_owners`), not in the shape.
+- Meanwhile, each member's OWN rail is drawn lighter for those hours (same
+  width, same texture, `data-metro-role="away"` in `draw.js`), starting at the
+  edge of the ring they joined by. Only where that person has nothing else in
+  those hours. The per-member end tick is suppressed there too, or one event
+  draws four terminators.
+- A SHORT event (under 1.4 shelf depths) takes no shelf: it is a dot and a
+  tick on the person's own rail. At 45 degrees the lead is as long as the
+  shelf is deep, so the corner ate the run before the dot.
+
+Shapes tried and rejected for "away", with pictures in the history: a band
+behind the stretch (too quiet), a hairline trunk (throws away whose line it
+is), a trunk that narrows and widens (reads as a wasp waist, i.e. a fault in
+the line), shade ramps with terminator slashes at each end (read as random
+marks), and a 45-degree ramp that IS the event -- that one fights the grammar,
+since vertical position means whose line it is, so a diagonal says the person
+is changing rows and the duration ends up measured on a slope.
+
 ## Things that have cost real time here
 
+- **The board's own numbers, and where they are.** Every rendered page carries `data-metro-debug` on `.metro-canvas`: `ms.solve`, `ms.draw`, `shed`, `muddle`, `dropped` and the fault list. The page also logs `metro: start WxH` and `metro: drawn in Nms (...)` to the device's console, which is how a double solve was caught. Read those rather than counting pixels.
+- **Where the board currently stands** (September 2026): across the 216 example-household boards, 36 events unnamed, 36 mistakable captions, 30 lines dropped, 1 fault -- a name cut by its own branch on a seven-line 800x480 board, which trades against an unnamed event elsewhere. `test/sweep/run.js` is clean. Known and deliberately not fixed: `readable` writes `overBar` onto a candidate and nothing clears it, so a cached candidate can carry a flag from a board where the bar stood elsewhere; clearing it is correct and costs two more dropped lines, so it needs the `OVER_BAR` price revisited at the same time.
 - **The device's renderer captures the page on its own clock, and it is not the preview's.** Delaying the first draw (a quarter second, waiting for the canvas box to hold still) and arming a redraw two seconds later both worked in a browser here and in TRMNL's preview, and the panel stopped drawing the board at all until they were taken out again. Draw as soon as the faces are ready, and lay the board out again only when the box really changes. Whatever a preview wastes solving twice is worth less than the panel drawing at all.
 
 - **A failing suite is a question, not a verdict.** The most expensive habit
@@ -53,6 +90,7 @@ somebody looked at.
 - **A half or a quadrant is a SLOT inside the screen, not a smaller screen.** The framework pins `.screen` to the device's own size whatever the window is, so asking headless Chromium for a 400x240 window and calling the result a quadrant renders a full 800x480 board and crops the picture. Override `--full-w` / `--full-h`, which is the one knob a real mashup turns; `pageFor` in `test/layout/run.js` does this via a viewport's `slot`. Until this was found, every small-view case in the layout suite was measuring a full-size board under a small view's name. Any conclusion drawn from one before that is worth re-checking, comments included.
 - **A placeholder in a Liquid output tag ends the tag.** An output tag whose default string contains a braced placeholder takes the whole template down with a syntax error that shows up only as a 900-byte build. Build the string with an assign tag first, the way `rain_pct` does. The same bites markdown in this repo: GitHub Pages runs every `.md` through Liquid, so do not write such an example into a doc.
 - **The inline-style lint scans the raw markup for property names, comments included.** `LimitedInlineStyles` counts `justify-content`, `padding`, `margin`, `background-color`, `border-radius`, `text-align`, `object-fit` and `font-size` anywhere in the file, with a budget of 6 for the whole template. Naming one in a comment costs exactly as much as using it.
+- **Ties in the band search go to whatever is offered first.** The descent keeps a move only if it is strictly cheaper, and the two sides of a rail usually cost the same, so with the modes listed `[0, 2, -2]` every coin flip landed downward -- which is why every short branch on the board pointed down for months. `modesFor` offers the roomier side first now. Anywhere else a list of equal-cost options is walked, the same bias is waiting.
 - **A test that passes the moment you write it has told you nothing.** Two did in one session. Before believing a new layout test, put the old file back and watch it fail: `git show HEAD:plugin/src/shared.liquid > plugin/src/shared.liquid`, build, run, restore. `git stash` does not work for this, it takes the new test away too.
 - **Do not `git add -A` while a subagent is running.** It sweeps their in-flight files into a commit whose message says nothing about them. Commit explicit paths.
 - **The layout suite builds in a COPY of `plugin/`, and must keep doing so.** A build variant needs `.trmnlp.yml` patched, and that file is tracked source. Patched in place with a restore in a `finally` it is safe only while nothing else builds at the same time, and three times in one day something did: two suites at once, a screenshot while a suite ran, and a suite started after somebody deleted the lock that was there to prevent it. Every time it left `"service_alert"` baked into the file and drew boards with an alert banner nobody asked for, and once it outlived the fix by sitting in the build cache. `buildDir()` copies the source to a temp dir per build instead, so any number of runs can go at once and none can write to the working tree; the build cache is keyed on the yml as well as `plugin/src` so a poisoned build cannot be served after the fact.
