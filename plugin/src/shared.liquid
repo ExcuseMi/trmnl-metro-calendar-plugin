@@ -9436,58 +9436,32 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
   });
   canvas.appendChild(probe);
   void probe.offsetWidth;   // styled now, so the faces it needs are requested now
-  // ...AND ONE MORE, IF THE PANEL REALLY DOES CHANGE SIZE LATER.
-  //
-  // Armed two seconds after the board is drawn, so the staging a preview does
-  // while it loads is over before anything is listening, and it fires at most
-  // once: a board laid out for a box that no longer exists is worth one more
-  // search, and a panel that keeps moving is not worth an unbounded number.
-  function watchLate(was) {
-    if (!window.ResizeObserver) return;
-    setTimeout(function () {
-      var ro = new ResizeObserver(function () {
-        var now = Math.round(canvas.clientWidth) + 'x' + Math.round(canvas.clientHeight);
-        if (now === was) return;
-        ro.disconnect();
-        if (window.console && console.log) console.log('metro: panel is now ' + now + ', laying out again');
-        SOLVE_UNTIL = Date.now() + SOLVE_ALL;
-        draw();
-      });
-      ro.observe(canvas);
-    }, 2000);
-  }
-
   var started = false, drawn = 0;
   function start() {
     if (started) return;
     started = true;
     probe.remove();
-    // ONCE, ON LOAD. The board is laid out one time, for the box the page
-    // has when the script runs -- no redraw when the box changes afterwards.
+    // STRAIGHT AWAY, AND AGAIN IF THE PANEL CHANGES SIZE.
     //
-    // The preview lays its panel out at one size and expands it a second
-    // later, and the device's log showed the cost: 760x204 solved in 1.7s
-    // and thrown away, then 1000x354 solved again. Two of the three seconds
-    // on a board nobody sees. The panel on the wall has one size, so the
-    // second solve only ever paid for the preview's own staging.
-    //
-    // The box is given a quarter of a second to hold still first, and drawn
-    // anyway after seven tenths, so a layout that settles a frame late is
-    // still measured properly.
-    var SETTLE_MS = 250, SETTLE_CAP = 700;
-    var box = function () { return Math.round(canvas.clientWidth) + 'x' + Math.round(canvas.clientHeight); };
-    var was = box(), still = Date.now(), waited = Date.now();
-    (function settle() {
-      var now = box();
-      if (now !== was) { was = now; still = Date.now(); }
-      if (Date.now() - still < SETTLE_MS && Date.now() - waited < SETTLE_CAP) { setTimeout(settle, 50); return; }
-      if (window.console && console.log && Date.now() - waited > 60) {
-        console.log('metro: box settled at ' + was + ' after ' + (Date.now() - waited) + 'ms');
-      }
-      SOLVE_UNTIL = Date.now() + SOLVE_ALL;
-      draw();
-      watchLate(box());
-    })();
+    // A settle wait before the first solve, and a redraw armed two seconds
+    // later, were both tried here to stop a preview solving the board twice.
+    // The device's own renderer stopped drawing the board at all with them
+    // in, so this is back to what was on the wall before: draw as soon as the
+    // faces are ready, and lay the board out again only when the box really
+    // changes, with its own clock. Whatever costs a preview a second solve is
+    // worth less than the panel drawing at all.
+    SOLVE_UNTIL = Date.now() + SOLVE_ALL;
+    draw();
+    if (window.ResizeObserver) {
+      var lastBox = Math.round(canvas.clientWidth) + 'x' + Math.round(canvas.clientHeight);
+      new ResizeObserver(function () {
+        var k = Math.round(canvas.clientWidth) + 'x' + Math.round(canvas.clientHeight);
+        if (k === lastBox) return;
+        lastBox = k;
+        SOLVE_UNTIL = Date.now() + SOLVE_ALL;
+        draw();
+      }).observe(canvas);
+    }
   }
   // The page's clock: `solve_seconds` at the top of this file, for the first
   // draw and every redraw together. A test harness running many pages at once

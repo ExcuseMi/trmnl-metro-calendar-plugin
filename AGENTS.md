@@ -33,6 +33,8 @@ somebody looked at.
 
 ## Things that have cost real time here
 
+- **The device's renderer captures the page on its own clock, and it is not the preview's.** Delaying the first draw (a quarter second, waiting for the canvas box to hold still) and arming a redraw two seconds later both worked in a browser here and in TRMNL's preview, and the panel stopped drawing the board at all until they were taken out again. Draw as soon as the faces are ready, and lay the board out again only when the box really changes. Whatever a preview wastes solving twice is worth less than the panel drawing at all.
+
 - **A failing suite is a question, not a verdict.** The most expensive habit
   in this project has been: try a change, watch the layout number drop, revert,
   report that it "regressed". That is giving up on a half built solution and
