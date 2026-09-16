@@ -124,3 +124,44 @@ Words are HTML, not SVG, so they take the framework's own type classes.
 fault list. Read it rather than counting pixels. The panel's log says the
 same thing: `metro: drawn in Nms (solve, draw), N name(s), N shed, N
 mistakable`.
+
+## Interrupted: what a cut-off thing looks like
+
+The board shows a window onto a longer day, so almost anything on it can be
+cut. These are the marks that say so, and they are worth listing together
+because they are easy to confuse: three of them are about a line and one is
+about an event.
+
+| variant | mark | what it says |
+|---|---|---|
+| a rail runs on past the paper | `terminal-more`, three dots | the day goes on; there was more before this, or there is more after it |
+| a rail's whole day is a slice of something longer | `terminal-open`, a solid arrowhead | this line does not begin or end here at all. Its base sits on the rail's last point and its tip stands out as far as a slash reaches |
+| a rail simply ends | `terminal` plus `terminal-core` | a slash: this is where the line stops |
+| an event was already running when the board opened | `stop-from`, a half mark | the event has no start on this paper |
+| a shared event was already running | `ring-edge` with the dots beside it | they met before the paper began. The ring takes the rail's start, the dots stand to its right, the rail's ink begins after them |
+| a shared event runs past the far edge | the tie's end is simply not drawn (`open1`) | nothing marks an end that is not there |
+
+### Which of these can share an end
+
+One end carries one mark. Where two would apply, the more specific wins and
+the other is not drawn:
+
+- `ring-edge` beats everything at that end. The slash and the arrow both give
+  way to it, because either would be drawn inside the ring and through the
+  line's own initial.
+- `terminal-open` beats `terminal`. A line that never begins here does not
+  also get a slash saying it does.
+- `terminal-more` sits **beside** a slash rather than replacing it, except at
+  an edge ring, where the dots move to the ring's other side.
+- `stop-from` replaces the dot an event would otherwise start with, and a rail
+  that has gone quiet takes no end tick for the event that quieted it.
+
+### The gap, stated plainly
+
+**A branch has no interrupted form at all.** The end-mark loop skips anything
+with a `branchOf` (`solver/draw.js:1626`), so a spur takes no slash, no
+arrowhead and no dots at either end, whether or not the board cut it off. A
+branch that runs past the edge simply stops. Everything above is about a rail.
+
+That is a real hole rather than a decision, and it is the one behind "replace
+this by a `...` for Bart's interrupted branch line".
