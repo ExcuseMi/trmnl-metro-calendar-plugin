@@ -107,7 +107,8 @@ Rules match on the title or another field (`word`, `contains`, `exact`,
 `regex`), or on `status`, `weekday`, `duration`, `time`, `any`, and
 `and`/`or`/`not` of those, and can assign one or more lines, rewrite the
 title, or hide the event. Everything is documented in
-[CONFIG.md](CONFIG.md); what the drawing means in [rules.md](rules.md).
+[CONFIG.md](CONFIG.md); what the drawing means in [rules.md](rules.md); how to change the board without making it worse in
+[MAINTENANCE.md](MAINTENANCE.md).
 
 Recurring events: daily, weekly, monthly and yearly rules are read with
 `INTERVAL`, `UNTIL`, `COUNT`, `BYDAY` (including "the third Tuesday"),
