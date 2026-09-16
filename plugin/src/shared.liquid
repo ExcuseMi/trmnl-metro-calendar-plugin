@@ -4147,9 +4147,8 @@ function solveBands(spec, opts) {
   var minGap = opts.minGap != null ? opts.minGap : 14;
 
   function evenGaps() {
-    var g = [], even = span / (n + 1);
-    for (var i = 0; i <= n; i++) g.push(even);
-    return g;
+    var even = span / (n + 1);
+    return new Float64Array(n + 1).fill(even);
   }
   function score(state) {
     dress(state);
@@ -4172,6 +4171,9 @@ function solveBands(spec, opts) {
     });
     return c;
   }
+  // gaps/steps/forms are typed arrays (see `start`), so `.slice()` here is a
+  // memcpy rather than a boxed-number copy, and it is now called only when a
+  // move is actually kept (see `forEachMove`), not once per candidate tried.
   function clone(x) {
     return { gaps: x.gaps.slice(), steps: x.steps.slice(), forms: x.forms.slice() };
   }
@@ -4223,47 +4225,64 @@ function solveBands(spec, opts) {
     return Object.keys(bad).map(Number);
   }
 
-  // The moves, as a list of functions each returning a new state or null.
+  // THE MOVES, OFFERED ONE AT A TIME RATHER THAN BUILT AS A LIST.
+  //
+  // This used to clone `st` -- three fresh arrays -- for every candidate
+  // before any of them was priced: every pair of gaps at three shifts, plus
+  // a clone per form and per step move. Almost all of them were thrown away
+  // unscored (`opts.evals` stops the descent long before a full
+  // neighbourhood is tried), so the clones a busy board never looked at
+  // were most of the traffic a profile found in the garbage collector.
+  //
+  // `forEachMove` instead mutates `st` IN PLACE for one candidate, calls
+  // `onMove` with it already holding that move, and then undoes exactly
+  // that mutation before trying the next -- so `st` is byte-for-byte what
+  // it was before this function ran whenever nothing in the pass is kept,
+  // and `score` is handed the real state rather than a fresh object built
+  // to be read once. `onMove` returns true to stop early (the pool or the
+  // deadline ran out); every loop below carries that flag so a stop found
+  // deep in the gap search does not go on to offer a single step or form.
+  //
+  // The ORDER every move is offered in is unchanged -- see the note at
+  // bands.js:1714 (now below `descend`) on why a reordering is a different
+  // search, not a faster one.
   var SHIFTS = [40, 16, 6];
-  function neighbours(st) {
-    var out = [];
-    var i, j, k;
+  var MODES = [0, 2, -2];
+  function lineOf(key) {
+    for (var li2 = 0; li2 < spec.lines.length; li2++) if (spec.lines[li2].key === key) return spec.lines[li2];
+    return null;
+  }
+  // DOWN AND UP, IN THE ORDER THE BAND SAYS. The two sides usually cost the
+  // same -- the room above and below a rail is often symmetric -- and the
+  // descent keeps a move only if it is strictly cheaper, so whichever side
+  // was offered first won every tie. Listed [0, 2, -2], that was always
+  // down: "why does it want to go down?" The side with more room is offered
+  // first now, so a coin flip lands on the side that can afford it.
+  function modesFor(i2) {
+    var w3 = spec.wants[i2];
+    var q = w3 && w3.line ? lineOf(w3.line) : null;
+    var up = q && q._roomSide ? q._roomSide['-1'] : 0;
+    var dn = q && q._roomSide ? q._roomSide['1'] : 0;
+    return up > dn + 0.5 ? [0, -2, 2] : MODES;
+  }
+  function forEachMove(st, onMove) {
+    var i, j, k, stopped = false;
     var who = troubled(st);
     // EVERY PAIR OF GAPS AT EVERY SHIFT. Pruned to neighbouring gaps this
     // was a third of the pricing, and a reflected board came out one name
     // short where its mirror image did not: the descent walks a different
     // path from the first move, not merely to a different end.
-    for (i = 0; i <= n; i++) {
-      for (j = 0; j <= n; j++) {
+    for (i = 0; i <= n && !stopped; i++) {
+      for (j = 0; j <= n && !stopped; j++) {
         if (i === j) continue;
-        for (k = 0; k < SHIFTS.length; k++) {
+        for (k = 0; k < SHIFTS.length && !stopped; k++) {
           if (st.gaps[i] - SHIFTS[k] < minGap) continue;
-          var g = clone(st);
-          g.gaps[i] -= SHIFTS[k]; g.gaps[j] += SHIFTS[k];
-          out.push(g);
+          var gi = st.gaps[i], gj = st.gaps[j];
+          st.gaps[i] = gi - SHIFTS[k]; st.gaps[j] = gj + SHIFTS[k];
+          stopped = !!onMove();
+          st.gaps[i] = gi; st.gaps[j] = gj;
         }
       }
-    }
-    // A MARK OR A SHELF. The step -- the rail sloping for the event and
-    // staying at its new level -- is no longer offered: "add shelves back
-    // instead of slopes, the labels are much easier to place for that."
-    // DOWN AND UP, IN THE ORDER THE BAND SAYS. The two sides usually cost the
-    // same -- the room above and below a rail is often symmetric -- and the
-    // descent keeps a move only if it is strictly cheaper, so whichever side
-    // was offered first won every tie. Listed [0, 2, -2], that was always
-    // down: "why does it want to go down?" The side with more room is offered
-    // first now, so a coin flip lands on the side that can afford it.
-    var MODES = [0, 2, -2];
-    function modesFor(i2) {
-      var w3 = spec.wants[i2];
-      var q = w3 && w3.line ? lineOf(w3.line) : null;
-      var up = q && q._roomSide ? q._roomSide['-1'] : 0;
-      var dn = q && q._roomSide ? q._roomSide['1'] : 0;
-      return up > dn + 0.5 ? [0, -2, 2] : MODES;
-    }
-    function lineOf(key) {
-      for (var li2 = 0; li2 < spec.lines.length; li2++) if (spec.lines[li2].key === key) return spec.lines[li2];
-      return null;
     }
     // A SHELF IS OFFERED TO EVERY EVENT, not only to the ones in trouble: a
     // shelf is the form an event takes (shelfWorth), and a flat board with
@@ -4272,53 +4291,71 @@ function solveBands(spec, opts) {
     // The forms and the rest of the moves stay with the troubled.
     var inWho = {};
     who.forEach(function (i2) { inWho[i2] = 1; });
-    spec.wants.forEach(function (w2, i2) {
-      if (inWho[i2]) return;
+    for (var a = 0; a < spec.wants.length && !stopped; a++) {
+      var w2 = spec.wants[a];
+      if (inWho[a]) continue;
       // ...AND A RICHER FORM TO ANY NAME WEARING A POORER ONE. Once a name
       // was placed it was no longer in trouble, so it kept whatever form it
       // was placed in: "Get InspireD" stayed clamped to half its width with
       // three free rows under it -- "it should take 2 lines there, there is
       // plenty of space." Every richer form is offered back to it.
-      for (var k4 = 0; k4 < (st.forms[i2] || 0); k4++) {
-        var r4 = clone(st); r4.forms[i2] = k4; out.push(r4);
+      for (var k4 = 0; k4 < (st.forms[a] || 0) && !stopped; k4++) {
+        var of4 = st.forms[a];
+        st.forms[a] = k4;
+        stopped = !!onMove();
+        st.forms[a] = of4;
       }
-      if (w2.tie || w2.allDay || w2.pill) return;
-      var md3 = modesFor(i2);
-      for (var k3 = 1; k3 < md3.length; k3++) {
-        if (st.steps[i2] === md3[k3]) continue;
-        var m3 = clone(st); m3.steps[i2] = md3[k3]; out.push(m3);
+      if (stopped || w2.tie || w2.allDay || w2.pill) continue;
+      var md3 = modesFor(a);
+      for (var k3 = 1; k3 < md3.length && !stopped; k3++) {
+        if (st.steps[a] === md3[k3]) continue;
+        var os3 = st.steps[a];
+        st.steps[a] = md3[k3];
+        stopped = !!onMove();
+        st.steps[a] = os3;
       }
-    });
-    who.forEach(function (i2) {
+    }
+    for (var wi = 0; wi < who.length && !stopped; wi++) {
+      var i2 = who[wi];
       // A tie's spur is a fact (above); the search has no move to offer it.
-      var md2 = modesFor(i2);
-      for (var k2 = 0; k2 < md2.length && !spec.wants[i2].tie; k2++) {
-        if (st.steps[i2] === md2[k2]) continue;
-        var m = clone(st); m.steps[i2] = md2[k2]; out.push(m);
+      if (!spec.wants[i2].tie) {
+        var md2 = modesFor(i2);
+        for (var k2 = 0; k2 < md2.length && !stopped; k2++) {
+          if (st.steps[i2] === md2[k2]) continue;
+          var os2 = st.steps[i2];
+          st.steps[i2] = md2[k2];
+          stopped = !!onMove();
+          st.steps[i2] = os2;
+        }
       }
-      for (k2 = 0; k2 < spec.wants[i2].formCount(); k2++) {
-        if (st.forms[i2] === k2) continue;
-        var f = clone(st); f.forms[i2] = k2; out.push(f);
+      for (var k2b = 0; k2b < spec.wants[i2].formCount() && !stopped; k2b++) {
+        if (st.forms[i2] === k2b) continue;
+        var of2 = st.forms[i2];
+        st.forms[i2] = k2b;
+        stopped = !!onMove();
+        st.forms[i2] = of2;
       }
-    });
+    }
     // BY RUNG, NOT BY INDEX. The folded name sits between the whole name
     // and the name without its time, so "everything one rung down" has to
     // mean the first form at least a whole rung down: taken by index it
     // folded every name on the board in one move, and the descent had no
-    // budget left to unfold them one at a time.
-    for (k = 0; k < 3; k++) {
-      var lvl = clone(st);
-      lvl.forms = lvl.forms.map(function (_, i2) {
-        var fs = spec.wants[i2].forms;
+    // budget left to unfold them one at a time. This one replaces the
+    // WHOLE forms array, so it saves and restores all of it rather than one
+    // index -- three times a pass, not once per candidate.
+    for (k = 0; k < 3 && !stopped; k++) {
+      var origForms = st.forms.slice();
+      for (var fi2 = 0; fi2 < spec.wants.length; fi2++) {
+        var fs = spec.wants[fi2].forms, val = fs.length - 1;
         for (var fi = 0; fi < fs.length; fi++) {
           var rg = fs[fi].rung != null ? fs[fi].rung : fi;
-          if (rg >= k - 1e-9) return fi;
+          if (rg >= k - 1e-9) { val = fi; break; }
         }
-        return fs.length - 1;
-      });
-      out.push(lvl);
+        st.forms[fi2] = val;
+      }
+      stopped = !!onMove();
+      st.forms.set(origForms);
     }
-    return out;
   }
 
   // BEST IMPROVEMENT, AND THE REASON IS SYMMETRY RATHER THAN QUALITY.
@@ -4340,22 +4377,25 @@ function solveBands(spec, opts) {
     var budget = opts.evals || 800;
     var spent = 0;
     for (var pass = 0; pass < (opts.sweeps || 40); pass++) {
-      var list = neighbours(st), best = null, bestS = cur;
-      for (var i = 0; i < list.length && spent < budget; i++) {
-        var s2 = score(list[i]); spent++;
+      var best = null, bestS = cur;
+      forEachMove(st, function () {
+        var s2 = score(st); spent++;
         // Charged by the size of what was priced, and more than in
         // proportion: an arrangement of thirty captions costs twice the work
         // of fifteen AND has twice as many neighbours to try, so a dense day
         // gets fewer tries rather than more time. Fourteen captions, an
         // ordinary busy day, costs one try as it always did.
         if (opts.pool) opts.pool.used += Math.max(1, spec.wants.length * spec.wants.length / 14);
-        if (opts.pool && opts.pool.left != null && opts.pool.used >= opts.pool.left) { spent = budget; break; }
-        if (s2.cost < bestS.cost - 1e-9) { bestS = s2; best = list[i]; }
+        if (opts.pool && opts.pool.left != null && opts.pool.used >= opts.pool.left) { spent = budget; return true; }
+        // `st` holds this candidate right now; clone it only when it is
+        // actually kept, which is rare next to how many are tried.
+        if (s2.cost < bestS.cost - 1e-9) { bestS = s2; best = clone(st); }
         // OUT OF TIME IS A BOARD, NOT A BLANK. A panel's renderer gives the
         // page a few seconds; past the deadline the descent keeps the best
         // it has found rather than the page keeping nothing.
-        if (opts.deadline && (spent & 15) === 0 && Date.now() > opts.deadline) { spent = budget; break; }
-      }
+        if (opts.deadline && (spent & 15) === 0 && Date.now() > opts.deadline) { spent = budget; return true; }
+        return spent >= budget;
+      });
       if (!best || spent >= budget) break;
       // SETTLED IS SETTLED. Once a whole pass buys less than a few points,
       // what is left is slack being tidied six pixels at a time: five
@@ -4396,9 +4436,11 @@ function solveBands(spec, opts) {
     return 0;
   }
   function start(steps, forms) {
+    var formsArr = new Int16Array(spec.wants.length);
+    spec.wants.forEach(function (w, i) { formsArr[i] = forms === 0 && w.members ? crowdStart(w) : forms; });
     return { gaps: evenGaps(),
-             steps: new Array(spec.wants.length).fill(steps),
-             forms: spec.wants.map(function (w) { return forms === 0 && w.members ? crowdStart(w) : forms; }) };
+             steps: new Int16Array(spec.wants.length).fill(steps),
+             forms: formsArr };
   }
   // SHELVES FIRST. A shelf is the form an event takes (see shelfWorth), and
   // the search only offers a move to a caption in trouble, so a flat start
