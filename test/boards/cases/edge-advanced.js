@@ -70,10 +70,28 @@ module.exports = function (test, h) {
   // A test asserting the drawn position would pass and would be measuring the
   // wrong half of the disagreement, so there is none here.
   //
-  // The fix belongs in day.js, where a terminus's box is made, so the
-  // reservation moves with the ink. It will change what the caption solver
-  // sees and so may move the household numbers, which is why it is not
-  // smuggled in beside a test.
+  // TRIED, AND HERE IS WHAT IT COSTS. Moving the reservation so it follows
+  // the ink was built and measured, twice, and both versions are worth knowing
+  // about before anybody builds it a third time.
+  //
+  // In day.js, where the box is made, it is WRONG: fixedFor runs before the
+  // board is solved, so it cannot know whether the ring is drawn at all. A tie
+  // whose members are dropped from a small panel draws none, and reserving for
+  // one that never appears cost a caption its place -- "School Run" 25px from
+  // its own event on a half-width board, against a limit of 17.
+  //
+  // In bands.js, where the lines that survived are known, the condition is
+  // right and the suite goes green: 933 board cases, households unchanged at
+  // shed 36, muddle 36, dropped 30, faults 1, and reserved and drawn agree at
+  // 33 on every member. But the sweep then finds a namecut: "Fry" cut by
+  // p2/e3 on futurama 21:30 og-half-horizontal. The name, now honestly booked
+  // a ring's width in, lands in a branch. A visible fault on a shipped example
+  // day is worse than the silent mismatch it cures, so it was reverted.
+  //
+  // What it actually needs: the terminus box has to be placed by machinery
+  // that can route it around a branch, the way a caption is, instead of being
+  // set at one minute and defended there. That is the real piece of work, and
+  // it is bigger than moving an offset from one file to another.
 
   // ONE MARK FOR ONE END. The ring is that end's mark, so the arrow and the
   // slash give way: either would be drawn inside it, through the initial.
