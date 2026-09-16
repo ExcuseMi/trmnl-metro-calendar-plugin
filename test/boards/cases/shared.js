@@ -250,6 +250,44 @@ module.exports = function (test, h) {
     });
   }
 
+  // A HAIR, NOT A HOLE. "Can you get the other track a bit closer to the
+  // bridge... close enough so they just aren't touching." At six tenths of a
+  // rail's own width the crossed line read as stopping short of something
+  // rather than passing under it. Both halves of that are asserted, because
+  // either one alone invites the other fault: paper on each side, and not
+  // much of it.
+  for (const name of ['rolling-quiet', 'three-day']) {
+    test('a bridge leaves the line it crosses a hair of paper, not a hole: ' + name, () => {
+      const f = fixtures.find((x) => x.name === name);
+      const built = h.build(Object.assign({}, f.metro, { now_min: 17 * 60 }), 'x-landscape');
+      const cut = built.spec.cuts && built.spec.cuts[0];
+      assert(cut != null, 'no midnight on this board');
+      // The rule's pieces at the midnight, as spans of y.
+      const spans = roles(built, 'midnight').filter((n) => n.tagName === 'line'
+        && Math.abs(+n.getAttribute('x1') - +n.getAttribute('x2')) < 0.5
+        && Math.abs(+n.getAttribute('x1') - cut) < 4)
+        .map((n) => [Math.min(+n.getAttribute('y1'), +n.getAttribute('y2')),
+                     Math.max(+n.getAttribute('y1'), +n.getAttribute('y2'))]);
+      assert(spans.length > 0, 'no midnight rule at the cut');
+      let checked = 0;
+      for (const ln of built.board.lines.filter((l) => !l.branchOf)) {
+        if (!roles(built, 'guardrail', ln.key).length) continue;   // bridges, not tunnels
+        const y = ln.cAt(cut), rw = +roles(built, 'track', ln.key)[0].getAttribute('stroke-width');
+        const edge = rw / 2;
+        // The piece that stops above the rail, and the one that starts below.
+        const above = Math.max(...spans.map((p) => p[1]).filter((v) => v <= y));
+        const below = Math.min(...spans.map((p) => p[0]).filter((v) => v >= y));
+        for (const [what, gap] of [['above', y - edge - above], ['below', below - y - edge]]) {
+          assert(gap > 0.4, ln.key + ': the rule ' + what + ' touches the deck (' + gap.toFixed(2) + ')');
+          assert(gap <= rw * 0.5, ln.key + ': the rule ' + what + ' stops ' + gap.toFixed(2)
+            + ' short of a deck ' + rw.toFixed(2) + ' wide, which reads as a hole');
+        }
+        checked++;
+      }
+      assert(checked > 0, 'no bridge on this board to measure');
+    });
+  }
+
   // A VERTICAL BOARD HAS NO "UNDER" TO HANG FROM, so the pillars are mirrored.
   //
   // Four pillars on one flank of a rail read as something wrong with the line,

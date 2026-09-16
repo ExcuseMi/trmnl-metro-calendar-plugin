@@ -204,7 +204,9 @@ applies when something changes.
 2b-xi. **Where a line crosses a bar or the midnight, which crossing is not a
    choice, and the line is never cut or painted over.** The bar or the rule
    is drawn in pieces around it. A line with nothing on it there is a bridge:
-   the rule or bar stands clear of it, with two square pillars under it on
+   the rule or bar stands clear of it by a hair -- close enough to read as
+   passing under it rather than as stopping short of it, and no closer than
+   not touching -- with two square pillars under it on
    each side, in its own ink, half its width wide, the one by the gap the
    taller; one size everywhere, since every line style is drawn at one
    width. **On a board that runs downward the pillars are mirrored**, four a

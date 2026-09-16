@@ -147,6 +147,15 @@ function draw(board, spec, ctx) {
   var BAR_W = NODE_R * 1.3, TUBE_W = BAR_W, BAR_CORE = BAR_W - 2 * NODE_STROKE * 0.8;
   // How much of a crossing's ring an edge ring is. See the note where it is drawn.
   var EDGE_RING = 0.75;
+  // WHAT A BRIDGE LEAVES THE LINE IT CROSSES: paper each side of the deck, and
+  // no more of it than it takes to see that the two are not one mark. "Can you
+  // get the other track a bit closer to the bridge... close enough so they
+  // just aren't touching." It was six tenths of a rail's own width, which at
+  // the X's scale is three pixels of white either side and reads as the
+  // crossed line stopping short of something rather than passing under it.
+  // Held in S, not in the rail's width, so every line style leaves the same
+  // gap -- which is the same reason the pillars are one size everywhere.
+  var BRIDGE_CLEAR = 1.2 * S;
 
   function X(a, c) { return horizontal ? a : c; }
   function Y(a, c) { return horizontal ? c : a; }
@@ -930,7 +939,7 @@ function draw(board, spec, ctx) {
         var rc = ln.cAt(mx), reach = 10 * S;
         if (rc == null || ln.pts.length < 2 || ln.pts[0][0] > mx - reach || ln.pts[ln.pts.length - 1][0] < mx + reach) return;
         var rw = railStroke(ln, ln.key).width, across = eventOn(ln, mx);
-        xings.push({ ln: ln, rc: rc, rw: rw, across: across, clear: across ? 2 * S : rw * 0.6 });
+        xings.push({ ln: ln, rc: rc, rw: rw, across: across, clear: across ? 2 * S : BRIDGE_CLEAR });
       });
       function pieces(lo, hi, pad) {
         var out = [[lo, hi]];
@@ -1373,7 +1382,7 @@ function draw(board, spec, ctx) {
         gaps.forEach(function (g) { mouths.push(g[0], g[1]); });
         (bridgesOn[pl.id] || []).forEach(function (x) {
           var bl = board.lineByKey(x.key), rw = railStroke(bl, x.key).width;
-          gaps.push([x.c - rw / 2 - rw * 0.6, x.c + rw / 2 + rw * 0.6]);
+          gaps.push([x.c - rw / 2 - BRIDGE_CLEAR, x.c + rw / 2 + BRIDGE_CLEAR]);
         });
         bar(pl.a, pl.c0, pl.c1, pl.id, gaps);
         mouths.forEach(function (gc) {
