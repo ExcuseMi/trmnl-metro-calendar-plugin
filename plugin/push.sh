@@ -24,6 +24,20 @@ LIQUID="$HERE/src/shared.liquid"
 TRANSFORM="$HERE/src/transform.js"
 ESBUILD="$ROOT/tools/node_modules/.bin/esbuild"
 
+# THE PANEL IS FED FROM main AND NOWHERE ELSE (AGENTS.md).
+#
+# 471753 is a display somebody is actually reading, and a branch is for
+# looking at boards locally -- tools/sheet.js and test/layout render without
+# any deploy at all. Checked here rather than left to whoever is typing,
+# because the cost of getting it wrong is a half-built board on the wall and
+# the only way back is another push.
+BRANCH="$(git -C "$ROOT" branch --show-current 2>/dev/null || true)"
+if [ "$BRANCH" != "main" ]; then
+  echo "push.sh: on '${BRANCH:-a detached HEAD}', not main -- nothing was uploaded." >&2
+  echo "         The panel is fed from main only (AGENTS.md). Merge first." >&2
+  exit 1
+fi
+
 "$HERE/lint.sh" || { echo "trmnlp lint is not clean; nothing was uploaded" >&2; exit 1; }
 
 # EVERY SOURCE FILE, not the two that used to change. squeeze.py now moves
