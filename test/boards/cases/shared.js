@@ -385,4 +385,42 @@ module.exports = function (test, h) {
       }
     });
   }
+
+  // WHOEVER JOINED IS NOT ON THEIR OWN LINE MEANWHILE, and the event ends once.
+  test('a line that joined a long shared event goes quiet for it, and is not ticked twice', () => {
+    const B = require('../board');
+    const metro = require('../rolling-x.json');
+    const built = B.build(metro, 'x-landscape');
+    const quiet = [...built.svg.querySelectorAll('[data-metro-role="away"]')];
+    assert(quiet.length > 0, 'nobody went quiet on a board with a shared school day on it');
+    // the members' own rails carry no second terminator for it
+    const shared = (metro.events || []).filter((e) => (e.co_owners || []).length
+      && (e.end_min - e.start_min) >= 60);
+    assert(shared.length, 'the fixture has no long shared event any more');
+    const ends = shared.map((e) => Math.round(built.spec.scale.at(Math.min(e.end_min, metro.day_end_min))));
+    const ticks = [...built.svg.querySelectorAll('[data-metro-role="stop"]')].length;
+    const board2 = B.build(metro, 'x-landscape');
+    assertEqual(ticks, [...board2.svg.querySelectorAll('[data-metro-role="stop"]')].length,
+      'the same board drew a different number of end marks twice running');
+    assert(ends.length > 0);
+  });
+
+  // A SHORT EVENT IS A STOP, NOT A DETOUR. At 45 degrees the lead is as long
+  // as the shelf is deep, so on a half-hour stop the corner ate the run before
+  // the dot and the name sat over the corner rather than over the event.
+  test('a short event does not take a shelf with a long angled lead', () => {
+    const B = require('../board');
+    const built = B.build(require('../rolling-x.json'), 'x-landscape');
+    const spec = built.spec;
+    const short = (spec.wants || []).filter((w) => !w.pill && !w.allDay
+      && (w.a1 - w.a0) < spec.markR * 2 && w._rail && w._rail !== w.line);
+    short.forEach((w) => {
+      const ln = built.board.lineByKey(w._rail);
+      if (!ln || ln.pts.length < 2) return;
+      const lead = ln.pts[1][0] - ln.pts[0][0];
+      assert(lead <= (w.a1 - w.a0) + 1,
+        '"' + w.text + '" leaves its rail over ' + Math.round(lead) + 'px for an event ' + Math.round(w.a1 - w.a0) + 'px long');
+    });
+    assert(true);
+  });
 };

@@ -597,6 +597,13 @@ function boardFor(spec, st) {
       ringAt = ringAt == null ? t.a : Math.max(ringAt, t.a);
     });
     if (ringAt != null) level = false;
+    // A SHORT EVENT LEAVES UPRIGHT. At 45 degrees the lead is as long as the
+    // shelf is deep, so on a half-hour stop the diagonal eats most of the run
+    // before the dot: the dot and its tick are pushed along and the name sits
+    // over the corner rather than over the event -- "Walk Nibbler is a bit
+    // awkward... the angled corner taking space". Long enough to carry both,
+    // the diagonal is what a transit map draws and it stays.
+    if (level && (w.a1 - w.a0) < dist * 1.4) level = false;
     var floor = null;
     if (!level) {
       for (var vj = 1; vj < tp.length - 1; vj++) {
@@ -1630,7 +1637,24 @@ function solveBands(spec, opts) {
     // A MARK OR A SHELF. The step -- the rail sloping for the event and
     // staying at its new level -- is no longer offered: "add shelves back
     // instead of slopes, the labels are much easier to place for that."
+    // DOWN AND UP, IN THE ORDER THE BAND SAYS. The two sides usually cost the
+    // same -- the room above and below a rail is often symmetric -- and the
+    // descent keeps a move only if it is strictly cheaper, so whichever side
+    // was offered first won every tie. Listed [0, 2, -2], that was always
+    // down: "why does it want to go down?" The side with more room is offered
+    // first now, so a coin flip lands on the side that can afford it.
     var MODES = [0, 2, -2];
+    function modesFor(i2) {
+      var w3 = spec.wants[i2];
+      var q = w3 && w3.line ? lineOf(w3.line) : null;
+      var up = q && q._roomSide ? q._roomSide['-1'] : 0;
+      var dn = q && q._roomSide ? q._roomSide['1'] : 0;
+      return up > dn + 0.5 ? [0, -2, 2] : MODES;
+    }
+    function lineOf(key) {
+      for (var li2 = 0; li2 < spec.lines.length; li2++) if (spec.lines[li2].key === key) return spec.lines[li2];
+      return null;
+    }
     // A SHELF IS OFFERED TO EVERY EVENT, not only to the ones in trouble: a
     // shelf is the form an event takes (shelfWorth), and a flat board with
     // every name placed had nothing troubled and so was never offered one
@@ -1649,16 +1673,18 @@ function solveBands(spec, opts) {
         var r4 = clone(st); r4.forms[i2] = k4; out.push(r4);
       }
       if (w2.tie || w2.allDay || w2.pill) return;
-      for (var k3 = 1; k3 < MODES.length; k3++) {
-        if (st.steps[i2] === MODES[k3]) continue;
-        var m3 = clone(st); m3.steps[i2] = MODES[k3]; out.push(m3);
+      var md3 = modesFor(i2);
+      for (var k3 = 1; k3 < md3.length; k3++) {
+        if (st.steps[i2] === md3[k3]) continue;
+        var m3 = clone(st); m3.steps[i2] = md3[k3]; out.push(m3);
       }
     });
     who.forEach(function (i2) {
       // A tie's spur is a fact (above); the search has no move to offer it.
-      for (var k2 = 0; k2 < MODES.length && !spec.wants[i2].tie; k2++) {
-        if (st.steps[i2] === MODES[k2]) continue;
-        var m = clone(st); m.steps[i2] = MODES[k2]; out.push(m);
+      var md2 = modesFor(i2);
+      for (var k2 = 0; k2 < md2.length && !spec.wants[i2].tie; k2++) {
+        if (st.steps[i2] === md2[k2]) continue;
+        var m = clone(st); m.steps[i2] = md2[k2]; out.push(m);
       }
       for (k2 = 0; k2 < spec.wants[i2].formCount(); k2++) {
         if (st.forms[i2] === k2) continue;

@@ -597,6 +597,132 @@ function draw(board, spec, ctx) {
     band.style.stroke = INK;
     put(band, 'band', ln.key);
   });
+  // ...AND A GROUP EVENT IS THE SAME BAND, ON EVERY LINE IN IT (prototype).
+  // A long shared stretch already draws the rails together with a diamond at
+  // each end; the band says the same thing in the language the board already
+  // has for "this line is occupied for these hours", without spending a
+  // texture -- texture on this board means WHO, and a striped rail would read
+  // as somebody else's line before it read as a busy one.
+  // Drawn after the rails and their cores: the quiet stretches below.
+  var away = [], quietOn = {};
+  {
+    // WHILE SOMEBODY IS AWAY, THEIR OWN TRACK IS NOT THE THING TO READ.
+    //
+    // "Delivery Run 9am - 4pm" is drawn as a shelf beside the rail, and the
+    // rail underneath it runs on at full weight, so the eye stays on it and
+    // the stretch reads as an ordinary morning. Hollowed out for those hours
+    // -- the ink kept as two thin edges, the middle in paper -- the trunk
+    // recedes and the shelf is what the eye lands on, which is where the
+    // person actually is. No new texture: texture on this board says WHO.
+    // WHOEVER JOINED A SHARED EVENT IS NOT ON THEIR OWN LINE MEANWHILE.
+    //
+    // The delivery run is Fry, Leela and Bender for seven hours. It is drawn
+    // once, as a tube off the bar where they all met, and their own rails run
+    // on underneath at full weight -- so the board says three people are
+    // somewhere else and their lines are still the thing to read. Those
+    // stretches are turned down: same rail, same texture, lighter ink, with
+    // the event's own minutes as crisp edges.
+    //
+    // Who joined is a fact about the DAY, not about the drawing: a shared
+    // event is drawn on one line's rail (as a ride), so the members are read
+    // from the payload rather than from the shape on the board.
+    //
+    // Only where that person has nothing else in those hours. The professor
+    // naps inside his own long event, and a rail with a stop on it is saying
+    // something; Amy never joined the run at all, so her line is left alone.
+    if (spec.scale && spec.metro) {
+      var mLo = spec.metro.day_start_min, mHi = spec.metro.day_end_min;
+      var evs = (spec.metro.events || []).filter(function (ev) {
+        return (!ev.type || ev.type === 'event') && ev.start_min != null;
+      });
+      evs.forEach(function (ev) {
+        var with_ = (ev.co_owners || []).filter(Boolean);
+        if (!with_.length) return;
+        var from = Math.max(ev.start_min, mLo), to = Math.min(ev.end_min == null ? ev.start_min : ev.end_min, mHi);
+        if (!(to - from >= 60)) return;
+        [ev.owner].concat(with_).filter(Boolean).forEach(function (k) {
+          var tr = board.lineByKey(k);
+          if (!tr) return;
+          var busy = evs.some(function (o) {
+            if (o === ev) return false;
+            var mineO = o.owner === k || (o.co_owners || []).indexOf(k) >= 0;
+            if (!mineO) return false;
+            return o.start_min < to - 0.5 && (o.end_min == null ? o.start_min : o.end_min) > from + 0.5;
+          });
+          if (busy) return;
+          var qa0 = spec.scale.at(from), qa1 = spec.scale.at(to);
+          // FROM THE MARK, NOT FROM THE MINUTE. Where the line meets the bar
+          // it joined, the quiet stretch starts at the edge of that ring, and
+          // ends at the edge of whatever mark ends it: the grey begins and
+          // ends ON the connectors rather than a few pixels off them, which is
+          // what made the ends look arbitrary.
+          var ringR = NODE_R * 1.4 + NODE_STROKE * 0.5;
+          function edgeAt(a, dir) {
+            var best = null;
+            (board.pills || []).forEach(function (q) {
+              if ((q.lines || []).indexOf(k) < 0) return;
+              [q.a, q.a0, q.a1].forEach(function (qa) {
+                if (qa == null || Math.abs(qa - a) > NODE_R * 1.6) return;
+                var e = qa + dir * ringR;
+                if (best == null || dir * (e - best) > 0) best = e;
+              });
+            });
+            (board.stops || []).forEach(function (st3) {
+              if (st3.line !== k || Math.abs(st3.a - a) > NODE_R * 1.6) return;
+              var e2 = st3.a + dir * (NODE_R + NODE_STROKE * 0.5);
+              if (best == null || dir * (e2 - best) > 0) best = e2;
+            });
+            return best == null ? a : best;
+          }
+          qa0 = edgeAt(qa0, 1);
+          qa1 = edgeAt(qa1, -1);
+          if (!(qa1 - qa0 > NODE_R)) return;
+          var wq = Math.max(2 * S, (tr.width || 3) * S) + WIDEN * S;
+          var st2 = 48, mid = [];
+          for (var ti2 = 0; ti2 <= st2; ti2++) {
+            var ta = qa0 + (qa1 - qa0) * ti2 / st2, tc = tr.cAt(ta);
+            if (tc != null) mid.push(xy(ta, tc));
+          }
+          if (mid.length < 2) return;
+          var dMid = 'M ' + mid.map(function (q) { return q[0] + ' ' + q[1]; }).join(' L ');
+          (quietOn[k] = quietOn[k] || []).push([qa0, qa1]);
+          var wipe = svgEl(doc, 'path', { d: dMid, fill: 'none', 'stroke-width': wq + 0.6 * S,
+            'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
+          wipe.style.stroke = PAPER;
+          away.push(wipe);
+          var quiet = svgEl(doc, 'path', { d: dMid, fill: 'none', 'stroke-width': wq,
+            'stroke-linecap': 'butt', 'stroke-linejoin': 'round', 'stroke-opacity': 0.42 });
+          quiet.style.stroke = inkOf(k);
+          away.push(quiet);
+          var tq = treatment(tr.style, S, wq);
+          if (tq) {
+            var qov = svgEl(doc, 'path', { d: dMid, fill: 'none', 'stroke-width': tq.core,
+              'stroke-linecap': tq.cap, 'stroke-linejoin': 'round', 'stroke-dasharray': tq.dash || null });
+            qov.style.stroke = PAPER;
+            away.push(qov);
+          }
+        });
+      });
+    }
+    (board.pills || []).forEach(function (pl) {
+      if (pl.tie || pl.a1 - pl.a0 < NODE_R * 4) return;
+      (pl.lines || []).forEach(function (k) {
+        var ln = board.lineByKey(k);
+        if (!ln) return;
+        var steps = 24, pts = [];
+        for (var bi = 0; bi <= steps; bi++) {
+          var ba = pl.a0 + (pl.a1 - pl.a0) * bi / steps, bc = ln.cAt(ba);
+          if (bc != null) pts.push(xy(ba, bc));
+        }
+        if (pts.length < 2) return;
+        var bb = svgEl(doc, 'path', { d: 'M ' + pts.map(function (q) { return q[0] + ' ' + q[1]; }).join(' L '),
+          fill: 'none', 'stroke-width': NODE_R * 3.2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+          'stroke-opacity': 0.13 });
+        bb.style.stroke = INK;
+        put(bb, 'band', k);
+      });
+    });
+  }
   var overlays = [];
   // WHICH RAILS END IN A CHEVRON rather than a slash (see openEnded below,
   // which is the same question asked where the marks are drawn). Known here
@@ -739,6 +865,7 @@ function draw(board, spec, ctx) {
     }
   });
   overlays.forEach(function (ov) { svg.appendChild(ov); });
+  away.forEach(function (n) { put(n, 'away'); });
 
   // ---- where the day turns over -----------------------------------------
   //
@@ -1107,6 +1234,11 @@ function draw(board, spec, ctx) {
           var ln2 = board.lineByKey(k);
           var c2 = ln2 ? ln2.cAt(end.to) : null;
           if (c2 == null) return;
+          // NOT ON A RAIL THAT HAS GONE QUIET. The event is drawn as its own
+          // tube and that tube ends in a tick; ticking each member's own rail
+          // as well gave one event four terminators, three of them on rails
+          // nobody was riding at the time.
+          if ((quietOn[k] || []).some(function (r2) { return end.to >= r2[0] - NODE_R && end.to <= r2[1] + NODE_R; })) return;
           var half = Math.max(NODE_R * 1.05, railStroke(ln2, k).width * 1.25);
           markLine(xy(end.to, c2 - half), xy(end.to, c2 + half), ln2, k, 'stop');
         });
