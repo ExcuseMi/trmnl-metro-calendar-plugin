@@ -1669,9 +1669,30 @@ function alertFor(extra, dayIx, nowMin) {
     { dayIx: dayIx, nowMin: nowMin }));
 }
 
+// THE User-Agent IS FOR THE DEVICE, AND A PAGE MUST NOT BE ASKED TO SEND ONE.
+//
+// The runtime that renders the panel sends whatever headers it is handed,
+// and a few calendar hosts want a name on the request. A browser is a
+// different matter: User-Agent is not a CORS-safelisted header, so setting
+// it turns a plain cross-origin GET into a preflighted one. Chrome hides
+// that by dropping the header; Firefox honours it, sends the OPTIONS, and
+// raw.githubusercontent.com answers OPTIONS with 403 and no
+// Access-Control-Allow-Headers. Every demo file and every language file this
+// transform fetches lives there, so in Firefox the config tool's preview drew
+// "The example day could not be loaded" over an empty board, with the clock
+// and the hour ruler falling back to the account's own locale because even
+// the demo's config.json had been blocked. Chrome drew the same board fine,
+// which is why it survived: the one place this runs in a browser is that
+// preview. The header buys nothing there anyway: a browser puts its own
+// User-Agent on every request it makes.
+function defaultHeaders() {
+  var inBrowser = (typeof window !== 'undefined' && typeof document !== 'undefined');
+  return inBrowser ? {} : { 'User-Agent': 'TRMNL-Metro-Calendar' };
+}
+
 async function fetchWithTimeout(url, ms, extraHeaders) {
   var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-  var headers = Object.assign({ 'User-Agent': 'TRMNL-Metro-Calendar' }, extraHeaders || {});
+  var headers = Object.assign(defaultHeaders(), extraHeaders || {});
   var timer = controller ? setTimeout(function () { controller.abort(); }, ms) : null;
   function clear() { if (timer) { clearTimeout(timer); timer = null; } }
   var resp;
