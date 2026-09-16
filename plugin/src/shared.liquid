@@ -3266,8 +3266,12 @@ function boardFor(spec, st) {
       // above its rail unless it is the top line; either way test both rows
       // (a spur's first point is on the trunk itself, a lift below the box:
       // kept out of it, or every spur leaving under the head counted)
-      return B.lineTouches(l, { a0: a0, a1: a1, c0: c - lift - hh, c1: c - lift - 3 })
-        && (b.lines.indexOf(tl) >= 0);
+      // `tl` came from `b.lineByKey`, which only ever returns something
+      // already in `b.lines` -- the `indexOf` this used to run afterwards
+      // to confirm that was a second O(lines) scan proving what the first
+      // one already guaranteed, on every fixed terminus, on every shelf,
+      // on every board.
+      return B.lineTouches(l, { a0: a0, a1: a1, c0: c - lift - hh, c1: c - lift - 3 });
     });
   }
   shelvesMade.forEach(function (sh) {
@@ -3705,10 +3709,19 @@ function boardFor(spec, st) {
     return ((d1 > 0.01 && d2 < -0.01) || (d1 < -0.01 && d2 > 0.01))
         && ((d3 > 0.01 && d4 < -0.01) || (d3 < -0.01 && d4 > 0.01));
   }
+  // BOUNDS FIRST, THE SEGMENTS ONLY WHERE THEY COULD MEET. Every branch was
+  // tested against every other line's every segment regardless of where
+  // either one is, on every board a candidate move is priced against -- most
+  // pairs are nowhere near each other in time or level, and a box that does
+  // not overlap the other box cannot hold a crossing segment either. `bounds`
+  // is the same memoised box `lineTouches` already trusts for this (board.js).
   b.lines.forEach(function (l) {
     if (!l.branchOf) return;
+    var lb = l.bounds();
     b.lines.forEach(function (o) {
       if (o === l || o.key === l.branchOf || o.branchOf === l.key) return;
+      var ob = o.bounds();
+      if (lb.a1 < ob.a0 || ob.a1 < lb.a0 || lb.c1 < ob.c0 || ob.c1 < lb.c0) return;
       for (var i = 1; i < l.pts.length; i++) {
         for (var j = 1; j < o.pts.length; j++) {
           if (cross(l.pts[i - 1], l.pts[i], o.pts[j - 1], o.pts[j])) b.crossings++;
@@ -4194,7 +4207,16 @@ function solveBands(spec, opts) {
   // usually to move the OTHER one.
   function troubled(st) {
     var b = boardFor(spec, st);
-    var sol = C.solve(spec.wants, b, { iters: 0, minLift: spec.minLift, muddlePrice: spec.muddlePrice });
+    // THE SAME CACHE `trial` READS. This call was left out of it, so once a
+    // pass, every caption's candidate positions were rebuilt from nothing
+    // even though most of them are the same geometry `trial` just cached
+    // for another candidate a moment ago -- and this call never seeded a
+    // single entry for `trial` to reuse either. The cache is a pure lookup
+    // on the caption's own geometry (bands.js:1412), so filling it from here
+    // changes nothing about what is returned, only how many times it is
+    // recomputed.
+    var sol = C.solve(spec.wants, b, { iters: 0, minLift: spec.minLift, muddlePrice: spec.muddlePrice,
+                                       cache: spec._cands });
     var bad = {};
     spec.wants.forEach(function (w, i) {
       if (sol.pick[i] < 0) bad[i] = 1;
