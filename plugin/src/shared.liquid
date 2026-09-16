@@ -1416,8 +1416,19 @@ function positions(want, board, opts) {
           // are measured from the middle of the words rather than their
           // start: a name that names a POINT is centred on it.
           var pa = pill.a - want.w / 2 + slides[pk] * want.w;
-          out.push({ want: want, a: pa, c: pc, side: pside, row: pr, pbox: pbox,
-                     slide: slides[pk] * want.w, railC: pside > 0 ? pill.c1 : pill.c0 });
+          // SAME KEYS, SAME ORDER, EVERY PUSH SITE IN THIS FUNCTION. A
+          // candidate missing `off`/`beside`/`pbox` is a different hidden
+          // class from one that has them, and `cands` ends up holding a mix
+          // of shapes off a single board (pill candidates beside rail
+          // candidates) -- every later read of `p.something` (readable,
+          // posBox, muddledAt, pairCost) then goes megamorphic. Profiled at
+          // over 8% of a solve on its own (LoadIC_Megamorphic), more than
+          // `positions` itself spent computing the values. `off: undefined`
+          // and `pbox: null` are read with `!= null` downstream, so this
+          // changes no answer, only how V8 stores it.
+          out.push({ want: want, a: pa, c: pc, side: pside, row: pr,
+                     off: undefined, slide: slides[pk] * want.w,
+                     railC: pside > 0 ? pill.c1 : pill.c0, pbox: pbox, beside: false });
         }
       }
     }
@@ -1436,8 +1447,9 @@ function positions(want, board, opts) {
       [pbox.c0, mid, pbox.c1 - want.h].forEach(function (ec, ei) {
         if (ec < pbox.c0 - 0.5 || ec + want.h > pbox.c1 + 0.5) return;
         if (ei && Math.abs(ec - pbox.c0) < 1) return;   // a short box: one row is all of them
-        out.push({ want: want, a: ea, c: ec, side: 0, row: 0, slide: 0, pbox: pbox,
-                   railC: eside > 0 ? pill.c1 : pill.c0, beside: eside });
+        out.push({ want: want, a: ea, c: ec, side: 0, row: 0,
+                   off: undefined, slide: 0,
+                   railC: eside > 0 ? pill.c1 : pill.c0, pbox: pbox, beside: eside });
       });
     }
     return out;
@@ -1515,13 +1527,20 @@ function positions(want, board, opts) {
         // WHERE THE RAIL RUNS UNDER THESE WORDS, as a band. Sampled three
         // times rather than once: a diagonal has a different height at each
         // end of a caption, and the gap that matters is the nearest one.
+        //
+        // Written as three plain lookups rather than an array + forEach: this
+        // ran once per (side, row, slide) candidate -- tens of times per
+        // caption, thousands per solve -- and profiled as a real share of a
+        // solve's own time and its GC (the array literal and the closure both
+        // heap-allocate on every call). `mid` was also being asked for twice:
+        // `gotMid` above is `line.cAt(mid)`, so it is reused rather than
+        // recomputed.
         var lo = Infinity, hi = -Infinity;
-        [a, mid, a + want.w].forEach(function (x) {
-          var cc = line.cAt(x);
-          if (cc == null) return;
-          if (cc < lo) lo = cc;
-          if (cc > hi) hi = cc;
-        });
+        var ccA = line.cAt(a);
+        if (ccA != null) { if (ccA < lo) lo = ccA; if (ccA > hi) hi = ccA; }
+        if (gotMid != null) { if (gotMid < lo) lo = gotMid; if (gotMid > hi) hi = gotMid; }
+        var ccB = line.cAt(a + want.w);
+        if (ccB != null) { if (ccB < lo) lo = ccB; if (ccB > hi) hi = ccB; }
         for (var ri = 0; ri < refs.length; ri++) {
           var railC = refs[ri];
           var c = side > 0 ? railC + out_ : railC - out_ - want.h;
@@ -1531,7 +1550,7 @@ function positions(want, board, opts) {
                      // In rows, and zero while the words are as close as a
                      // caption is allowed to get, so row 0 is still free.
                      off: Math.max(0, (near - want.gap) / step),
-                     slide: sl[k] * want.w, railC: railC });
+                     slide: sl[k] * want.w, railC: railC, pbox: null, beside: false });
         }
       }
     }
@@ -1549,7 +1568,7 @@ function positions(want, board, opts) {
       // bottom row sits level with it, which is the mockup exactly.
       [bs[1] - want.h / 2, bs[1] - want.h + want.gap / 2, bs[1] - want.gap / 2].forEach(function (bc) {
         out.push({ want: want, a: bs[0], c: bc, side: 0, row: 0, off: 0, slide: 0,
-                   railC: bs[1], beside: true });
+                   railC: bs[1], pbox: null, beside: true });
       });
     });
   }
