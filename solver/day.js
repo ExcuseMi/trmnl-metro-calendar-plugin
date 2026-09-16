@@ -1094,6 +1094,12 @@ function specFor(metro, view, opts) {
            // booked a mark's radius of eight on a panel drawing twelve.
            markR: opts && opts.markR != null ? opts.markR : undefined,
            corner: opts && opts.corner != null ? opts.corner : undefined,
+           // ...AND WHAT AN EDGE RING REACHES PAST THE FIRST MINUTE, which is
+           // the third. A line whose day opened inside a shared event is drawn
+           // with a ring on its rail's start, and its name has to be booked
+           // clear of that ring rather than moved clear of it afterwards.
+           // `Draw.edgeRing` is where the number is (draw.js).
+           edgeRing: opts && opts.edgeRing != null ? opts.edgeRing : undefined,
            // THE BOARD'S OWN INK, DECLARED BEFORE THE SOLVE. See Furniture.
            // Everything here takes paper and cannot move, so the caption
            // search has to be told about it up front rather than have it

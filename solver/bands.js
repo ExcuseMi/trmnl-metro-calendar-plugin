@@ -791,6 +791,39 @@ function boardFor(spec, st) {
       var ln = b.lineByKey(fx.line);
       var c = ln ? ln.cAt(fx.at == null ? spec.axis.a1 : fx.at) : null;
       if (c == null) return;
+      // CLEAR OF ITS OWN EDGE RING, AND BOOKED THERE.
+      //
+      // Where this line's day opened inside a shared event, the drawing puts
+      // a ring on the rail's first point and the name has to begin after it.
+      // That was done at DRAWING time, which left the solver defending the
+      // wrong rectangle: the name was booked at the rail's start and drawn a
+      // ring's width to the right of it, so every decision about it -- which
+      // caption may sit there, what counts as ink on ink -- was taken against
+      // paper the name was no longer on. Two thirds of "Fry" was drawn on
+      // paper the caption search believed free, and on one board "Bender" was
+      // written over "Hedonism Lounge" with the checker calling it clean.
+      //
+      // It moves HERE, before any of those decisions is taken, so everything
+      // below that keeps a name off a branch is looking at the real box. Only
+      // the lines that survived the fit have rings at all, which is why this
+      // cannot be done in day.js: reserving for a ring that is never drawn
+      // costs a caption its place.
+      if (spec.edgeRing) {
+        var ringA = null;
+        (spec.pills || []).forEach(function (p) {
+          if (!ties[p.id] || !p.open0 || p.a > spec.axis.a0 + 1) return;
+          if ((p.lines || []).indexOf(fx.line) < 0) return;
+          ringA = ringA == null ? p.a : Math.min(ringA, p.a);
+        });
+        // Only a name the ring is really under. At the far end there is no
+        // ring, and on a panel whose first minute is a gutter in from the
+        // paper's edge the name sits out there with nothing to clear.
+        if (ringA != null && f.align !== 'right'
+            && f.a0 < ringA + spec.edgeRing && f.a1 > ringA) {
+          var over = ringA + spec.edgeRing - f.a0;
+          f.a0 += over; f.a1 += over;
+        }
+      }
       // ABOVE ITS RAIL, NOT ON IT.
       //
       // Set level with the line, a name shares the rail's own row with the

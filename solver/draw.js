@@ -110,6 +110,29 @@ function pathOf(pts, r) {
 
 var B = require('./board');
 
+// WHAT AN EDGE RING TAKES OF ITS RAIL'S FIRST MINUTE.
+//
+// A shared event already running when the board opened is drawn as an
+// interchange at the rail's start: a ring on each member, three dots past it,
+// and the rail's own ink resuming after those. The line's NAME has to begin
+// clear of the ring -- and a name's paper is booked by the SOLVER, not here.
+// So the reach is stated once, in this one place, and handed to the spec the
+// way markR and corner are (day.js): the numbers the solver and the renderer
+// have to agree on.
+//
+// Drawn from one number and reserved from another is exactly how two thirds
+// of "Fry" came to be drawn on paper the caption search believed was free,
+// and how "Bender" came to be written over "Hedonism Lounge" on a board the
+// checker called clean.
+function edgeRing(S) {
+  // NODE_R * 1.4 (a lettered ring) * EDGE_RING, with the stroke's outer half.
+  var r = 6 * S * 1.4 * 0.75 + 3 * S * 0.5;
+  // ...and the step out to each of the three dots (RAIL_W * 1.3, never less
+  // than the smallest gap that still reads as three marks).
+  var gap = Math.max(3 * S * 1.3, 2.6 * S);
+  return { r: r, gap: gap, reach: r + gap };
+}
+
 function draw(board, spec, ctx) {
   var doc = ctx.doc || document;
   var svg = ctx.svg, canvas = ctx.canvas;
@@ -1047,7 +1070,6 @@ function draw(board, spec, ctx) {
     if (w._rail) branchOpen[w._rail] = [!!w.open0, !!w.open1];
   });
   var edgeDots = {};  // line -> its "..." has moved inside, past the edge ring
-  var edgeShift = {}; // line -> where its name has to start to clear that ring
   var tiedAt = {};   // line -> [a]: a ring already marks this minute
   // WHOSE RING IT IS, IN LETTERS. "Put small inline initials directly inside
   // the event nodes, so she doesn't have to follow line patterns to figure
@@ -1220,8 +1242,7 @@ function draw(board, spec, ctx) {
         // in the gutter like the main event of that corner and pushed every
         // name out past the dots. Three quarters of one reads as the same
         // mark, quieter, and gives the row above it back to the names.
-        var eRingR = NODE_R * 1.4 * EDGE_RING + NODE_STROKE * 0.5;
-        var eGap = Math.max(RAIL_W * 1.3, 2.6 * S);
+        var eR = edgeRing(S), eRingR = eR.r, eGap = eR.gap;
         var eDr = Math.max(1.2 * S, RAIL_W * 0.42);
         var eFrom = pl.a + eRingR + eGap * 4;
         members.forEach(function (k5) {
@@ -1230,11 +1251,11 @@ function draw(board, spec, ctx) {
           // The rail's own ink pulled back off the ring and the dots, so they
           // stand on paper rather than on top of the line they belong to.
           edgeDots[k5] = true;
-          // RIGHT NEXT TO THE CONNECTOR. The name used to start after the
-          // dots, which is where the RAIL starts; but a name sits a row above
-          // its rail, so the dots are never in its way and only the ring ever
-          // was. Clear of the ring is far enough.
-          edgeShift[k5] = pl.a + eRingR + eGap;
+          // (RIGHT NEXT TO THE CONNECTOR is where the name goes -- past the
+          // ring, not past the dots, because a name sits a row above its rail
+          // and the dots are never in its way. bands.js books it there, from
+          // `edgeRing` above: the reach is this function's to state and the
+          // solver's to defend.)
           var w5 = railStroke(l5, k5).width + 1.2 * S;
           var c5 = l5.cAt(pl.a);
           if (c5 == null) return;
@@ -2138,15 +2159,11 @@ function draw(board, spec, ctx) {
         })) tn.removeChild(more);
       }
       if (!fx.route) {
-        // CLEAR OF AN EDGE RING. Where a shared event that was already
-        // running put a ring on this rail's first point, the name set at the
-        // rail's own start lands on the ring and on the dots beside it:
-        // "label need to offset a bit to the right." It starts after them
-        // instead. Only at that end, and only on those lines, so every other
-        // name on the board is where the solver put it.
+        // WHERE THE SOLVER PUT IT, WHOLE. Clearing an edge ring used to be
+        // done right here, with the solver left holding the rail's start:
+        // bands.js books the name past the ring now, and a name that had to
+        // step further in to get out of a branch is drawn where it stepped.
         var tA = fx.align === 'right' ? fx.a1 : fx.a0;
-        if (fx.align !== 'right' && edgeShift[fx.line] != null
-            && Math.abs(tA - axisA0) < NODE_R * 2) tA = edgeShift[fx.line];
         place(tn, tA, c, fx.align === 'right' ? 'right' : 'left');
         // A NAME AT THE FAR EDGE IS HELD BY THAT EDGE, not by a left offset
         // worked out from its width: the face settles after the board is laid
@@ -2177,15 +2194,9 @@ function draw(board, spec, ctx) {
       var own = board.lineByKey(fx.line), railC = own ? own.cAt(fx.at == null ? spec.axis.a1 : fx.at) : null;
       var top0 = railC != null && fx.c0 >= railC ? fx.c0 : Math.min(fx.c0, fx.c1 - nThick - rThick);
       var far = fx.align === 'right';
-      // ...AND THE SAME CLEARANCE WHERE THE NAME CARRIES A ROUTE UNDER IT.
-      // Leela's name and her "Ship Inspection" stayed hard left while Bender
-      // and Fry moved, because a name with a route beneath it is placed here
-      // rather than above, and only the other one had been told about the
-      // ring. Two names on one board obeying different rules is worse than
-      // either rule.
+      // A name carrying a route row is placed here rather than above, and
+      // both rows take the box the solver booked -- ring, branch and all.
       var rA = far ? fx.a1 : fx.a0;
-      if (!far && edgeShift[fx.line] != null
-          && Math.abs(rA - axisA0) < NODE_R * 2) rA = edgeShift[fx.line];
       place(tn, rA, top0 + nThick / 2, far ? 'right' : 'left');
       place(rt, rA, top0 + nThick + rThick / 2, far ? 'right' : 'left');
       if (far && horizontal) {
@@ -2814,4 +2825,4 @@ function draw(board, spec, ctx) {
 }
 
 module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
-                   INK: INK, PAPER: PAPER };
+                   edgeRing: edgeRing, INK: INK, PAPER: PAPER };

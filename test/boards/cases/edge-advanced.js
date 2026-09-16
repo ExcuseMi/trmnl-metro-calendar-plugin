@@ -55,43 +55,61 @@ module.exports = function (test, h) {
     }
   }
 
-  // THE NAME KEEPS OUT OF THE CONNECTOR: NOT CHECKABLE HERE, AND WHY.
+  // THE NAME IS BOOKED WHERE ITS INK IS.
   //
-  // A test for this was written and it failed on every board, which turned out
-  // to be right about something worse than itself. The name is moved clear of
-  // the ring at DRAWING time, but `rep.labels` is built from `board.fixed`,
-  // the boxes the SOLVER reserved. So the solver books that name's paper at
-  // the rail's own start while the ink is drawn a ring and a gap to the right
-  // of it, and the two disagree by about thirty units.
+  // This was untestable, and the comment that stood here said so at length: a
+  // name at an edge ring was moved clear of the ring at DRAWING time while
+  // `rep.labels` went on reporting the SOLVER's box at the rail's start, so
+  // an assertion about either position was measuring one half of a
+  // disagreement. Worth reading the history for: two fixes were built and
+  // both were wrong, one in day.js (which runs before the fit and cannot know
+  // whether a ring is drawn at all) and one in bands.js that moved every name
+  // with a ring anywhere on its line, including the ones parked out at the
+  // paper's edge on a panel whose first minute is a gutter in -- that one put
+  // "Fry" in a branch on futurama 21:30 og-half-horizontal.
   //
-  // That is not a hole in the test, it is a hole in the drawing: every
-  // collision decision about that name -- which caption may sit there, what
-  // counts as ink on ink -- is taken against paper the name is no longer on.
-  // A test asserting the drawn position would pass and would be measuring the
-  // wrong half of the disagreement, so there is none here.
+  // What it needed was for the box to be placed by machinery that can route
+  // around a branch, which bands.js has had all along for every other name:
+  // the box is moved past the ring BEFORE the above/below choice and the two
+  // escapes are made, so a honest box that lands in a branch steps out of it
+  // like any other. The drawing no longer moves anything. So the solver's box
+  // is now the truth about where the name is, and this asks it.
   //
-  // TRIED, AND HERE IS WHAT IT COSTS. Moving the reservation so it follows
-  // the ink was built and measured, twice, and both versions are worth knowing
-  // about before anybody builds it a third time.
-  //
-  // In day.js, where the box is made, it is WRONG: fixedFor runs before the
-  // board is solved, so it cannot know whether the ring is drawn at all. A tie
-  // whose members are dropped from a small panel draws none, and reserving for
-  // one that never appears cost a caption its place -- "School Run" 25px from
-  // its own event on a half-width board, against a limit of 17.
-  //
-  // In bands.js, where the lines that survived are known, the condition is
-  // right and the suite goes green: 933 board cases, households unchanged at
-  // shed 36, muddle 36, dropped 30, faults 1, and reserved and drawn agree at
-  // 33 on every member. But the sweep then finds a namecut: "Fry" cut by
-  // p2/e3 on futurama 21:30 og-half-horizontal. The name, now honestly booked
-  // a ring's width in, lands in a branch. A visible fault on a shipped example
-  // day is worse than the silent mismatch it cures, so it was reverted.
-  //
-  // What it actually needs: the terminus box has to be placed by machinery
-  // that can route it around a branch, the way a caption is, instead of being
-  // set at one minute and defended there. That is the real piece of work, and
-  // it is bigger than moving an offset from one file to another.
+  // Measured over the 306 boards of the sweep and households corpora: 35
+  // names were drawn on paper the solver had not booked, one of them across
+  // a caption ("Bender" over "Hedonism Lounge", futurama 21:30 x-portrait) on
+  // a board `check()` called clean. Both are zero now.
+  for (const f of withEdge) {
+    for (const v of VIEWS) {
+      test('a name at an edge ring is booked clear of it: ' + f.name + '/' + v, () => {
+        const rep = layout(f, v);
+        const horiz = rep.debug.horizontal;
+        const rings = rep.circles.filter((c) => c.role === 'ring-edge');
+        if (!rings.length) return;
+        const bad = [];
+        for (const r of rings) {
+          // Past the ring's own ink, which is where the drawing starts the name.
+          const past = horiz ? r.x + r.w : r.y + r.h;
+          const names = rep.labels.filter((l) => l.cls === 'metro-terminus'
+            && l.line === r.owner && /^name0:/.test(l.id || ''));
+          for (const n of names) {
+            const a0 = horiz ? n.x : n.y;
+            if (a0 < past) bad.push(r.owner + ': "' + n.text + '" is booked from '
+              + Math.round(a0) + ', inside its own ring, which reaches ' + Math.round(past));
+          }
+        }
+        assert(!bad.length, bad.slice(0, 4).join('; '));
+      });
+    }
+  }
+
+  // ...AND NOTHING ELSE IS STANDING ON THAT PAPER, which is not asked here
+  // and does not need to be. `check()` already compares every caption against
+  // every piece of fixed ink (`onfixed`, board.js) and the sweep runs it over
+  // ninety real boards. That comparison was simply being made against the
+  // wrong rectangle: the fault it could not see was "Bender" written across
+  // "Hedonism Lounge". Nothing was added to catch it -- a check that was
+  // already there started telling the truth.
 
   // ONE MARK FOR ONE END. The ring is that end's mark, so the arrow and the
   // slash give way: either would be drawn inside it, through the initial.
