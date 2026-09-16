@@ -677,6 +677,20 @@ function draw(board, spec, ctx) {
           qa0 = edgeAt(qa0, 1);
           qa1 = edgeAt(qa1, -1);
           if (!(qa1 - qa0 > NODE_R)) return;
+          // NOT INSIDE A CORRIDOR. Where this rail runs in a drawn corridor
+          // for those hours the corridor already says the person is in it,
+          // and drawing the rail quiet as well laid a grey ghost alongside
+          // the tube: "there is a track overlaying lisa that shouldn't be
+          // there." Bart was not quiet in the same corridor only because he
+          // had a Field Trip inside it, so the two members of one event were
+          // drawn two different ways within a single shape. The quiet
+          // treatment is for a rail going quiet on its OWN row, which is
+          // where it says something the picture does not already say.
+          var boxed = (board.pills || []).some(function (q2) {
+            if (q2.tie || (q2.lines || []).indexOf(k) < 0) return false;
+            return q2.a0 <= qa0 + NODE_R && q2.a1 >= qa1 - NODE_R;
+          });
+          if (boxed) return;
           var wq = Math.max(2 * S, (tr.width || 3) * S) + WIDEN * S;
           var st2 = 48, mid = [];
           for (var ti2 = 0; ti2 <= st2; ti2++) {
@@ -704,24 +718,16 @@ function draw(board, spec, ctx) {
         });
       });
     }
-    (board.pills || []).forEach(function (pl) {
-      if (pl.tie || pl.a1 - pl.a0 < NODE_R * 4) return;
-      (pl.lines || []).forEach(function (k) {
-        var ln = board.lineByKey(k);
-        if (!ln) return;
-        var steps = 24, pts = [];
-        for (var bi = 0; bi <= steps; bi++) {
-          var ba = pl.a0 + (pl.a1 - pl.a0) * bi / steps, bc = ln.cAt(ba);
-          if (bc != null) pts.push(xy(ba, bc));
-        }
-        if (pts.length < 2) return;
-        var bb = svgEl(doc, 'path', { d: 'M ' + pts.map(function (q) { return q[0] + ' ' + q[1]; }).join(' L '),
-          fill: 'none', 'stroke-width': NODE_R * 3.2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-          'stroke-opacity': 0.13 });
-        bb.style.stroke = INK;
-        put(bb, 'band', k);
-      });
-    });
+    // A SHARED EVENT IS ITS CORRIDOR, NOT A WASH BEHIND IT. Every member's
+    // rail used to take a light band for the whole of a long shared event,
+    // on top of the corridor that already draws it and the quiet treatment
+    // that already says they are in it. Three ways of saying one thing, and
+    // the band was the one nobody could read: it began at the event's own
+    // start rather than at the diamond, so it hung out past the mark as a
+    // grey smudge with no edge -- "what's with the gray background before
+    // the diamond of schoolday?" This is the band iteration 13's own notes
+    // list as rejected ("a band behind the busy stretch (too quiet)"); the
+    // drawing shipped anyway. Gone.
   }
   var overlays = [];
   // WHICH RAILS END IN A CHEVRON rather than a slash (see openEnded below,
