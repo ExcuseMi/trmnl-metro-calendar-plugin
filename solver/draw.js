@@ -314,15 +314,27 @@ function draw(board, spec, ctx) {
       return xy(at[0] + u[0] * along + n[0] * across, at[1] + u[1] * along + n[1] * across);
     }
     var pw = W * 0.5, gap = W * 0.4, drops = [W * 1.3, W * 0.75];   // inner, outer
-    [-1, 1].forEach(function (sd) {
-      [0, 1].forEach(function (k) {
-        var i0 = d + k * (pw + gap), i1 = i0 + pw;
-        var q = [pt(sd * i0, edge - 0.5), pt(sd * i1, edge - 0.5),
-                 pt(sd * i1, edge + drops[k]), pt(sd * i0, edge + drops[k])];
-        var g = svgEl(doc, 'path', { d: 'M ' + q.map(function (v) { return v[0] + ' ' + v[1]; }).join(' L ') + ' Z',
-          stroke: 'none' });
-        g.style.fill = rs.ink;
-        put(g, 'guardrail', key);
+    // ON BOTH FACES OF THE DECK WHERE THE BOARD RUNS DOWNWARD.
+    //
+    // Hanging beneath the deck is what a bridge does, and while the deck lies
+    // across the paper it reads as one. Stood on its end the same four pillars
+    // all stick out of one flank of the rail, which reads as something wrong
+    // with the line rather than as a bridge -- there is no "under" to hang
+    // from when the deck is vertical. So a vertical board mirrors them: two
+    // either side of the gap on each face, and the crossing is symmetrical
+    // about the rail the way the reader's eye expects it to be.
+    var faces = horizontal ? [1] : [1, -1];
+    faces.forEach(function (fc) {
+      [-1, 1].forEach(function (sd) {
+        [0, 1].forEach(function (k) {
+          var i0 = d + k * (pw + gap), i1 = i0 + pw;
+          var q = [pt(sd * i0, fc * (edge - 0.5)), pt(sd * i1, fc * (edge - 0.5)),
+                   pt(sd * i1, fc * (edge + drops[k])), pt(sd * i0, fc * (edge + drops[k]))];
+          var g = svgEl(doc, 'path', { d: 'M ' + q.map(function (v) { return v[0] + ' ' + v[1]; }).join(' L ') + ' Z',
+            stroke: 'none' });
+          g.style.fill = rs.ink;
+          put(g, 'guardrail', key);
+        });
       });
     });
   }

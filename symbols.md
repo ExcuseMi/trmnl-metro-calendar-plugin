@@ -21,7 +21,7 @@ continues it, deliberately the same), and `LINE_GAP = 6S`.
 | `track` | a person's line, running the width of the board |
 | `spur` | a branch off a line: a shelf, or a rail reaching an event |
 | `away` | a stretch of a rail drawn quiet, at 42% ink, where that person is somewhere else and has nothing else in those hours. Never inside a corridor, which already says it |
-| `guardrail` | the paper gap a rail leaves where another rail bridges it |
+| `guardrail` | a bridge's square pillars: two either side of the gap, hanging under the deck on a board that lies across the paper, mirrored onto both flanks on one that runs downward |
 | `edge-clear` | paper pulled back over a rail's first stretch so an edge ring and its dots stand on paper rather than on the line |
 
 ### Line styles

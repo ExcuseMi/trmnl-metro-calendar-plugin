@@ -207,7 +207,10 @@ applies when something changes.
    the rule or bar stands clear of it, with two square pillars under it on
    each side, in its own ink, half its width wide, the one by the gap the
    taller; one size everywhere, since every line style is drawn at one
-   width. A line with an event on it there (on the trunk or its branch), or
+   width. **On a board that runs downward the pillars are mirrored**, four a
+   flank, because a deck stood on its end has no "under" to hang from and
+   four pillars out of one side of a rail read as a fault in the line rather
+   than as a bridge. A line with an event on it there (on the trunk or its branch), or
    beside a name cut into the bar, has the bar go under it, its event and the
    name in one gap with a hairline portal at each mouth, and no pillars.
 2b-xiii. **Only the night runs fast.** The scale compresses only from

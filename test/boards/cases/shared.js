@@ -250,6 +250,40 @@ module.exports = function (test, h) {
     });
   }
 
+  // A VERTICAL BOARD HAS NO "UNDER" TO HANG FROM, so the pillars are mirrored.
+  //
+  // Four pillars on one flank of a rail read as something wrong with the line,
+  // not as a bridge: what makes the shape legible lying down -- the deck, and
+  // everything hanging beneath it -- has no meaning once the deck is stood on
+  // its end. Asked for in these words: "Could we have bridge with the same
+  // pillars on both sides? Or just in vertical?" Just in vertical: a deck that
+  // still lies across the paper keeps its four, because there it reads right.
+  for (const name of ['rolling-quiet', 'three-day']) {
+    test('a bridge on a vertical board carries its pillars on both flanks: ' + name, () => {
+      const f = fixtures.find((x) => x.name === name);
+      const m = Object.assign({}, f.metro, { now_min: 17 * 60 });
+      const down = h.build(m, 'x-portrait');
+      const flat = h.build(m, 'x-landscape');
+      let checked = 0;
+      for (const ln of down.board.lines.filter((l) => !l.branchOf)) {
+        const piers = roles(down, 'guardrail', ln.key);
+        if (!piers.length) continue;
+        checked++;
+        // Twice what the same board draws lying down, and evenly split about
+        // the rail: the deck runs along the axis, so its flanks are in x.
+        assertEqual(piers.length, 8, ln.key + ': pillars on a vertical board');
+        const cut = down.spec.cuts && down.spec.cuts[0];
+        const rail = ln.cAt(cut);
+        const sides = piers.map(polyOf).map((q) => Math.sign(Math.max(...q.map((v) => v[0])) - rail));
+        assertEqual(sides.filter((v) => v < 0).length, 4, ln.key + ': pillars left of the rail');
+        assertEqual(sides.filter((v) => v > 0).length, 4, ln.key + ': pillars right of the rail');
+        // ...and the same four as ever on the board that lies down.
+        assertEqual(roles(flat, 'guardrail', ln.key).length, 4, ln.key + ': pillars lying down');
+      }
+      assert(checked > 0, 'no bridge on this board to look at');
+    });
+  }
+
   test('every line style is drawn at one width, so every bridge is one size', () => {
     const f = fixtures.find((x) => x.name === 'seven-lines');
     const built = h.build(f.metro, 'x-landscape');
