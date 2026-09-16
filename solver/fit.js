@@ -42,7 +42,13 @@ function worth(spec, board) {
   var bad = B.check(board).filter(function (f) {
     return f.kind !== 'names' && f.kind !== 'namecut';
   });
-  var lost = board.shed + (board.muddle || 0) + bad.length;
+  // A RING CLASH IS TWO PEOPLE DRAWN AS ONE LINE, which is worth more than a
+  // caption: at the weight of one, a panel with room for three lines kept six
+  // and drew two of them sharing their rings rather than leave anybody out.
+  // Weighed against a person's whole line (eight below), so it tips a board
+  // that is over its own capacity and nothing else.
+  var rings = bad.filter(function (f) { return f.kind === 'ringclash'; }).length;
+  var lost = board.shed + (board.muddle || 0) + bad.length + rings * 5;
   // WHAT WAS LOST, NAMED. A count alone says a board is worth less without
   // saying why, and "why" is the only part anybody can act on.
   var why = bad.map(function (f) { return f.kind + ':' + (f.what || f.by || ''); });
