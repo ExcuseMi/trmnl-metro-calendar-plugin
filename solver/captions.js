@@ -31,6 +31,22 @@
 
 var B = require('./board');
 
+// MEMOISED BY THE ARRAY ITSELF, not by the line. `boardFor` (bands.js)
+// builds a fresh Board with fresh `pts` arrays every trial, so a WeakMap
+// keyed on `l.pts` can never see a stale answer -- a line whose rail moved
+// has a new array and therefore a new key, and the old entry is simply
+// unreachable once that trial is done. What it buys: within ONE trial,
+// several captions near the same rail all put that rail in their own
+// `near.lines` and each built the identical JSON.stringify(l.pts) for the
+// cache key that then usually hits anyway -- stringifying the same points
+// five times to ask a question the first stringify already answered.
+var ptsKeyCache = new WeakMap();
+function ptsKey(pts) {
+  var k = ptsKeyCache.get(pts);
+  if (k === undefined) { k = JSON.stringify(pts); ptsKeyCache.set(pts, k); }
+  return k;
+}
+
 // ---------------------------------------------------------------- the wants
 //
 // WHAT A CAPTION IS BEFORE IT HAS A PLACE. `anchor` is the minute it names
@@ -746,7 +762,7 @@ function solve(wants, board, opts) {
     var key = null;
     if (cache) {
       key = w.id + '|' + w.w + 'x' + w.h + '|' + (w._rail || w.line || w.pill) + '|';
-      near.lines.forEach(function (l) { key += l.key + ':' + JSON.stringify(l.pts) + ';'; });
+      near.lines.forEach(function (l) { key += l.key + ':' + ptsKey(l.pts) + ';'; });
       near.fixed.forEach(function (f) { var fb = f.box(); key += f.id + ':' + fb.a0 + ',' + fb.a1 + ',' + fb.c0 + ',' + fb.c1 + ';'; });
       near.pills.forEach(function (pl) { key += pl.id + ':' + pl.a + ',' + pl.a0 + ',' + pl.a1 + ',' + pl.c0 + ',' + pl.c1 + ',' + pl.r + ',' + pl.tie + ';'; });
       key += '|' + (board.cuts || []).join(',') + '|' + board.axis.a0 + ',' + board.axis.a1 + ',' + board.cross.c0 + ',' + board.cross.c1;
