@@ -1024,8 +1024,10 @@ function demoWeather(strings, unit) {
 // against ICS files living in this repo's demo/ folder. That keeps the demo
 // honest — it exercises fetching, parsing, the rule engine and track
 // resolution rather than a hand-built shortcut — and doubles as a worked
-// example of the config format. It needs the network, so the hardcoded
-// Springfield data above stays as the offline fallback.
+// example of the config format. It needs the network, and there is no
+// offline fallback behind it: the hand-written Springfield day that used to
+// sit there was removed for drifting into a second, different board and for
+// swapping itself in silently (see the note above). An empty demo says so.
 var DEMO_ICS_BASE = 'https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/';
 // A DEMO CONFIG IS A FILE IN THIS REPO, NOT A COPY OF ONE.
 //
