@@ -2120,19 +2120,30 @@ function solve(wants, board, opts) {
         sigPushId(sst, pill.tie);
       } else sigPush(0);
       pEnt = sigGet(sst.posTab);
-      if (pEnt) ps0 = pEnt.val;
     }
-    if (!ps0) {
-      ps0 = positions(w, board, opts, own);
-      if (cache) sigPut(sst.posTab, ps0);
+    // ...AND THE ENVELOPE WITH THEM. The reach of a caption's candidates is
+    // arithmetic on exactly what the key above already names: the words, the
+    // rows, the rail's own points. So it cannot have changed when they have
+    // not, and walking every candidate again to work it out was the third
+    // most expensive thing left in a solve -- 410ms of one hard board's three
+    // seconds, paid on all eighty-seven thousand calls while the key itself
+    // was hitting on ninety-five per cent of them. Read-only once built (the
+    // three filters below only ask it questions), so one copy is safe to keep.
+    var env = null;
+    if (pEnt) { ps0 = pEnt.val.ps; env = pEnt.val.env; }
+    if (!ps0) ps0 = positions(w, board, opts, own);
+    if (!env) {
+      env = { a0: w.a0 - w.w * 1.2 - w.pad - 4, a1: w.a1 + w.w * 1.2 + w.pad + 4,
+              c0: ob.c0 - reach, c1: ob.c1 + reach };
+      ps0.forEach(function (p) {
+        var pb = posBox(p);
+        env.a0 = Math.min(env.a0, pb.a0 - w.h); env.a1 = Math.max(env.a1, pb.a1 + w.h);
+        env.c0 = Math.min(env.c0, pb.c0); env.c1 = Math.max(env.c1, pb.c1);
+      });
+      // The buffer still holds the key from above: nothing between here and
+      // there touches it.
+      if (cache) sigPut(sst.posTab, { ps: ps0, env: env });
     }
-    var env = { a0: w.a0 - w.w * 1.2 - w.pad - 4, a1: w.a1 + w.w * 1.2 + w.pad + 4,
-                c0: ob.c0 - reach, c1: ob.c1 + reach };
-    ps0.forEach(function (p) {
-      var pb = posBox(p);
-      env.a0 = Math.min(env.a0, pb.a0 - w.h); env.a1 = Math.max(env.a1, pb.a1 + w.h);
-      env.c0 = Math.min(env.c0, pb.c0); env.c1 = Math.max(env.c1, pb.c1);
-    });
     var m = B.CAP_CLEAR + 1;
     var near = {
       own: own,
