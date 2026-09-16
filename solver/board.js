@@ -275,15 +275,30 @@ function Board(spec) {
   this.caps = [];
   this.pills = [];
   this.fixed = [];
+  // BY KEY, NOT BY SCANNING. Every trunk and every branch is looked up by its
+  // key constantly -- a caption's own rail, a pill's members, a spur's trunk,
+  // a name's terminus line -- and a board a candidate move is priced against
+  // is rebuilt from nothing every time, so this was a linear scan asked
+  // thousands of times per solve. Kept in step with `addLine`, which is the
+  // only place a line is ever added.
+  this._byKey = Object.create(null);
 }
-Board.prototype.addLine = function (s) { var l = new Line(s); this.lines.push(l); return l; };
+Board.prototype.addLine = function (s) {
+  var l = new Line(s);
+  this.lines.push(l);
+  // First wins, same as the scan this replaces would have found first: a
+  // key is never meant to repeat, but if one ever did, this must not go on
+  // to answer differently than the scan always did.
+  if (!(l.key in this._byKey)) this._byKey[l.key] = l;
+  return l;
+};
 Board.prototype.addStop = function (s) { var t = new Stop(s); this.stops.push(t); return t; };
 Board.prototype.addCap = function (s) { var c = new Caption(s); this.caps.push(c); return c; };
 Board.prototype.addPill = function (s) { var p = new Pill(s); this.pills.push(p); return p; };
 Board.prototype.addFixed = function (s) { var f = new Furniture(s); this.fixed.push(f); return f; };
 Board.prototype.lineByKey = function (k) {
-  for (var i = 0; i < this.lines.length; i++) if (this.lines[i].key === k) return this.lines[i];
-  return null;
+  var l = this._byKey[k];
+  return l === undefined ? null : l;
 };
 
 // ---------------------------------------------------------------- the check
