@@ -1922,9 +1922,15 @@ function muddledAt(p, i, dots, minLift, cache) {
   // The marks at this level, found once per want and level rather than once
   // per candidate: a solve asks this for every candidate of every name, and
   // the level filter is most of the work.
-  var key = i + ':' + Math.round(p.railC), level = cache[key];
+  //
+  // Nested by `i` then the rounded level, not a `i + ':' + level` string:
+  // this runs once per candidate of every name, and building a string just
+  // to key an object with it was pure allocation this cache exists to avoid
+  // in the first place.
+  var byI = cache[i] || (cache[i] = {});
+  var rc = Math.round(p.railC), level = byI[rc];
   if (!level) {
-    level = cache[key] = { own: null, near: [] };
+    level = byI[rc] = { own: null, near: [] };
     for (var d0 = 0; d0 < dots.length; d0++) {
       if (dots[d0].i === i) { if (!dots[d0].member) level.own = dots[d0]; }
       else if (Math.abs(dots[d0].c - p.railC) <= minLift) level.near.push(dots[d0]);
