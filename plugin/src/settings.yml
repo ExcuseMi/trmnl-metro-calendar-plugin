@@ -111,13 +111,13 @@ custom_fields:
   field_type: number
   name: Cold At Or Below
   group: Weather
-  description: "In the unit above. Leave it empty for freezing. Examples: freezing 0°C / 32°F, hard frost -10°C / 14°F."
+  description: "In the unit above. Leave it empty to be warned at freezing, 0°C / 32°F. For hard frost only, try -10°C / 14°F."
   optional: true
 - keyname: alert_temp_high
   field_type: number
   name: Heat At Or Above
   group: Weather
-  description: "In the unit above. Leave it empty for hot. Examples: hot 30°C / 86°F, heatwave 35°C / 95°F."
+  description: "In the unit above. Leave it empty to be warned at 30°C / 86°F. For heatwaves only, try 35°C / 95°F."
   optional: true
 - keyname: demo_set
   field_type: select
