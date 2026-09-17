@@ -9582,7 +9582,15 @@ function draw(board, spec, ctx) {
       }
     }
     if (spans.some(function (sp) { return sp.line.offsetWidth > to - from; }) || card.offsetHeight > bandH - 2) { card.remove(); return false; }
-    var r = place(card, from, oneRow ? (tb.r[2] + tb.r[3]) / 2 : tb.band / 2 + 2, 'left');
+    // ON THE DATE'S OWN ROW WHEN IT IS ONE ROW TALL.
+    //
+    // A two-row card is centred on the two-row band, which is right. A card of
+    // ONE row centred on the same band lands between the two, a few pixels
+    // under the date badge beside it and a few over the forecast below --
+    // level with neither, which is exactly how it looked: "Tomorrow  Wed 9 Sep
+    // [gap] 08:30 Swim Training" with the second half sitting low.
+    var single = spans.length < 2;
+    var r = place(card, from, (oneRow || single) ? (tb.r[2] + tb.r[3]) / 2 : tb.band / 2 + 2, 'left');
     if (free(r)) { taken.push(r); return true; }
     card.remove();
     return false;
