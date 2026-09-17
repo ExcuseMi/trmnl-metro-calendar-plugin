@@ -49,18 +49,28 @@ function makeFakeDate(getNowMs) {
 // test that wants to see what happens when the budget runs out has to be
 // able to move the clock from inside a fake fetch. Waiting out the real
 // 4.2s deadline instead would put four wasted seconds into every run.
-function runTransform(fetchImpl, nowMs) {
+// `log` is an array to collect what the transform WRITES to the console
+// instead of letting it through: everything that can go wrong in there is
+// something the board then cannot show, and the log is half of how anybody
+// finds out (the board is the other half). A log nothing can read back is a
+// log nobody can rely on -- and this one prints the host of a calendar, which
+// makes it a place a credential could leak.
+function runTransform(fetchImpl, nowMs, log) {
   const clock = typeof nowMs === 'function' ? nowMs : (nowMs != null ? () => nowMs : null);
   const sandbox = {
     fetch: fetchImpl,
-    console,
+    console: log ? {
+      log: (...a) => log.push(a.join(' ')),
+      warn: (...a) => log.push(a.join(' ')),
+      error: (...a) => log.push(a.join(' ')),
+    } : console,
     Date: clock ? makeFakeDate(clock) : Date,
     Math, Array, Object, JSON, String, Number, Boolean, RegExp, Promise, Map, Set,
     AbortController, setTimeout, clearTimeout, URLSearchParams, Intl,
     module: { exports: {} },
   };
   vm.createContext(sandbox);
-  vm.runInContext(TRANSFORM_SRC + '\nmodule.exports = { run, parseConfig, applyCalendarRules, parseIcs, fromEpoch, I18N, feedUrl, migrateConfig, configWarnings };', sandbox);
+  vm.runInContext(TRANSFORM_SRC + '\nmodule.exports = { run, parseConfig, applyCalendarRules, parseIcs, fromEpoch, I18N, feedUrl, migrateConfig, configWarnings, hostOf, RENDER_BUDGET_MS };', sandbox);
   return sandbox.module.exports;
 }
 

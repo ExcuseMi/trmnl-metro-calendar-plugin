@@ -2090,7 +2090,10 @@ async function fetchFeedText(url, deadline, headers) {
   if (budget <= 0) return null;
   try {
     var resp = await fetchWithTimeout(url, budget, headers);
-    if (!resp || !resp.ok) return { ok: false, text: '' };
+    // The status travels with the failure: "HTTP 403" and "HTTP 500" are
+    // different problems with different fixes, and dropping it here made
+    // every one of them read "did not answer" in the log.
+    if (!resp || !resp.ok) return { ok: false, text: '', status: resp ? resp.status : 0 };
     return { ok: true, text: await resp.text() };
   } catch (e) { return null; }
 }

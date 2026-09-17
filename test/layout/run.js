@@ -168,6 +168,11 @@ function sourceStamp() {
   // fix that had already worked. Anything that decides what gets built
   // belongs in the key that decides whether to rebuild.
   parts.push('run:' + crypto.createHash('sha1').update(fs.readFileSync(__filename)).digest('hex'));
+  // ...AND THE CLOCK THE SOLVER WAS GIVEN, which is not in this file's own
+  // bytes: it comes from the environment (see SOLVE_MS). Without it, asking
+  // for the board a three-second panel gets is answered from the cache with
+  // the board a thirty-second one got.
+  parts.push('solve:' + SOLVE_MS);
   return parts.join('|');
 }
 
@@ -279,11 +284,21 @@ function swapMetro(html, metro) {
 // So the page keeps a list of anything that threw, the report carries it, and
 // a render that carries one is an error rather than a result. Installed in
 // the head, before the framework and the layout are parsed.
+//
+// THIRTY SECONDS, SO THE CLOCK IS NOT WHAT DECIDES. Many pages at once on one
+// box: the solver stops at its own count of arrangements and every run gets
+// the same board, which is the only way a layout suite means anything.
+//
+// It also means no suite here has ever seen the board the DEVICE gets. A
+// panel gives the page three seconds (`data-metro-solve-seconds`), and a
+// board that wants twelve is drawn from a truncated search. METRO_SOLVE_MS
+// in the environment sets it, which is how that board can be looked at.
+const SOLVE_MS = process.env.METRO_SOLVE_MS || 30000;
 const ERRTRAP = `
 <script>
 // Many pages at once on one box: the solver stops at its own count of
 // arrangements (solver/fit.js), not at a clock that the load runs down.
-window.METRO_SOLVE_MS = 30000;
+window.METRO_SOLVE_MS = ${SOLVE_MS};
 window.__metroErrors = [];
 window.addEventListener('error', function (e) {
   window.__metroErrors.push(String((e && e.message) || e) +

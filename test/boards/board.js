@@ -8,7 +8,7 @@
 // are, which days are on the board, whether a spur leaves from its trunk.
 // Those are the solver's answers and the renderer's SVG, and both are plain
 // modules. So this runs the same pipeline the template runs -- `Day.specFor`,
-// `Fit.best`, `Draw.draw` -- with the same options the template computes from
+// `Fit.fit`, `Draw.draw` -- with the same options the template computes from
 // the canvas, draws into jsdom, and reports the drawing in the shape the
 // layout suite's reporter does (canvas px, `paths` sampled into points,
 // `circles`, `rects`), so a case can move across with its assertions intact.
@@ -152,15 +152,9 @@ function build(metro, viewName, extra) {
   var v = typeof viewName === 'string' ? VIEWS[viewName] : viewName;
   if (!v) throw new Error('no view ' + viewName);
   var o = optsFor(v, metro);
-  // THE WINDOW IS ONE OF THE THINGS BEING CHOSEN, so it is built per window
-  // and solved at each, exactly as the template does it (`Fit.best`): a board
-  // too full to write its captions' times shows less of the day instead.
-  var specAt = function (hourShare) {
-    return specOf(metro, v, o, Object.assign({ hourShare: hourShare }, extra || {}));
-  };
-  var spec = specAt(1);
+  var spec = specOf(metro, v, o, extra);
   var t0 = Date.now();
-  var board = Fit.best(specAt, {});
+  var board = Fit.fit(spec, {});
   var solveMs = Date.now() - t0;
   var dom = new JSDOM('<div class="screen screen--' + v.bits + 'bit"><div class="metro-canvas"><svg></svg></div></div>');
   var doc = dom.window.document;
@@ -273,13 +267,6 @@ var PLAIN = ['shed', 'muddle', 'drawn', 'gaps', 'dropped', 'forms', 'wanted', 't
 function freeze(built, rep) {
   var b = built.board;
   return {
-    // WHICH WINDOW THIS BOARD WAS SOLVED ON. `Fit.best` picks a length of day
-    // as well as a layout (see fit.js), so a frozen board and a spec rebuilt
-    // from scratch are only the same board if the rebuild asks for the same
-    // window. Thawed without it, a board solved on three quarters of the day
-    // came back measured against the whole of it, and captions well clear of
-    // the midnight cut were reported as written across it.
-    window: built.board.window,
     board: {
       axis: b.axis, cross: b.cross, cuts: b.cuts,
       lines: b.lines.map(function (l) { return { key: l.key, pts: l.pts, width: l.width, branchOf: l.branchOf, ink: l.ink, style: l.style }; }),
@@ -297,7 +284,7 @@ function freeze(built, rep) {
 function thaw(data, metro, viewName, extra) {
   var v = typeof viewName === 'string' ? VIEWS[viewName] : viewName;
   var o = optsFor(v, metro);
-  var spec = specOf(metro, v, o, Object.assign({ hourShare: data.window }, extra || {}));
+  var spec = specOf(metro, v, o, extra);
   var dropped = data.board.plain.dropped || [];
   if (dropped.length) spec = Fit.withoutLines(spec, dropped);
   var byId = {};

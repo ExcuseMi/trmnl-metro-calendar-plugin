@@ -5831,17 +5831,10 @@ function edged(metro) {
 function frameFor(view, opts) {
   var rowH = (opts && opts.rowH) || 12;
   var hours = Math.max(6, Math.min(24, Math.round(view.w / (rowH * 2.0))));
-  // ...AND A SHORTER WINDOW IS SOMETHING THE CALLER CAN ASK FOR.
-  //
-  // How many hours fit is a fact about the paper, and it is not the only
-  // thing the hours cost: past a certain density the captions start giving up
-  // their time row to fit beside each other, and a board of names with no
-  // times on it is a worse answer than the same board showing less of the day
-  // -- "just show less hours until it can show the times again". The caller
-  // solves, looks, and asks again for less (see Fit.best). Six hours is the
-  // floor whatever is asked: under that it is not a day.
-  var share = opts && opts.hourShare;
-  if (share != null && share > 0 && share < 1) hours = Math.max(6, Math.round(hours * share));
+  // A SHORTER WINDOW WAS SOMETHING THE CALLER COULD ASK FOR, and the note by
+  // the window ladder in fit.js says why it is not any more: choosing the
+  // length of the day by solving it at several lengths works, and wants six
+  // seconds where the panel has three.
   var events = Math.max(3, Math.min(60, Math.round(view.w * view.h / (rowH * rowH * 45))));
   // ...AND HOW MANY PEOPLE. The third cap, and the one that buys time rather
   // than paper: `fit` sheds a line at a time from the top, re-solving at
@@ -7035,6 +7028,8 @@ function fit(spec, opts) {
   if (opts.timeMs && !opts.deadline) {
     opts = Object.assign({}, opts, { deadline: Date.now() + opts.timeMs });
   }
+  // How much clock there was to begin with, for the guard below.
+  var started = opts.deadline ? Math.max(0, opts.deadline - Date.now()) : 0;
   // AND A COUNT, WHICH IS THE SAME ON EVERY MACHINE. A clock that runs out
   // makes the board depend on how fast the box drawing it is: two renders
   // of one day on a busy renderer disagreed about where the names went. The
@@ -7229,108 +7224,44 @@ function fit(spec, opts) {
 
 // ---------------------------------------------------------------- the window
 //
-// LESS OF THE DAY, RATHER THAN A DAY WITH NO CLOCK ON IT.
+// LESS OF THE DAY, RATHER THAN A DAY WITH NO CLOCK ON IT -- BUILT, MEASURED,
+// AND TAKEN BACK OUT. Kept as a note because the measurements are the useful
+// part and the next person will have the same idea.
 //
-// A caption is drawn as its name with its time under it, and the first thing
-// a crowded board gives up is that second row: the band search takes the whole
-// board down a rung, which fixes every overlap on it at once, and the gaps
-// then close around one-row captions so it cannot climb back. On a full X
-// showing two days -- twenty-seven events -- simpsons at 18:45 came out with
-// the time under NOT ONE of them. "Why are we dropping time labels here btw."
+// A crowded board gives up its captions' time rows first, and asked to stop
+// doing that -- "just show less hours until it can show the times again" --
+// the obvious answer is to solve the board at a few lengths of day and keep
+// whichever loses least, in the currency `fit` already uses. It works. On the
+// reported board it turned 0 of 23 captions with their time into 18 of 18,
+// shedding nothing, and over 216 households it took shed from 36 to 21 and
+// people dropped from 30 to 21.
 //
-// It is not a fault and the search is not stuck: that board genuinely costs
-// about three shed names' worth of ambiguity with its times on, because at two
-// rows tall the captions stop being pinnable to their own marks. The board is
-// making the right trade with the hours it was given.
+// IT NEEDS SIX SECONDS AND THE PANEL HAS THREE. Every one of those numbers
+// was measured with the layout suite's clock, which is thirty seconds so that
+// the eval pool and not the clock decides what a board looks like. The device
+// gives the page three (`data-metro-solve-seconds`), and no suite here had
+// ever rendered a board on that. Measured since, on the same eighteen
+// fixtures at every view:
 //
-// So give it fewer hours. "Just show less hours until it can show the times
-// again." The same board at three quarters of the window draws twenty-one
-// events, every one with its time, sheds nothing, and says "+8 more" at the
-// edge -- which is the board's own way of saying there is more day than this.
+//   3000ms  no ladder   584 captions, 403 with their time, 12 shed
+//   3000ms  ladder      558 captions, 371 with their time, 33 shed
+//   3000ms  ladder+guard 573 captions, 393 with their time, 22 shed
+//   30000ms no ladder   591 captions, 393 with their time,  3 shed
+//   30000ms ladder      556 captions, 428 with their time,  3 shed
 //
-// WHAT IT COSTS IS COUNTED IN THE SAME CURRENCY as everything else here: an
-// unreadable name at four, a person not shown at eight, an event not shown at
-// one -- and now a time row given up at one, because a name whose time is
-// missing has lost about as much as an event pushed off the edge has. On the
-// board above that is twenty-seven against six, and six wins.
+// The reported board takes the times back at 6000ms and not at 4500, which is
+// more than the page could give it even if the whole five seconds were the
+// solver's. What this ladder buys, it buys with search; asked for without
+// enough, it takes the board apart -- the first rung spends the budget, the
+// shorter windows are solved in the scraps, and they are compared as though
+// they had not been.
 //
-// AND IT IS ONLY EVER ASKED OF A BOARD THAT GAVE SOMETHING UP. A board that
-// already shows every time is returned on the first solve, having paid for
-// nothing -- which is almost all of them.
-var SHARES = [1, 0.75, 0.6];
+// So it is a performance problem wearing a layout problem's clothes. Make the
+// solve twice as fast and six seconds is three, and this comes back exactly
+// as it was written. solver/bench.js and the note in track.md have the
+// profile: the caption search is the larger half.
 
-// A caption that is wearing fewer rows than its richest form has: its time.
-function timeless(spec, board) {
-  var rich = {};
-  (spec.wants || []).forEach(function (w) {
-    var f = w.forms && w.forms[0];
-    rich[w.id] = f && (f.rows || []).length > 1;
-  });
-  var n = 0;
-  (board.caps || []).forEach(function (c) {
-    if (rich[c.id] && (c.rows || []).length < 2) n++;
-  });
-  return n;
-}
-
-// `build(share)` hands back the spec for a window that much of the full one.
-// Everything else is `fit`, once per rung.
-function best(build, opts) {
-  opts = opts || {};
-  // ONE CLOCK AND ONE POOL FOR THE WHOLE LADDER. `fit` turns `timeMs` into a
-  // deadline of its own, so three rungs given the same `timeMs` would each
-  // take it in full and the page would wait three times as long as it was
-  // promised. Turned into a deadline HERE, the rungs share it: the first has
-  // as long as it needs and a later one runs only in what is left.
-  if (opts.timeMs && !opts.deadline) {
-    opts = Object.assign({}, opts, { deadline: Date.now() + opts.timeMs });
-  }
-  var base = null, baseCost = Infinity, baseWants = 0, baseFaults = Infinity;
-  for (var i = 0; i < SHARES.length; i++) {
-    // The clock and the eval pool are shared with the solve itself, so a
-    // board that has spent them keeps what it has rather than starving the
-    // rung it already found.
-    if (i && opts.deadline && Date.now() > opts.deadline) break;
-    if (i && opts.pool && opts.pool.left != null && opts.pool.used >= opts.pool.left) break;
-    var spec = build(SHARES[i]);
-    if (!spec) break;
-    if (!i) baseWants = (spec.wants || []).length;
-    var board = fit(spec, opts);
-    // WHICH SPEC WON, ALWAYS. `fit` sets this only when it drops a line, and
-    // everything downstream draws against `board.spec || spec` -- so a board
-    // solved on a shorter window was drawn against the full one, and every
-    // event on it lost the marks at its own minutes.
-    if (!board.spec) board.spec = spec;
-    var w = worth(spec, board);
-    var gone = timeless(spec, board);
-    var cost = w.lost * 4
-      + (board.dropped || []).length * 8
-      + Math.max(0, baseWants - (spec.wants || []).length)
-      + gone;
-    // SHOWING LESS OF THE DAY MUST NOT MAKE THE BOARD WRONG. A time row is a
-    // preference and is priced like one; a caption written across a midnight,
-    // a name with its own rail through it, a name nobody can pin are not, and
-    // a shorter window that introduces one of them has not helped. A veto
-    // rather than a price, because at one time row apiece a board full of
-    // them could buy a fault and still come out ahead.
-    //
-    // `check` and not `worth`: worth leaves out the two kinds a dropped
-    // PERSON cannot fix (a name clash is the band search's to answer), and
-    // those are exactly the ones a shorter window was introducing.
-    var faults = B.check(board).length;
-    if (!i) baseFaults = faults;
-    if (faults <= baseFaults && cost < baseCost - 1e-9) {
-      base = board; baseCost = cost; base.window = SHARES[i];
-    }
-    // Nothing given up and nothing lost: no shorter window can beat this.
-    if (!gone && !w.lost) break;
-    // ...and a window that cannot be shortened any further is the end of it.
-    if (i && (spec.wants || []).length === baseWants) break;
-  }
-  return base;
-}
-
-module.exports = { fit: fit, best: best, worth: worth, withoutLines: withoutLines };
+module.exports = { fit: fit, worth: worth, withoutLines: withoutLines };
 
     return module.exports;
   })();
@@ -10467,12 +10398,7 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
       stripThick += Math.round(4 * S);
     }
     try {
-      // BUILT PER WINDOW, because the window is one of the things being
-      // chosen: `Fit.best` solves this at a few lengths of day and keeps the
-      // one that loses least, which is how a board too full to write its
-      // times shows less of the day instead (see fit.js).
-      var specAt = function (hourShare) { return Day.specFor(METRO, { w: along, h: across }, {
-        hourShare: hourShare,
+      var spec = Day.specFor(METRO, { w: along, h: across }, {
         standing: !horiz, stripThick: stripThick,
         nameH: nameH || undefined, nameW: nameW,
         // What a drawn mark reaches past its rail, at this panel's scale --
@@ -10499,8 +10425,7 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
         // its height; reserving room here as well would take it twice.
         alert: null,
         measure: function (ev) { return measure(ev, { timeText: timeText }); }
-      }); };
-      var spec = specAt(1);
+      });
       var t0 = Date.now();
       // TWO SECONDS OF SEARCH, THEN DRAW: "lets give the solver 2 seconds."
       // A board the search ran out of time on is drawn with the best it
@@ -10516,8 +10441,7 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
       // its box searched two seconds a time. The search shares one budget
       // across every draw of the page: two seconds for the first, whatever
       // is left of three for a redraw, and never less than a quarter second.
-      var board = Fit.best(specAt, { timeMs: Math.max(250, Math.min(SOLVE_FIRST, SOLVE_UNTIL - Date.now())) });
-      spec = board.spec || spec;
+      var board = Fit.fit(spec, { timeMs: Math.max(250, Math.min(SOLVE_FIRST, SOLVE_UNTIL - Date.now())) });
       var solveMs = Date.now() - t0;
       measure.done();
       D.draw(board, board.spec || spec, {
