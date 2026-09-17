@@ -9365,9 +9365,24 @@ function draw(board, spec, ctx) {
     var names = {};
     (m.legend || []).forEach(function (p) { names[p.key] = p.name || p.key; });
     var evs = (m.events || []).filter(function (ev) { return (!ev.type || ev.type === 'event') && ev.start_min != null; });
-    function who(ev) {
-      var ks = [ev.owner].concat(ev.co_owners || []).filter(Boolean);
-      return ks.map(function (k) { return names[k] || k; }).join(', ');
+    // WHOSE IT IS, AS THE BADGE THE MAP ALREADY USES.
+    //
+    // It was the person's name after a middle dot, which is the longest way to
+    // say it on the one part of the board that runs out of room first: on a
+    // narrow panel "Yoga 10:30 \u00b7 Charlotte" was cut to "Yoga\u2026" and the
+    // reader lost the event AND the person. The rings on the map carry these
+    // same letters, so a badge is the short way to say it and it points at the
+    // line as well.
+    //
+    // EVERYONE IS ITS OWN BADGE. Five badges for a family of five says the
+    // same thing five times and crowds out the title; one word says it once.
+    // A word, so it needs the household's language (i18n.everyone).
+    function badgesFor(ev) {
+      var ks = [ev.owner].concat(ev.co_owners || []).filter(Boolean)
+        .filter(function (k, i, all) { return all.indexOf(k) === i && names[k]; });
+      var everyone = (m.legend || []).length > 1 && ks.length === (m.legend || []).length;
+      if (everyone && i18n.everyone) return [{ text: i18n.everyone, wide: true }];
+      return ks.map(function (k) { return { text: initials[k] || String(names[k] || k).charAt(0).toUpperCase() }; });
     }
     var on = evs.filter(function (ev) { return ev.start_min <= now && (ev.end_min || ev.start_min) > now; })
       .sort(function (p, q) { return (p.end_min - p.start_min) - (q.end_min - q.start_min); });
@@ -9383,12 +9398,12 @@ function draw(board, spec, ctx) {
     var later = evs.filter(function (ev) { return ev.start_min > now && ev.start_min < midnight; })
       .sort(function (p, q) { return p.start_min - q.start_min; });
     function line(ev) {
-      return ev.title + ' ' + (ctx.clock ? ctx.clock(ev.start_min) : '') + ' \u00b7 ' + who(ev);
+      return ev.title + ' ' + (ctx.clock ? ctx.clock(ev.start_min) : '');
     }
     var rows = [];
-    if (on.length) rows.push([i18n.now || 'Now', on[0].title + ' \u00b7 ' + who(on[0])]);
+    if (on.length) rows.push([i18n.now || 'Now', on[0].title, badgesFor(on[0])]);
     if (later.length) {
-      rows.push([i18n.next || 'Next', line(later[0])]);
+      rows.push([i18n.next || 'Next', line(later[0]), badgesFor(later[0])]);
     } else if (!on.length) {
       // NOTHING ON AND NOTHING LEFT TODAY, so the next thing really is
       // tomorrow -- and it is labelled tomorrow, not "Next". "Next 08:30" on
@@ -9398,7 +9413,7 @@ function draw(board, spec, ctx) {
       var tom = evs.filter(function (ev) {
         return ev.start_min >= midnight && ev.start_min < midnight + 24 * 60;
       }).sort(function (p, q) { return p.start_min - q.start_min; });
-      if (tom.length) rows.push([i18n.tomorrow || 'Tomorrow', line(tom[0])]);
+      if (tom.length) rows.push([i18n.tomorrow || 'Tomorrow', line(tom[0]), badgesFor(tom[0])]);
     }
     if (!rows.length) return true;
     // Between the date and whatever the strip set next to it in that panel.
@@ -9439,6 +9454,16 @@ function draw(board, spec, ctx) {
         body.className = 'text--bold';
         body.textContent = rw[1];
         line.appendChild(lead); line.appendChild(body);
+        // ...and whose, after the words. `metro-pill` is the strip's own
+        // badge -- the one the date and the clock wear -- so it inverts with
+        // the band and costs the inline-style budget nothing, which is at its
+        // limit of six (see the note by .metro-pill).
+        (rw[2] || []).forEach(function (bg) {
+          var b = doc.createElement('span');
+          b.className = 'metro-who metro-pill label label--small text--bold ml--1';
+          b.textContent = bg.text;
+          line.appendChild(b);
+        });
         card.appendChild(line);
         return { line: line, lead: lead, body: body, text: rw[1] };
       });

@@ -98,6 +98,10 @@ function timeLabel(min) {
 // ---------------------------------------------------------------------
 var I18N = {
   en: { today: 'Today', tomorrow: 'Tomorrow', now: 'Now', next: 'Next', more: '+{n} more', earlier: '+{n} earlier', rain_pct: '{n}% rain',
+        // The badge on a now/next row when the whole household is in it: one
+        // word instead of a badge each, which for a family of five says the
+        // same thing five times and crowds out the event.
+        everyone: 'All',
         clear: 'Clear', partly_cloudy: 'Partly cloudy', cloudy: 'Cloudy', foggy: 'Foggy', rain: 'Rain', snow: 'Snow', storms: 'Storms', ice: 'Freezing rain',
         rain_starts: 'Rain starts', rain_stops: 'Rain stops',
         feed_down: '{n} unavailable', weather_stale: 'Forecast may be out of date',
@@ -803,7 +807,7 @@ function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, win
     now_min: nowMin != null ? nowMin : null, // minutes since local midnight; the client decides whether/where to draw it
     orientation: (extra && extra.orientation) || 'auto', // auto | horizontal | vertical — client picks for auto from the canvas aspect
     hour12: !!(extra && extra.hour12),
-    i18n: (function (st) { return { today: tr(st, 'today'), tomorrow: tr(st, 'tomorrow'), now: tr(st, 'now'), next: tr(st, 'next'), more: tr(st, 'more'), earlier: tr(st, 'earlier'), rain_pct: tr(st, 'rain_pct'), feed_down: tr(st, 'feed_down'), weather_stale: tr(st, 'weather_stale'), draw_failed: tr(st, 'notice_error') }; })((extra && extra.strings) || I18N.en),
+    i18n: (function (st) { return { today: tr(st, 'today'), tomorrow: tr(st, 'tomorrow'), now: tr(st, 'now'), next: tr(st, 'next'), everyone: tr(st, 'everyone'), more: tr(st, 'more'), earlier: tr(st, 'earlier'), rain_pct: tr(st, 'rain_pct'), feed_down: tr(st, 'feed_down'), weather_stale: tr(st, 'weather_stale'), draw_failed: tr(st, 'notice_error') }; })((extra && extra.strings) || I18N.en),
     header_weather: headerWeather,
     // The forecast is the last one the API answered with rather than
     // today's, and it is old enough to say so. A board that quietly shows
