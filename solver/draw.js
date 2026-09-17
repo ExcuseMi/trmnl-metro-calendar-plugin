@@ -2336,6 +2336,26 @@ function draw(board, spec, ctx) {
     // Grey, all three, because it is the frame; the event's name is what is
     // left in black. Read down the column it is a little timetable, which is
     // what it is.
+    // A LATER DAY'S PANEL SAYS "TOMORROW" ITSELF.
+    //
+    // When the board has rolled far enough to draw tomorrow beside today, the
+    // next thing belongs in THAT panel, under its own date, and with no
+    // prefix: the header already said the word, and "Tomorrow 08:30" under a
+    // badge reading Tomorrow says it twice.
+    //
+    // Only where today has nothing left to say. Where it has, this panel is
+    // still the old fallback -- a today that has shrunk to a sliver late in
+    // the evening has no room for the card, and tomorrow's panel beside it is
+    // wide -- so the rows below are today's, drawn over there.
+    if (dayIx > 0 && !on.length && !later.length) {
+      var dayLo = (m.days && m.days[dayIx] && m.days[dayIx].start_min != null)
+        ? m.days[dayIx].start_min : midnight;
+      var own = evs.filter(function (ev) {
+        return ev.start_min >= dayLo && ev.start_min < dayLo + 24 * 60;
+      }).sort(function (p, q) { return p.start_min - q.start_min; });
+      if (!own.length) return true;
+      rows.push([at(own[0]), own[0].title, badgesFor(own[0])]);
+    } else {
     if (on.length) rows.push([i18n.now || 'Now', on[0].title, badgesFor(on[0])]);
     if (later.length) {
       rows.push([at(later[0]), later[0].title, badgesFor(later[0])]);
@@ -2349,9 +2369,14 @@ function draw(board, spec, ctx) {
         return ev.start_min >= midnight && ev.start_min < midnight + 24 * 60;
       }).sort(function (p, q) { return p.start_min - q.start_min; });
       if (tom.length) {
+        // ...unless tomorrow has a panel of its own on this board, in which
+        // case it is drawn there instead, unprefixed. Hand back a miss and the
+        // loop moves along to it.
+        if (dayBadges.length > 1 && dayBadges[1] && dayBadges[1].band) return false;
         var tw = at(tom[0]);
         rows.push([(i18n.tomorrow || 'Tomorrow') + (tw ? '\u00a0' + tw : ''), tom[0].title, badgesFor(tom[0])]);
       }
+    }
     }
     if (!rows.length) return true;
     // Between the date and whatever the strip set next to it in that panel.
@@ -2388,6 +2413,23 @@ function draw(board, spec, ctx) {
         lead.className = 'text--bold text--muted';
         // non-breaking, or the gap after the word collapses away
         lead.textContent = rw[0] + '\u00a0\u00a0';
+        // AM AND PM SET SMALLER THAN THE HOUR THEY QUALIFY.
+        //
+        // "7pm" is a number and a suffix, and at one size the suffix reads as
+        // part of the number -- on a strip where the hour is the thing being
+        // scanned for. Lower case rather than capitals, which is the older
+        // typographic habit and the quieter one: SMALL CAPS of any kind on a
+        // two-letter word beside a numeral shout, and this row is already the
+        // frame rather than the message.
+        var ap = /^(.*?\d)\s?([ap]\.?m\.?)(\u00a0*)$/i.exec(rw[0]);
+        if (ap) {
+          lead.textContent = ap[1];
+          var sfx = doc.createElement('span');
+          sfx.className = 'label--small';
+          sfx.textContent = ap[2];
+          lead.appendChild(sfx);
+          lead.appendChild(doc.createTextNode('\u00a0\u00a0'));
+        }
         var body = doc.createElement('span');
         body.className = 'text--bold';
         body.textContent = rw[1];
@@ -2398,7 +2440,19 @@ function draw(board, spec, ctx) {
         // limit of six (see the note by .metro-pill).
         (rw[2] || []).forEach(function (bg) {
           var b = doc.createElement('span');
-          b.className = 'metro-who metro-pill label label--small text--bold ml--1';
+          // A STEP UNDER THE ROW, NOT A FIXED SIZE. Held at label--small while
+          // the row shrank around it, the badge ended up the loudest thing on
+          // the line -- "Family Dinner" read as the annotation and "All" as
+          // the point.
+          b.className = 'metro-who metro-pill text--bold ml--1 ' + (sizes[zi + 1] || sizes[zi]);
+          // ...AND IT MUST NOT MAKE THE LINE TALLER. The pill carries its own
+          // line-height and two pixels of inset top and bottom, which put the
+          // card over the band's depth: the size loop then gave up a whole
+          // step of TEXT to buy room for a badge. Set to 1 the badge fits
+          // inside the line it annotates. (`line-height` is not one of the
+          // eight property names the template's linter counts, which are
+          // spent -- see the note by .metro-pill.)
+          b.style.lineHeight = '1';
           b.textContent = bg.text;
           line.appendChild(b);
         });

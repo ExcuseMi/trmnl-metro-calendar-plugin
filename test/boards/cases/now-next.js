@@ -82,17 +82,40 @@ module.exports = function (test, h) {
     assert(/Standup/.test(rows[0]), 'wanted today\'s Standup: ' + rows[0]);
   });
 
-  test('with nothing on and nothing left today, the first of tomorrow is labelled tomorrow', () => {
+  test('with nothing left today, tomorrow\'s first goes in tomorrow\'s panel, unprefixed', () => {
+    // The header over there already says Tomorrow, and "Tomorrow 08:30" under
+    // a badge reading Tomorrow says it twice.
     const m = board(NOON, [
       { t: 'Breakfast', a: 8 * 60, b: 9 * 60 },
-      { t: 'Swim', a: TOMORROW + 8 * 60, b: TOMORROW + 9 * 60 },
+      { t: 'Swim', a: TOMORROW + 8 * 60 + 30, b: TOMORROW + 9 * 60 },
     ]);
+    const built = build(m, 'x-landscape');
+    assert(built.doc.querySelectorAll('.metro-daybadge').length > 1,
+      'this board was supposed to draw tomorrow a panel of its own');
     const rows = card(m);
     assert(rows.length === 1, 'wanted one row, got ' + JSON.stringify(rows));
     assert(/Swim/.test(rows[0]), 'wanted tomorrow\'s Swim: ' + rows[0]);
     const label = rows[0].split('|')[0];
-    assert(label === (m.i18n && m.i18n.tomorrow) || /Tomorrow/i.test(label),
-      'it should be labelled tomorrow, not Next: ' + rows[0]);
+    assert(!/Tomorrow/i.test(label), 'the word is said twice: ' + rows[0]);
+    assert(/\d/.test(label), 'the lead should be the hour: ' + rows[0]);
+  });
+
+  test('with no panel for tomorrow, its first event keeps the word', () => {
+    // A board whose window stops at midnight draws no second panel, so nothing
+    // else on it says which day -- and there the prefix is the whole point.
+    const m = board(NOON, [
+      { t: 'Breakfast', a: 8 * 60, b: 9 * 60 },
+      { t: 'Swim', a: TOMORROW + 8 * 60 + 30, b: TOMORROW + 9 * 60 },
+    ]);
+    m.days = m.days.slice(0, 1);
+    m.day_end_min = TOMORROW;
+    const built = build(m, 'x-landscape');
+    assert(built.doc.querySelectorAll('.metro-daybadge').length <= 1,
+      'this board was supposed to draw one panel');
+    const rows = card(m);
+    if (!rows.length) return;          // a one-day board may have no room at all
+    assert(/Tomorrow/i.test(rows[0].split('|')[0]),
+      'with no panel to say it, the row must: ' + rows[0]);
   });
 
   // WHOSE IT IS, AS A BADGE. It was the name after a middle dot, which is the
