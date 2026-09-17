@@ -46,10 +46,10 @@
   .mc-shots figure { margin: 0; }
   .mc-shots a { display: block; border: 1px solid var(--rule); background: var(--paper); line-height: 0; }
   .mc-shots a:hover { border-color: var(--ink); }
-  .mc-shots img { display: block; height: 82px; width: auto; }
+  .mc-shots img { display: block; height: 130px; width: auto; }
   .mc-shots figcaption { font-size: 11px; color: var(--mute); padding-top: 4px; line-height: 1.3; }
   @media (max-width: 720px) { .mc-shots { padding: 12px 16px; gap: 10px; }
-                              .mc-shots img { height: 60px; } }
+                              .mc-shots img { height: 84px; } }
 
   /* ---- two columns: what you do on the left, what it draws on the right.
      The drawing is the point of this page, so it stays in view rather than
@@ -437,29 +437,19 @@
   </nav>
 </header>
 
-<!-- The same day at every size it is drawn for. Click one for the full
-     picture. Regenerate with: node tools/sheet.js --view all --each docs
+<!-- The two whole panels, and not the mashup slots. Six thumbnails read as a
+     compatibility list; the question a reader has here is "what does it look
+     like", and the answer is one board at the size it is really drawn.
+     Regenerate with: node tools/sheet.js --view all --each docs
      --only "simpsons 13:40" -->
 <section class="mc-shots" aria-label="What the board looks like">
   <p class="lead">The same day, drawn for each screen. Click one to see it full size.</p>
   <figure><a href="../docs/trmnl-x-landscape.png" target="_blank" rel="noopener">
-    <img src="../docs/trmnl-x-landscape.png" alt="The board on a TRMNL X in landscape" loading="lazy"></a>
+    <img src="../docs/trmnl-x-landscape.png" alt="The board on a TRMNL X" loading="lazy"></a>
     <figcaption>TRMNL X</figcaption></figure>
-  <figure><a href="../docs/trmnl-x-portrait.png" target="_blank" rel="noopener">
-    <img src="../docs/trmnl-x-portrait.png" alt="The board on a TRMNL X in portrait" loading="lazy"></a>
-    <figcaption>X portrait</figcaption></figure>
   <figure><a href="../docs/og-800x480-1bit.png" target="_blank" rel="noopener">
     <img src="../docs/og-800x480-1bit.png" alt="The board on a TRMNL OG" loading="lazy"></a>
-    <figcaption>OG</figcaption></figure>
-  <figure><a href="../docs/og-half-horizontal.png" target="_blank" rel="noopener">
-    <img src="../docs/og-half-horizontal.png" alt="The board in a half-horizontal mashup slot" loading="lazy"></a>
-    <figcaption>Half</figcaption></figure>
-  <figure><a href="../docs/og-half-vertical.png" target="_blank" rel="noopener">
-    <img src="../docs/og-half-vertical.png" alt="The board in a half-vertical mashup slot" loading="lazy"></a>
-    <figcaption>Half tall</figcaption></figure>
-  <figure><a href="../docs/og-quadrant.png" target="_blank" rel="noopener">
-    <img src="../docs/og-quadrant.png" alt="The board in a quadrant mashup slot" loading="lazy"></a>
-    <figcaption>Quadrant</figcaption></figure>
+    <figcaption>TRMNL OG</figcaption></figure>
 </section>
 
 <main class="line" id="page" data-stage="wizard">
