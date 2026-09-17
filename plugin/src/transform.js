@@ -131,11 +131,11 @@ var I18N = {
         alert_kind_snow: 'Snow',
         alert_kind_storms: 'Thunderstorms',
         alert_kind_ice: 'Freezing rain',
-        alert_from_until: '{what} from {t} until {u}, {p}% chance',
-        alert_until: '{what} until {u}, {p}% chance',
-        alert_from_on: '{what} from {t} into the night, {p}% chance',
-        alert_rest_of_day: '{what} for the rest of the day, {p}% chance',
-        alert_around: '{what} around {t}, {p}% chance',
+        alert_from_until: '{what} from {t} until {u} ({p}%)',
+        alert_until: '{what} until {u} ({p}%)',
+        alert_from_on: '{what} from {t} into the night ({p}%)',
+        alert_rest_of_day: '{what} for the rest of the day ({p}%)',
+        alert_around: '{what} around {t} ({p}%)',
         alert_hot: 'Hot, up to {v}°{u}',
         alert_chilly: 'Cold, down to {v}°{u}',
         alert_freezing: 'Freezing, down to {v}°{u}' },
@@ -282,6 +282,27 @@ function segments(str, vars, styles) {
     out[i + 1].t = out[i + 1].t.slice(run[0].length);
   }
   out = out.filter(function (q) { return q.t !== ''; });
+
+  // THE THING ITSELF, WHEN THE SENTENCE NAMES IT RATHER THAN HOLDING A SLOT
+  // FOR IT. The spell lines take what is coming as `{what}` and can style it
+  // like any other placeholder. The temperature ones cannot: they say "Hot,
+  // up to 32°C", and the word is the translator's own opening, chosen with
+  // the rest of the sentence -- Heiss/Kalt/Frost, Calor/Frio/Heladas, three
+  // wordings for two kinds. All eight languages write it the same shape,
+  // thing first and a comma after, because that is how the sentence goes. So
+  // `styles._0` styles that opening word, up to its comma, and the comma
+  // stays behind with the sentence it punctuates.
+  //
+  // This runs after the sticking above and before the merge, so the opening
+  // literal is still whole and still marked, and the piece split off it can
+  // still join whatever follows.
+  var lead = styles && styles._0;
+  if (lead && out.length && out[0].lit) {
+    var ix = out[0].t.indexOf(',');
+    var word = ix > 0 ? out[0].t.slice(0, ix) : out[0].t;
+    out.splice(0, 1, { t: word, s: lead }, { t: out[0].t.slice(word.length), s: dflt, lit: true });
+    out = out.filter(function (q) { return q.t !== ''; });
+  }
 
   // ...and two pieces set the same way, now touching, are one piece.
   var merged = [];
@@ -1399,7 +1420,10 @@ async function fetchWeather(latLonRaw, tz, deadline, unit, opts) {
       // weathercode per hour too, in the same request: it is what lets the
       // banner say snow or thunderstorms for the hours it names rather than
       // for the day as a whole.
-      hourly: 'precipitation_probability,weathercode',
+      // ...and the temperature per hour, which is what holds the cold and
+      // heat banners to the clock: the daily max is a fact about a day, and
+      // a board reads it at eight in the evening.
+      hourly: 'precipitation_probability,weathercode,temperature_2m',
       temperature_unit: unit === 'F' ? 'fahrenheit' : 'celsius',
       timezone: (opts && opts.localSun) ? 'auto' : tz, forecast_days: String(DAY_SPAN),
     });
@@ -1415,6 +1439,7 @@ async function fetchWeather(latLonRaw, tz, deadline, unit, opts) {
     var times = hourly.time || [];
     var probs = hourly.precipitation_probability || [];
     var codes = hourly.weathercode || [];
+    var degs = hourly.temperature_2m || [];
 
     // Every in-window hour of every day of the run, kept apart BY DAY, out
     // of the SAME hourly array the milestones came from. The service alert
@@ -1443,6 +1468,7 @@ async function fetchWeather(latLonRaw, tz, deadline, unit, opts) {
       if (dk < 0) { dk = dayKeys.length; dayKeys.push(pm[1]); dayHours.push([]); }
       var hour = { atMin: pMin, pct: p };
       if (typeof codes[j] === 'number' && isFinite(codes[j])) hour.code = codes[j];
+      if (typeof degs[j] === 'number' && isFinite(degs[j])) hour.deg = degs[j];
       dayHours[dk].push(hour);
     }
     var peak = wettestHour(dayHours[0], null);
@@ -1692,9 +1718,9 @@ function wetRun(hours, from, wet) {
 function serviceAlert(snap, opts) {
   if (!opts || !opts.enabled || !snap || typeof snap !== 'object') return null;
   var strings = opts.strings || I18N.en;
-  function banner(kind, key, vars, styles) {
-    var tpl = tr(strings, key);
-    return { kind: kind, icon: WEATHER_ICON_BASE + ALERT_ICON[kind], label: tr(strings, 'alert_title'),
+  function banner(kind, key, vars, styles, tail) {
+    var tpl = tr(strings, key) + (tail || '');
+    return { kind: kind, icon: WEATHER_ICON_BASE + ALERT_ICON[kind],
              text: fmt(tpl, vars),
              // the same sentence in pieces, for the banner to set (see segments)
              parts: segments(tpl, vars, styles) };
@@ -1710,8 +1736,8 @@ function serviceAlert(snap, opts) {
   //
   // In the spell sentences {t} and {u} are both clocks; in the temperature
   // ones {u} is the unit and belongs with the number it qualifies.
-  var WHEN = { _: 'q', what: 'b', t: '', u: '', p: 'q' };
-  var DEG = { _: 'q', v: 'b', u: 'b' };
+  var WHEN = { _: 'q', what: 'p', t: '', u: '', p: 'q' };
+  var DEG = { _: 'q', _0: 'p', v: 'b', u: 'b', r: '' };
   function clock(min) { return timeLabel12(min, { hour12: opts.hour12 }); }
 
   var dayIx = (typeof opts.dayIx === 'number' && opts.dayIx > 0) ? opts.dayIx : 0;
@@ -1759,25 +1785,80 @@ function serviceAlert(snap, opts) {
   }
 
   // The day on the board, falling back to the top-level forecast for a
-  // snapshot that has no run of days in it. Cold and heat name no hour, so
-  // there is no hour of theirs to be in the past: a high of 36 is still
-  // the day you had at eight in the evening.
+  // snapshot that has no run of days in it.
   var unit = opts.unit === 'F' ? 'F' : 'C';
   var lines = TEMP_DEFAULTS[unit];
   var low = opts.tempLow != null ? opts.tempLow : lines.low;
   var high = opts.tempHigh != null ? opts.tempHigh : lines.high;
   var lo = convertTemp(day ? day.lo : snap.lo, snap.unit, unit);
   var hi = convertTemp(day ? day.hi : snap.hi, snap.unit, unit);
+
+  // COLD AND HEAT ARE A STRETCH OF THE DAY, NOT THE DAY.
+  //
+  // They used to be read off the daily max and min, which is a fact about a
+  // whole day and has no hour in it, so a board at eight in the evening went
+  // on warning about an afternoon everyone had already lived through -- and
+  // the minimum it warned about was usually five in the morning, long before
+  // anybody looked. The hours carry their own temperature now, so the alert
+  // is the run of them that breaches the line and is still AHEAD, held to the
+  // clock exactly the way rain is (see wetRun), and the degree it names is
+  // the extreme of that run rather than of the day.
+  //
+  // It says which stretch, in brackets after the sentence. Two clocks and a
+  // dash read the same in every language the board speaks, so the range is
+  // written here rather than in the copy: no translator has to be waited for,
+  // and a device still holding an older table gets it in its own language.
+  function degOf(h) {
+    var d = convertTemp(h.deg, snap.unit, unit);
+    return (typeof d === 'number' && isFinite(d)) ? d : null;
+  }
+  var hasDeg = !!(hours && hours.some(function (h) { return degOf(h) != null; }));
+  // The hour we are standing in is the first one that counts: at 14:30 the
+  // 14:00 hour is still running, and a range that opens at 06:00 is telling
+  // somebody about their own morning.
+  var nowHour = from != null ? Math.floor(from / 60) * 60 : null;
+  function degRun(hot) {
+    function hit(h) {
+      var d = degOf(h);
+      return d != null && (hot ? d >= high : d <= low);
+    }
+    var run = wetRun(hours, from, hit);
+    if (!run) return null;
+    var start = (nowHour != null && run.start < nowHour) ? nowHour : run.start;
+    var ext = null;
+    hours.forEach(function (h) {
+      if (h.atMin < start || h.atMin >= run.end || !hit(h)) return;
+      var d = degOf(h);
+      if (ext == null || (hot ? d > ext : d < ext)) ext = d;
+    });
+    return ext == null ? null : { start: start, end: run.end, deg: ext };
+  }
+  function degBanner(kind, key, run) {
+    return banner(kind, key, { v: Math.round(run.deg), u: unit,
+                               r: clock(run.start) + '\u2013' + clock(run.end) }, DEG, ' ({r})');
+  }
+
   // "Freezing" only where it is: a reader who set cold at 5 degrees is told
   // it is cold, not that it freezes.
   // ...AND IN WHICH SCALE. "Hot, up to 36" is a different sentence in the two
   // halves of the world the board is set up for, and the banner is the one
   // line of words on it that somebody else might read.
-  if (lo != null && lo <= low) {
-    return banner('cold', lo <= lines.freezing ? 'alert_freezing' : 'alert_chilly',
-                  { v: Math.round(lo), u: unit }, DEG);
+  if (hasDeg) {
+    var coldRun = degRun(false);
+    if (coldRun) {
+      return degBanner('cold', coldRun.deg <= lines.freezing ? 'alert_freezing' : 'alert_chilly', coldRun);
+    }
+    var heatRun = degRun(true);
+    if (heatRun) return degBanner('heat', 'alert_hot', heatRun);
+  } else {
+    // A snapshot from a build that saved no hourly temperature, or a day the
+    // forecast answered without one. The day's own figures are all there is.
+    if (lo != null && lo <= low) {
+      return banner('cold', lo <= lines.freezing ? 'alert_freezing' : 'alert_chilly',
+                    { v: Math.round(lo), u: unit }, DEG);
+    }
+    if (hi != null && hi >= high) return banner('heat', 'alert_hot', { v: Math.round(hi), u: unit }, DEG);
   }
-  if (hi != null && hi >= high) return banner('heat', 'alert_hot', { v: Math.round(hi), u: unit }, DEG);
 
   var thr = opts.rainThreshold;
   if (thr == null) return null;

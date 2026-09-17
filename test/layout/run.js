@@ -481,9 +481,10 @@ const REPORTER = `
     var banner = null;
     if (bannerEl) {
       var bcs = getComputedStyle(bannerEl);
-      // Its three parts, each with the paint it got: the label has to stand
-      // out from the band on every bit depth, the icon has to be drawn in
-      // the band's paper, and the message is the sentence being read.
+      // Its parts, each with the paint it got: the icon has to be drawn in
+      // the band's paper, the message is the sentence being read, and the
+      // badge -- the weather's own name, inside that sentence -- has to
+      // stand out from the band on every bit depth.
       var part = function (sel) {
         var el = bannerEl.querySelector(sel);
         if (!el) return null;
@@ -518,7 +519,7 @@ const REPORTER = `
         ink: bcs.backgroundColor, paper: bcs.color,
         radius: parseFloat(bcs.borderTopLeftRadius) || 0,
         lineHeight: parseFloat(bcs.lineHeight) || 0,
-        label: part('.metro-banner-label'), icon: part('.metro-banner-icon'), message: msg,
+        badge: part('.metro-banner-thing'), icon: part('.metro-banner-icon'), message: msg,
         pieces: pieces
       });
     }

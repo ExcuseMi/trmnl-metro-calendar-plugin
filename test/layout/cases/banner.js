@@ -24,8 +24,8 @@ module.exports = function (test, h) {
     { name: 'og-quadrant', w: 800, h: 480, slot: { w: 400, h: 240 }, classes: OG },
     { name: 'x-landscape', w: 1872, h: 1404, classes: X },
   ];
-  // Every bit depth the label's colour is mapped for, which is the whole
-  // reason it is a framework class and not a colour of this file's.
+  // Every bit depth the badge's colour is mapped for, which is the whole
+  // reason it is a framework variable and not a colour of this file's.
   const DEPTHS = VIEWS.concat([{ name: 'og-2bit', w: 800, h: 480, classes: OG2 }]);
   const busy = fixtures.find((f) => f.name === 'busy-day');
 
@@ -33,30 +33,29 @@ module.exports = function (test, h) {
   // rather than invented here: the banner is fully assembled and translated
   // by then, and the template's whole job is to print it unchanged.
   const ICONS = 'https://trmnl.com/images/plugins/weather/';
-  const RAIN = { kind: 'rain', icon: ICONS + 'wi-rain.svg', label: 'Weather',
-                 text: 'Rain from 14:00 until 17:00, 80% chance' };
+  const RAIN = { kind: 'rain', icon: ICONS + 'wi-rain.svg',
+                 text: 'Rain from 14:00 until 17:00 (80%)' };
   // One of the longest lines this plugin can produce: a German snow alert
-  // out of i18n/de.json, label and all. It is one line on a full OG board
+  // out of i18n/de.json. It is one line on a full OG board
   // and two on a quadrant, which is the case E6 was left open on.
-  const LONG = { kind: 'snow', icon: ICONS + 'wi-snow.svg', label: 'Wetter',
+  const LONG = { kind: 'snow', icon: ICONS + 'wi-snow.svg',
                  text: 'Schnee ab 17:00 bis in die Nacht, 80\u00a0% Wahrscheinlichkeit' };
   // The control for the wrap case: the same band, one line, same padding.
-  const SHORT = { kind: 'rain', icon: ICONS + 'wi-rain.svg', label: 'Wetter', text: 'Regen' };
+  const SHORT = { kind: 'rain', icon: ICONS + 'wi-rain.svg', text: 'Regen' };
 
   test('the banner prints what transform composed, unchanged', () => {
     for (const v of VIEWS) {
       const rep = layout(busy, v, { service_alert: RAIN });
       assert(rep.banner, v.name + ': service_alert was set and no banner was drawn at all');
       assertEqual(rep.banner.text, RAIN.text, v.name + ': the banner text');
-      assertEqual(rep.banner.label && rep.banner.label.text, RAIN.label, v.name + ': the label');
       assertEqual(rep.banner.icon && rep.banner.icon.src, RAIN.icon, v.name + ': the icon');
       // The kind reaches the markup as an attribute so a stylesheet can
       // tell a snow day from a hot one without parsing the sentence.
       assertEqual(rep.banner.kind, RAIN.kind, v.name + ': data-metro-alert');
-      // icon, label, message, in that order along one row
-      assert(rep.banner.icon.x < rep.banner.label.x && rep.banner.label.x < rep.banner.message.x,
-        v.name + ': the parts are out of order: icon ' + Math.round(rep.banner.icon.x) + ', label '
-        + Math.round(rep.banner.label.x) + ', message ' + Math.round(rep.banner.message.x));
+      // icon, then message, along one row
+      assert(rep.banner.icon.x < rep.banner.message.x,
+        v.name + ': the parts are out of order: icon ' + Math.round(rep.banner.icon.x)
+        + ', message ' + Math.round(rep.banner.message.x));
     }
   });
 
@@ -149,31 +148,57 @@ module.exports = function (test, h) {
       + Math.round(long.banner.h) + 'px tall but the canvas gave up ' + Math.round(lost) + 'px');
   });
 
-  test('the banner label, "Weather", stands out from the band on every bit depth', () => {
-    // "Have the label in a trmnl class like important (works for different
-    // screens)". The error colour is a dither on a 1-bit panel and a pale
-    // grey on the X, and on a black band either one swallowed the word, so
-    // a grey panel wears the filled label instead: paper on ink, the way the
-    // date sits in the hour strip. What this asserts is that it is SEEN: a
-    // box of its own that is not the band's colour, with words that are not
-    // the box's colour.
+  test('the weather\'s own name is badged, and stands out on every bit depth', () => {
+    // The band used to open with a label reading "Weather", which is the one
+    // thing about this banner nobody has to be told: there is no other kind
+    // of alert. The badge moved onto the word that is worth the ink -- Rain,
+    // Snow, Freezing rain -- and it has to be SEEN there: a box of its own
+    // that is not the band's colour, with a word that is not the box's, and
+    // no dither under it on the panels that would rather draw one.
     for (const v of DEPTHS) {
-      const rep = layout(busy, v, { service_alert: RAIN });
-      const l = rep.banner && rep.banner.label;
-      assert(l, v.name + ': no label on the banner');
-      assert(l.bg !== rep.banner.ink, v.name + ': the label is ' + l.bg + ' on a ' + rep.banner.ink
+      const rep = layout(busy, v, { service_alert: PARTS });
+      const l = rep.banner && rep.banner.badge;
+      assert(l, v.name + ': no badge on the banner');
+      assertEqual(l.text, 'Rain', v.name + ': the badge is not on the weather itself');
+      assert(l.bg !== rep.banner.ink, v.name + ': the badge is ' + l.bg + ' on a ' + rep.banner.ink
         + ' band, so it has no box of its own');
-      assert(l.color !== l.bg, v.name + ': the label reads ' + l.color + ' on ' + l.bg + ', which is invisible');
-      assert(l.bgImage === 'none' || !l.bgImage, v.name + ': the label is dithered (' + l.bgImage
+      assert(l.color !== l.bg, v.name + ': the badge reads ' + l.color + ' on ' + l.bg + ', which is invisible');
+      assert(l.bgImage === 'none' || !l.bgImage, v.name + ': the badge is dithered (' + l.bgImage
         + '), which on this panel is a grey smear under the word');
     }
   });
 
-  test('the banner icon is drawn in the band\'s paper, and the message is larger than the label', () => {
+  test('the badge is held to the line it is in and does not deepen the band', () => {
+    // A badge is a box with its own inset sitting in running text, so the
+    // two things it must not do are open the line it is in -- it is given
+    // the band's own line-height for that, where the hour strip's pill can
+    // afford a looser one -- and push a sentence that fitted onto a second
+    // line, because the band's depth comes off the map.
+    //
+    // The quadrant is the exception and is allowed one wrap: 400px has to
+    // carry an icon, a badge and a whole sentence, and at that width the
+    // English rain line lands within a few pixels of the edge with no badge
+    // at all. It is still the shallower band of the two -- what stood here
+    // before was a "Weather" label as its own flex item, seventy pixels of
+    // it, which wrapped the same sentence on the same panel and kept the
+    // badge as well.
+    for (const v of VIEWS) {
+      const withBadge = layout(busy, v, { service_alert: PARTS });
+      const plain = layout(busy, v, { service_alert: RAIN });
+      const room = (v.slot ? v.slot.w : v.w) >= 600 ? 1 : withBadge.banner.lineHeight + 1;
+      assert(withBadge.banner.h <= plain.banner.h + room, v.name + ': the badge deepened the band from '
+        + Math.round(plain.banner.h) + 'px to ' + Math.round(withBadge.banner.h) + 'px'
+        + ' (sentence box ' + Math.round(plain.banner.message.h) + ' -> '
+        + Math.round(withBadge.banner.message.h) + 'px, line ' + withBadge.banner.lineHeight + 'px)');
+    }
+  });
+
+  test('the banner icon is drawn in the band\'s paper, a shade larger than the words', () => {
     // An adaptive icon is a mask painted in the text colour, so on the ink
     // band it comes out white by itself; a plain image would be a black
-    // glyph on black. And the message is the sentence being read: "a bit
-    // larger and nicer font" than the small label it used to be set in.
+    // glyph on black. It is a solid shape and not a font, so there is no
+    // weight to ask it for and size is the only lever it has: it is set
+    // above the words it introduces so it reads as their equal.
     for (const v of VIEWS) {
       const rep = layout(busy, v, { service_alert: RAIN });
       const b = rep.banner;
@@ -184,8 +209,8 @@ module.exports = function (test, h) {
         + b.icon.mask);
       assertEqual(b.icon.bg, b.paper, v.name + ': the icon is painted ' + b.icon.bg + ' on the ' + b.ink + ' band');
       assertEqual(b.message.color, b.paper, v.name + ': the message should be in the band\'s paper');
-      assert(b.message.fontSize > b.label.fontSize, v.name + ': the message (' + b.message.fontSize
-        + 'px) is no larger than the label (' + b.label.fontSize + 'px)');
+      assert(b.icon.h > b.message.fontSize, v.name + ': the icon (' + Math.round(b.icon.h)
+        + 'px) is not set above the ' + b.message.fontSize + 'px words it introduces');
       assert(b.radius > 0, v.name + ': the band has square corners');
     }
   });
@@ -213,11 +238,18 @@ module.exports = function (test, h) {
   // that actually lands as bold and as grey is a computed style, and this is
   // the only harness that has one.
   const PARTS = {
-    kind: 'rain', icon: ICONS + 'wi-rain.svg', label: 'Weather',
-    text: 'Rain from 14:00 until 17:00, 80% chance',
-    parts: [{ t: 'Rain', s: 'b' }, { t: ' from ', s: '' }, { t: '14:00', s: 'q' },
-            { t: ' until ', s: '' }, { t: '17:00,', s: 'q' }, { t: ' ', s: '' },
-            { t: '80%', s: 'b' }, { t: ' chance', s: '' }],
+    kind: 'rain', icon: ICONS + 'wi-rain.svg',
+    text: 'Rain from 14:00 until 17:00 (80%)',
+    parts: [{ t: 'Rain', s: 'p' }, { t: ' from ', s: 'q' }, { t: '14:00', s: '' },
+            { t: ' until ', s: 'q' }, { t: '17:00', s: '' }, { t: ' (80%)', s: 'q' }],
+  };
+  // A heat banner: the badge, a bold temperature and the stretch of the day
+  // it is about. Three kinds of emphasis in one line, which is the most this
+  // banner ever carries.
+  const HEAT = {
+    kind: 'heat', icon: ICONS + 'wi-hot.svg', text: 'Hot, up to 36\u00b0C (13:00\u201317:00)',
+    parts: [{ t: 'Hot', s: 'p' }, { t: ', up to ', s: 'q' }, { t: '36\u00b0C', s: 'b' },
+            { t: ' (', s: 'q' }, { t: '13:00\u201317:00)', s: '' }],
   };
 
   test('the banner sets the thing bold and the clock quiet', () => {
@@ -233,6 +265,20 @@ module.exports = function (test, h) {
     const body = pieces.filter((p) => p.text.indexOf('from') >= 0)[0];
     assert(clock && body && clock.color !== body.color,
       'the clock is the same colour as the words: ' + JSON.stringify([clock, body]));
+  });
+
+  test('a heat banner badges the weather, bolds the degree and lights the stretch', () => {
+    // The busiest line this banner draws: three kinds of emphasis, and the
+    // clock range that says which part of the day it is about.
+    const rep = layout(busy, VIEWS[2], { service_alert: HEAT });
+    assertEqual(rep.banner.text, HEAT.text, 'the pieces must still read as the line');
+    assertEqual(rep.banner.badge && rep.banner.badge.text, 'Hot', 'the thing itself is not badged');
+    const pieces = rep.banner.pieces || [];
+    const at = (t) => pieces.filter((p) => p.text.indexOf(t) >= 0)[0] || {};
+    assert(+at('36').weight > +at('up to').weight, 'the temperature is not bolder than the words around it: '
+      + at('36').weight + ' vs ' + at('up to').weight);
+    assert(at('13:00').color !== at('up to').color,
+      'the stretch is the same colour as the words holding it: ' + JSON.stringify(pieces));
   });
 
   test('a banner with no parts still prints its whole line', () => {
