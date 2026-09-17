@@ -323,11 +323,15 @@ module.exports = function (test, h) {
   });
 
   test('the remembered reads are kept under a ceiling, and the same ones every time', async () => {
-    // Saved state goes out and comes back on every render, and a state too
-    // big to store is not a smaller cache -- it is NO state, taking the
-    // remembered forecast and the feed names with it. A real four-calendar
-    // household came to 7.7KB where the same state without the reads was 613
-    // bytes, so the counts alone do not bound this.
+    // "There is a limit of 8192 bytes. Go over it and TRMNL ignores the write,
+    // keeps the last good state" -- help.trmnl.com, saved-state.
+    //
+    // Nothing is truncated: the write is REJECTED and the device keeps what
+    // it had, so every clock in saved state stops -- how long a feed has been
+    // down, what the weather was, what a feed is called -- and the board goes
+    // on rendering from a state that can no longer be corrected. A real
+    // four-calendar household came to 7.7KB once reads were remembered, which
+    // is already inside the margin, so the counts alone do not bound this.
     const many = [];
     for (let f = 0; f < 10; f++) {
       let t = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nX-WR-CALNAME:Cal' + f + '\r\n';
@@ -353,16 +357,48 @@ module.exports = function (test, h) {
     const r = await runTransform(impl, NOW).run(i);
 
     const size = JSON.stringify(r.trmnl_state).length;
-    assert(size < 16000, 'saved state came to ' + size + ' bytes, which may not be stored at all');
+    assert(size <= 8192, 'saved state came to ' + size + " bytes; TRMNL's limit is 8192 and "
+      + 'over it the write is ignored, so the device keeps a state it can never correct');
 
     // ...and WHICH ones survive is the same every render: dropped from the
     // end of the config, never by whoever answered first, or the board
     // forgets a different calendar each time and the warning flickers.
+    //
+    // How MANY survive is not asserted, and on ten feeds this size it is
+    // none: 8192 bytes is not many meetings, which is the whole reason the
+    // previous render's own output is the better place to read a failed feed
+    // back from. What has to hold here is that the limit is never crossed and
+    // that the choice is deterministic.
     const kept = Object.keys(r.trmnl_state.feeds || {});
-    assert(kept.length > 0 && kept.length < urls.length,
-      'expected some feeds kept and some dropped, got ' + kept.length + ' of ' + urls.length);
     assertEqual(kept, urls.slice(0, kept.length),
       'the feeds kept are not the first ones the config names');
+  });
+
+  test('...and the ceiling holds for a household whose feeds are all enormous', async () => {
+    // The trimming measures what the REST of the state costs before deciding
+    // what is left for the reads, and the rest grows with the feeds: a name
+    // and a down-clock apiece.
+    let big = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nX-WR-CALNAME:A calendar with quite a long name\r\n';
+    for (let e = 0; e < 70; e++) {
+      big += 'BEGIN:VEVENT\r\nUID:x' + e + '@x\r\n'
+        + 'DTSTART:' + ISO_TODAY + 'T' + String(7 + (e % 12)).padStart(2, '0') + '0000Z\r\n'
+        + 'DTEND:' + ISO_TODAY + 'T' + String(8 + (e % 12)).padStart(2, '0') + '0000Z\r\n'
+        + 'SUMMARY:A meeting title of the length people actually use ' + e + '\r\n'
+        + 'LOCATION:Microsoft Teams Meeting, Room 214, Building B, Second Floor\r\nEND:VEVENT\r\n';
+    }
+    big += 'END:VCALENDAR\r\n';
+    const urls = [];
+    for (let f = 0; f < 12; f++) urls.push('https://a-fairly-long-host-name.example.com/calendars/user' + f + '.ics');
+    const impl = async (url) => {
+      const u = String(url);
+      if (u.indexOf('api.open-meteo.com') >= 0) return fail(503);
+      if (u.indexOf('/i18n/') >= 0) return fail(404);
+      return urls.indexOf(u) < 0 ? fail(404) : okText(big);
+    };
+    const r = await runTransform(impl, NOW).run(baseInput(NOW, { use_demo_data: 'false',
+      config_json: JSON.stringify({ calendars: urls.map((u) => ({ url: u })) }) }));
+    const size = JSON.stringify(r.trmnl_state).length;
+    assert(size <= 8192, 'saved state came to ' + size + ' bytes on twelve large feeds');
   });
 
   test('several feeds down are named in the order the config names them', async () => {

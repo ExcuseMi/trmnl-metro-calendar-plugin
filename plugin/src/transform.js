@@ -424,19 +424,27 @@ var WEATHER_STALE_AFTER_S = 6 * 3600;  // older than this and the board says so 
 var FEED_STALE_AFTER_S = 6 * 3600;
 var FEED_CACHE_MAX_EVENTS = 80;        // per feed; a household's two days, with room
 var FEED_CACHE_MAX_FEEDS = 12;         // state travels with every render
-// ...AND A HARD CEILING IN BYTES, WHICH IS THE ONLY LIMIT THAT ACTUALLY BINDS.
+// ...AND A HARD CEILING ON THE WHOLE OF SAVED STATE, WHICH IS A REAL NUMBER.
 //
-// Saved state goes out and comes back on EVERY render, and the counts above
-// bound the wrong thing: a real four-calendar household came to 7.7KB where
-// the same state without the remembered reads was 613 bytes, and twelve feeds
-// of eighty events would be past a hundred. A state too big to store is not a
-// smaller cache, it is NO state -- the remembered forecast and the feed names
-// go with it -- so the cache is trimmed to fit rather than allowed to cost
-// the rest of it.
+//   "There is a limit of 8192 bytes. Go over it and TRMNL ignores the write,
+//    keeps the last good state"
+//   -- help.trmnl.com/en/articles/16777795-saved-state
 //
-// Feeds are dropped from the end of the config, so which ones survive is the
-// same on every render rather than depending on who answered first.
-var FEED_CACHE_MAX_BYTES = 12000;
+// Over the line nothing is truncated: the write is REJECTED and the device
+// keeps whatever it had. Every clock in here then stops -- how long a feed
+// has been down, what the weather was, what a feed is called -- and the board
+// goes on rendering from a state that can no longer be corrected. Which looks
+// exactly like a warning that appears, vanishes for a few renders and comes
+// back.
+//
+// The counts above do not bound this: a real four-calendar household came to
+// 7.7KB of state where the same state without the remembered reads was 613
+// bytes, which is already inside the margin of the limit and was written with
+// a 12000-byte cap. So the WHOLE state is measured and the remembered reads
+// are dropped until it fits, oldest calendars in the config last, so the same
+// ones survive on every render.
+var STATE_LIMIT_BYTES = 8192;          // TRMNL's, not ours
+var STATE_SAFE_BYTES = 7000;           // ...with room for a longer feed name or one more clock
 // A FEED THAT IS NOT ANSWERING IS NAMED ON THIS RENDER, NOT ON A LATER ONE.
 //
 // It used to be named only once it had been failing for two hours, so that a
@@ -541,15 +549,29 @@ function readState(input) {
 // different calendar each time and the warning flickers.
 function trimFeedCache(state, urls) {
   if (!state || !state.feeds) return;
+  // What the rest of the state costs, measured rather than assumed: it grows
+  // with the number of feeds and the length of their names.
+  var without = state.feeds;
+  state.feeds = {};
+  var room = STATE_SAFE_BYTES - JSON.stringify(state).length;
+  state.feeds = without;
+
   var order = (urls || []).filter(function (u) { return state.feeds[u]; });
   var kept = {}, used = 2;
   for (var i = 0; i < order.length; i++) {
     var one = JSON.stringify(state.feeds[order[i]]).length + order[i].length + 4;
-    if (used + one > FEED_CACHE_MAX_BYTES) break;
+    if (used + one > room) break;
     kept[order[i]] = state.feeds[order[i]];
     used += one;
   }
   state.feeds = kept;
+  // Belt and braces: if the rest of the state is somehow already past the
+  // line, the reads go entirely rather than take the clocks down with them.
+  if (JSON.stringify(state).length > STATE_LIMIT_BYTES) {
+    warn('saved state is over TRMNL\'s ' + STATE_LIMIT_BYTES
+      + '-byte limit even with no remembered reads; they are dropped');
+    state.feeds = {};
+  }
 }
 
 // Feeds come and go from a config. Anything the config no longer names is
