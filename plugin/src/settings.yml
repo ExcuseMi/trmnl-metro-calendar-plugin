@@ -139,5 +139,5 @@ custom_fields:
   default: false
   optional: true
 name: Metro Calendar
-description: Everyone's day as a metro map
+description: Your family's day as a metro map
 refresh_interval: 15

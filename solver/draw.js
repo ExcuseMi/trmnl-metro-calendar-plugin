@@ -2320,11 +2320,25 @@ function draw(board, spec, ctx) {
       .sort(function (p, q) { return p.start_min - q.start_min; });
     function at(ev) { return ctx.clock ? ctx.clock(ev.start_min) : ''; }
     var rows = [];
-    // What is ON has no time worth saying -- it is on -- so only the rows
-    // about something ahead carry one.
-    if (on.length) rows.push([i18n.now || 'Now', on[0].title, badgesFor(on[0]), '']);
+    // THE LEAD SAYS WHEN, AND ONLY SAYS IT ONCE.
+    //
+    // Three words were tried here and so were three marks. What they have in
+    // common is the mistake: "Next" tells a reader nothing the row does not
+    // already tell them, because the row says 7pm and it is half past six.
+    // The label column is as wide as the widest thing in it and every row pays
+    // for it, on the part of the board that runs out of room first -- so the
+    // one that carries nothing goes, and what is left is the hour.
+    //
+    // The other two stay because they are not labels, they are facts:
+    //   NOW      what is on has no time to give -- that IS the information
+    //   TOMORROW which day, and nothing else on the row says it
+    //
+    // Grey, all three, because it is the frame; the event's name is what is
+    // left in black. Read down the column it is a little timetable, which is
+    // what it is.
+    if (on.length) rows.push([i18n.now || 'Now', on[0].title, badgesFor(on[0])]);
     if (later.length) {
-      rows.push([i18n.next || 'Next', later[0].title, badgesFor(later[0]), at(later[0])]);
+      rows.push([at(later[0]), later[0].title, badgesFor(later[0])]);
     } else if (!on.length) {
       // NOTHING ON AND NOTHING LEFT TODAY, so the next thing really is
       // tomorrow -- and it is labelled tomorrow, not "Next". "Next 08:30" on
@@ -2334,7 +2348,10 @@ function draw(board, spec, ctx) {
       var tom = evs.filter(function (ev) {
         return ev.start_min >= midnight && ev.start_min < midnight + 24 * 60;
       }).sort(function (p, q) { return p.start_min - q.start_min; });
-      if (tom.length) rows.push([i18n.tomorrow || 'Tomorrow', tom[0].title, badgesFor(tom[0]), at(tom[0])]);
+      if (tom.length) {
+        var tw = at(tom[0]);
+        rows.push([(i18n.tomorrow || 'Tomorrow') + (tw ? '\u00a0' + tw : ''), tom[0].title, badgesFor(tom[0])]);
+      }
     }
     if (!rows.length) return true;
     // Between the date and whatever the strip set next to it in that panel.
@@ -2375,22 +2392,6 @@ function draw(board, spec, ctx) {
         body.className = 'text--bold';
         body.textContent = rw[1];
         line.appendChild(lead); line.appendChild(body);
-        // THE CLOCK QUIETER THAN THE NAME. Three things in a row, all the same
-        // weight, and the eye has to read all of it to find the one it wants,
-        // which is what the event is called. The label is already grey; the
-        // time joins it, so what is left in full black is the answer.
-        //
-        // (A caption on the MAP does the opposite -- rule: the time is bold
-        // and black there, because a quiet grey range was the part a reader in
-        // a hurry could not read. The difference is what is around it: on the
-        // map a caption stands alone on paper, and here it is one of three
-        // things on one line with a label in front of it.)
-        if (rw[3]) {
-          var when = doc.createElement('span');
-          when.className = 'metro-when text--bold text--muted';
-          when.textContent = '\u00a0' + rw[3];
-          line.appendChild(when);
-        }
         // ...and whose, after the words. `metro-pill` is the strip's own
         // badge -- the one the date and the clock wear -- so it inverts with
         // the band and costs the inline-style budget nothing, which is at its
