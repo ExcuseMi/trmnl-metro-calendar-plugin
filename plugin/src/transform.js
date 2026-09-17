@@ -1161,12 +1161,38 @@ function convertTemp(v, from, to) {
   return Math.round(from === 'C' ? v * 9 / 5 + 32 : (v - 32) * 5 / 9);
 }
 
-function materializeMilestones(list, strings) {
+// A SUN AT TEN AT NIGHT SAYS THE WRONG THING.
+//
+// "Rain stops" is drawn as a sun, because clearing up is what it means and a
+// glyph is read before any words are. After sunset that is a sun in the dark,
+// on a board whose other corner is drawing the moon in its real phase: rain
+// ending at eight on a September evening put a midday sun on the strip.
+//
+// The board already knows when the sun went down -- every day of the snapshot
+// carries its own sunrise and sunset -- so the marker takes the night's own
+// clear sky instead. Only `rain_stops` has this problem: rain starting, snow
+// and storms are the same fact whatever the hour.
+function nightly(kind, atMin, sun) {
+  if (kind !== 'rain_stops' || !sun) return MILESTONE_ICON[kind];
+  var set = sun.set, rise = sun.rise;
+  var afterDark = (set != null && atMin >= set) || (rise != null && atMin < rise);
+  return afterDark ? 'wi-night-clear.svg' : MILESTONE_ICON[kind];
+}
+
+function materializeMilestones(list, strings, sun) {
   return (Array.isArray(list) ? list : [])
     .filter(function (m) { return m && typeof m.atMin === 'number' && isFinite(m.atMin) && MILESTONE_ICON[m.kind]; })
     .map(function (m) {
-      return { atMin: m.atMin, icon: WEATHER_ICON_BASE + MILESTONE_ICON[m.kind], label: tr(strings, m.kind) + ' ' + timeLabel(m.atMin) };
+      return { atMin: m.atMin, icon: WEATHER_ICON_BASE + nightly(m.kind, m.atMin, sun), label: tr(strings, m.kind) + ' ' + timeLabel(m.atMin) };
     });
+}
+
+// The run's first day's sun, which is the day the top-level milestones are
+// about (see the note on `nightly`).
+function firstSun(snap, key) {
+  var d = (Array.isArray(snap.perDay) ? snap.perDay : [])[0];
+  if (d && typeof d[key] === 'number') return d[key];
+  return typeof snap[key] === 'number' ? snap[key] : null;
 }
 
 // snapshot -> the { header, milestones } shape buildMetro takes.
@@ -1187,7 +1213,8 @@ function materializeWeather(snap, strings, unit) {
       // number is a fact about the payload, so it travels with it.
       unit: unit,
     },
-    milestones: materializeMilestones(snap.milestones, strings),
+    milestones: materializeMilestones(snap.milestones, strings,
+      { rise: firstSun(snap, 'sunrise_min'), set: firstSun(snap, 'sunset_min') }),
     // One forecast per day of the run, converted the same way the header
     // is: saved state outlives the temperature setting, so a snapshot
     // taken in Celsius has to come back out in whatever the board is
@@ -1203,7 +1230,9 @@ function materializeWeather(snap, strings, unit) {
         unit: unit,
         // A day's own sky band. The board draws one day of the run, and
         // its rain markers have to be that day's.
-        milestones: materializeMilestones(d.milestones, strings),
+        milestones: materializeMilestones(d.milestones, strings,
+          { rise: typeof d.sunrise_min === 'number' ? d.sunrise_min : null,
+            set: typeof d.sunset_min === 'number' ? d.sunset_min : null }),
         sunrise_min: typeof d.sunrise_min === 'number' ? d.sunrise_min : null,
         sunset_min: typeof d.sunset_min === 'number' ? d.sunset_min : null,
       };

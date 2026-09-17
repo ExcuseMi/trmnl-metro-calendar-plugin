@@ -2278,13 +2278,34 @@ function draw(board, spec, ctx) {
     }
     var on = evs.filter(function (ev) { return ev.start_min <= now && (ev.end_min || ev.start_min) > now; })
       .sort(function (p, q) { return (p.end_min - p.start_min) - (q.end_min - q.start_min); });
-    var later = evs.filter(function (ev) { return ev.start_min > now && ev.start_min < m.day_end_min; })
+    // TODAY ENDS AT MIDNIGHT, WHATEVER THE BOARD'S WINDOW DOES.
+    //
+    // This asked for events before `day_end_min`, which is the end of the
+    // drawn WINDOW -- and a rolling board's window runs on into tomorrow. So
+    // at half past eleven on a Thursday with nothing left that day, "Next"
+    // was tomorrow's half past eight swim, sitting beside a "Now" that was
+    // today: two rows about two different days with nothing to say so.
+    var midnight = (m.days && m.days[1] && m.days[1].start_min != null)
+      ? m.days[1].start_min : 24 * 60;
+    var later = evs.filter(function (ev) { return ev.start_min > now && ev.start_min < midnight; })
       .sort(function (p, q) { return p.start_min - q.start_min; });
+    function line(ev) {
+      return ev.title + ' ' + (ctx.clock ? ctx.clock(ev.start_min) : '') + ' \u00b7 ' + who(ev);
+    }
     var rows = [];
     if (on.length) rows.push([i18n.now || 'Now', on[0].title + ' \u00b7 ' + who(on[0])]);
     if (later.length) {
-      var nx = later[0];
-      rows.push([i18n.next || 'Next', nx.title + ' ' + (ctx.clock ? ctx.clock(nx.start_min) : '') + ' \u00b7 ' + who(nx)]);
+      rows.push([i18n.next || 'Next', line(later[0])]);
+    } else if (!on.length) {
+      // NOTHING ON AND NOTHING LEFT TODAY, so the next thing really is
+      // tomorrow -- and it is labelled tomorrow, not "Next". "Next 08:30" on
+      // an empty evening reads as tonight, which is the whole fault above in
+      // a different hat. Only with nothing on: a "Now" that is today beside a
+      // row that is not is the pair a reader cannot tell apart.
+      var tom = evs.filter(function (ev) {
+        return ev.start_min >= midnight && ev.start_min < midnight + 24 * 60;
+      }).sort(function (p, q) { return p.start_min - q.start_min; });
+      if (tom.length) rows.push([i18n.tomorrow || 'Tomorrow', line(tom[0])]);
     }
     if (!rows.length) return true;
     // Between the date and whatever the strip set next to it in that panel.
