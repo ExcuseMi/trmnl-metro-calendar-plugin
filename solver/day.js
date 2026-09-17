@@ -341,7 +341,22 @@ function crowdsFrom(metro, scale, measure, opts) {
       if (run.length) {
         var prev = run[run.length - 1];
         var forms = measure(prev, opts);
-        var need = forms.length ? forms[0].w * 0.6 : 0;
+        // HOW CLOSE IS TOO CLOSE, IN THE DIRECTION THAT IS SCARCE.
+        //
+        // The width of the WORDS, not the caption's extent along the axis --
+        // and on a standing board those are no longer the same thing (see the
+        // swap in specFor). Taken as the along extent, a standing board folded
+        // almost nothing: level captions are only a couple of rows tall, so
+        // every pair of events looked far enough apart to caption separately,
+        // and 270 wants became 319 -- each one wanting a share of the gap
+        // between two rails, which is the thing a standing board has least of.
+        // Fifty-five of them were then shed.
+        //
+        // One list caption covering five events costs one slot of that gap;
+        // five captions cost five. So the question stays the one it always
+        // was: are these names too wide to stand side by side.
+        var f0 = forms.length ? forms[0] : null;
+        var need = f0 ? (f0.textW != null ? f0.textW : f0.w) * 0.6 : 0;
         var prevEnd = Math.max.apply(null, run.map(function (e) { return e.end_min != null ? e.end_min : e.start_min; }));
         // back to back (within a quarter of an hour of the last one ending),
         // too close for the names to stand side by side, and not too many
@@ -976,23 +991,40 @@ function specFor(metro, view, opts) {
     measure = function (ev, o) {
       var forms = measured(ev, o), out = [];
       forms.forEach(function (f) {
-        out.push(Object.assign({}, f, { w: f.h, h: f.w, turned: false }));
+        // `textW` is the width of the words, which is `w` everywhere else and
+        // is not after this swap. `crowdsFrom` wants it: see the note there.
+        out.push(Object.assign({}, f, { w: f.h, h: f.w, textW: f.w, turned: false }));
       });
-      // THREE TURNED FORMS, NOT A SECOND LADDER.
+      // THREE TURNED FORMS, NOT A SECOND LADDER -- AND THE RIGHT THREE.
       //
       // Offering a turned twin of every rung doubled what the caption search
-      // has to price -- 230 forms a board against 120 -- and the search has a
-      // fixed budget to spend: it shed 178 captions where the level-only
-      // ladder shed 112, having spent its passes measuring twins of forms that
-      // were never going to be reached. The turn is an escape, and an escape
-      // wants one door, not twelve.
+      // has to price (230 forms a board against 120) and it shed 178 captions
+      // where the level-only ladder shed 112. The turn is an escape, and an
+      // escape wants a door, not twelve.
       //
-      // The richest form, so a caption that has room to turn keeps its time;
-      // and the last two, which are the plainest and therefore the THINNEST
-      // across -- one row of words is what slips between two rails, and it is
-      // what the board did for every caption before this.
+      // WHICH doors took a second measurement to get right. The obvious pick
+      // -- the richest and the last two rungs -- is wrong, and wrong in a way
+      // worth writing down: turned, a caption's extent ALONG the axis is the
+      // width of its TEXT, and along is the crowded direction, because that is
+      // where the day is. The plainest rungs are the thinnest ACROSS, which is
+      // free; what decides whether a turned caption fits is how short its
+      // words are. "Anatomie des Bewegungsapparats" offered turned at 237 and
+      // 228 along was shed on a fifty-unit event, while its own clipped form
+      // at 122 would have gone in.
+      //
+      // So: the richest form, so a caption with room to turn keeps its time,
+      // and the two whose text is shortest, which are the clipped and the
+      // small ones. `f.w` is still the text's width here -- the swap above
+      // builds new objects and leaves these untouched.
+      //
+      // Offering ALL of them was measured too, now that the crowd fault above
+      // is out of the way, and it is worse: 77% of events named against 80%,
+      // and five lines dropped against two. More forms is not more reach --
+      // every rung is a move the descent tries for every want on every pass,
+      // so a longer ladder is a coarser search, and it settles somewhere worse.
+      var byText = forms.slice().sort(function (x, y) { return x.w - y.w; });
       var keep = [], seen = {};
-      [forms[0], forms[forms.length - 2], forms[forms.length - 1]].forEach(function (f) {
+      [forms[0], byText[0], byText[1]].forEach(function (f) {
         if (!f || seen[f.rung]) return;
         seen[f.rung] = 1; keep.push(f);
       });

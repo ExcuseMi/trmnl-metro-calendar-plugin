@@ -209,7 +209,16 @@ function tiersFor(large, parts, crowdLen, standing) {
     return out;
   }
   if (parts) return large ? LARGE_PART_TIERS : PART_TIERS;
-  if (standing) return large ? LARGE_STANDING_TIERS : STANDING_TIERS;
+  // A BOARD THAT STANDS UP DOES NOT TAKE THE LARGER FACE.
+  //
+  // `text--large` is 21px against 16, offered on a whole panel so a board read
+  // from across the room gives the size back before it gives a caption up.
+  // Standing, the words run ACROSS a band that is the panel divided between
+  // the people on it, so a third more width is a third more of the one thing
+  // the board has least of -- and it showed: the X portrait, the only standing
+  // view offered the large ladder, named 78% of its events where the smaller
+  // OG half named 86%. The size is worth less than the name.
+  if (standing) return STANDING_TIERS;
   return large ? LARGE_TIERS : TIERS;
 }
 
