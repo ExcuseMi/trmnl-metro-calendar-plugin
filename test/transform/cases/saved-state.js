@@ -21,6 +21,7 @@ module.exports = function (test, h) {
 
   const NOW = Date.parse('2026-09-09T09:00:00Z');
   const NOW_S = Math.floor(NOW / 1000);
+  const ISO_TODAY = '20260909';
   const ICS_URL = 'https://cloud.example.com/cal-2.ics';
 
   const ICS = icsWithEvents([
@@ -319,6 +320,77 @@ module.exports = function (test, h) {
     assertEqual(eventItems(r.data), [], 'yesterday\'s events were drawn as today\'s');
     assertEqual(r.data.calendars_down, ['Alex Personal'],
       'the feed took its day off the board and did not say so');
+  });
+
+  test('the remembered reads are kept under a ceiling, and the same ones every time', async () => {
+    // Saved state goes out and comes back on every render, and a state too
+    // big to store is not a smaller cache -- it is NO state, taking the
+    // remembered forecast and the feed names with it. A real four-calendar
+    // household came to 7.7KB where the same state without the reads was 613
+    // bytes, so the counts alone do not bound this.
+    const many = [];
+    for (let f = 0; f < 10; f++) {
+      let t = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nX-WR-CALNAME:Cal' + f + '\r\n';
+      for (let e = 0; e < 40; e++) {
+        t += 'BEGIN:VEVENT\r\nUID:' + f + '-' + e + '@x\r\n'
+          + 'DTSTART:' + ISO_TODAY + 'T' + String(7 + (e % 12)).padStart(2, '0') + '0000Z\r\n'
+          + 'DTEND:' + ISO_TODAY + 'T' + String(8 + (e % 12)).padStart(2, '0') + '0000Z\r\n'
+          + 'SUMMARY:A meeting with a name of a realistic length ' + f + '-' + e + '\r\n'
+          + 'LOCATION:Microsoft Teams Meeting, Room 214, Building B\r\nEND:VEVENT\r\n';
+      }
+      many.push(t + 'END:VCALENDAR\r\n');
+    }
+    const urls = many.map((_, i) => 'https://example.com/big' + i + '.ics');
+    const impl = async (url) => {
+      const u = String(url);
+      if (u.indexOf('api.open-meteo.com') >= 0) return fail(503);
+      if (u.indexOf('/i18n/') >= 0) return fail(404);
+      const ix = urls.indexOf(u);
+      return ix < 0 ? fail(404) : okText(many[ix]);
+    };
+    const i = baseInput(NOW, { use_demo_data: 'false',
+      config_json: JSON.stringify({ calendars: urls.map((u, ix) => ({ url: u, name: 'Cal' + ix })) }) });
+    const r = await runTransform(impl, NOW).run(i);
+
+    const size = JSON.stringify(r.trmnl_state).length;
+    assert(size < 16000, 'saved state came to ' + size + ' bytes, which may not be stored at all');
+
+    // ...and WHICH ones survive is the same every render: dropped from the
+    // end of the config, never by whoever answered first, or the board
+    // forgets a different calendar each time and the warning flickers.
+    const kept = Object.keys(r.trmnl_state.feeds || {});
+    assert(kept.length > 0 && kept.length < urls.length,
+      'expected some feeds kept and some dropped, got ' + kept.length + ' of ' + urls.length);
+    assertEqual(kept, urls.slice(0, kept.length),
+      'the feeds kept are not the first ones the config names');
+  });
+
+  test('several feeds down are named in the order the config names them', async () => {
+    // The feeds are fetched together and each recorded its own failure as it
+    // happened, so the line was ordered by whichever gave up first. Two
+    // renders of one unchanged board came back "Kalender Belgiek-Molenhoek,
+    // Holidays in Belgium" and then the other way round: a warning that
+    // reorders itself under the reader every quarter of an hour reads as
+    // something new happening when nothing has.
+    //
+    // Asked of the SLOW one first, so a run that orders by arrival cannot
+    // pass by luck: A answers last, and must still be named first.
+    const A = 'https://example.com/a.ics', B = 'https://example.com/b.ics';
+    const slow = async (url) => {
+      const u = String(url);
+      if (u.indexOf('api.open-meteo.com') >= 0) return fail(503);
+      if (u.indexOf('/i18n/') >= 0) return fail(404);
+      if (u === A) { await new Promise((r) => setTimeout(r, 25)); return fail(500); }
+      return fail(500);
+    };
+    const i = baseInput(NOW, {
+      use_demo_data: 'false',
+      config_json: JSON.stringify({ calendars: [
+        { url: A, name: 'Alpha' }, { url: B, name: 'Beta' }] }),
+    });
+    const r = await runTransform(slow, NOW).run(i);
+    assertEqual(r.data.calendars_down, ['Alpha', 'Beta'],
+      'the warning is ordered by whichever feed gave up first');
   });
 
   test('a remembered read that is rubbish is dropped, not handed to the board', async () => {

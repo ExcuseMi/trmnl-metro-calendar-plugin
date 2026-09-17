@@ -424,6 +424,19 @@ var WEATHER_STALE_AFTER_S = 6 * 3600;  // older than this and the board says so 
 var FEED_STALE_AFTER_S = 6 * 3600;
 var FEED_CACHE_MAX_EVENTS = 80;        // per feed; a household's two days, with room
 var FEED_CACHE_MAX_FEEDS = 12;         // state travels with every render
+// ...AND A HARD CEILING IN BYTES, WHICH IS THE ONLY LIMIT THAT ACTUALLY BINDS.
+//
+// Saved state goes out and comes back on EVERY render, and the counts above
+// bound the wrong thing: a real four-calendar household came to 7.7KB where
+// the same state without the remembered reads was 613 bytes, and twelve feeds
+// of eighty events would be past a hundred. A state too big to store is not a
+// smaller cache, it is NO state -- the remembered forecast and the feed names
+// go with it -- so the cache is trimmed to fit rather than allowed to cost
+// the rest of it.
+//
+// Feeds are dropped from the end of the config, so which ones survive is the
+// same on every render rather than depending on who answered first.
+var FEED_CACHE_MAX_BYTES = 12000;
 // A FEED THAT IS NOT ANSWERING IS NAMED ON THIS RENDER, NOT ON A LATER ONE.
 //
 // It used to be named only once it had been failing for two hours, so that a
@@ -521,6 +534,22 @@ function readState(input) {
     }
   }
   return out;
+}
+
+// KEPT UNDER THE CEILING, IN CONFIG ORDER. See FEED_CACHE_MAX_BYTES: what is
+// dropped has to be the same on every render, or the board forgets a
+// different calendar each time and the warning flickers.
+function trimFeedCache(state, urls) {
+  if (!state || !state.feeds) return;
+  var order = (urls || []).filter(function (u) { return state.feeds[u]; });
+  var kept = {}, used = 2;
+  for (var i = 0; i < order.length; i++) {
+    var one = JSON.stringify(state.feeds[order[i]]).length + order[i].length + 4;
+    if (used + one > FEED_CACHE_MAX_BYTES) break;
+    kept[order[i]] = state.feeds[order[i]];
+    used += one;
+  }
+  state.feeds = kept;
 }
 
 // Feeds come and go from a config. Anything the config no longer names is
@@ -3589,16 +3618,31 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
   // slow morning) changes nothing, and a feed still failing hours later is
   // named on the board. The fetches stay parallel and each keeps its own
   // catch: a 404 on one feed still renders every other line.
-  var downNames = [];
+  // IN THE ORDER THE CONFIG NAMES THEM, NOT THE ORDER THEY GAVE UP.
+  //
+  // The feeds are fetched together and each writes its own failure as it
+  // happens, so the order was whichever answered first -- and two renders of
+  // one unchanged board said "Kalender Belgiek-Molenhoek, Holidays in
+  // Belgium" and then "Holidays in Belgium, Kalender Belgiek-Molenhoek". A
+  // line that reorders itself under the reader every fifteen minutes reads as
+  // something new happening when nothing has. Keyed by where the calendar
+  // sits in the config, which is the order the reader wrote them in.
+  var downAt = {};
   // Every feed that failed on THIS render, by name, and how many answered:
   // a board with nothing on it says which of the two it is (boardNotice).
-  var feedsFailed = [], feedsRead = 0;
+  var failedAt = {}, feedsRead = 0;
   var nowS = Math.floor(Date.now() / 1000);
   // WHICH DAY A CACHED READ BELONGS TO. Every event in it is minutes from
   // this day's midnight, so it means nothing against any other day.
   var cacheDay = isoDate(today);
 
-  await Promise.all((parsed.calendars || []).map(async function (cal) {
+  // In config order, so the two lists below can be read back out in it.
+  function inOrder(map) {
+    return Object.keys(map).map(Number).sort(function (a, b) { return a - b; })
+      .map(function (i) { return map[i]; });
+  }
+
+  await Promise.all((parsed.calendars || []).map(async function (cal, calIx) {
     var url = feedUrl(cal.url);
     // What this feed is called when it cannot tell us: the config's own
     // name, else the name it gave the last time it answered. Without the
@@ -3613,8 +3657,8 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
     // it is no longer something to present as today.
     function failed(why, tell) {
       var now = knownName || urlLabel(cal.url);
-      if (feedsFailed.indexOf(now) < 0) feedsFailed.push(now);
-      if (tell !== false && downNames.indexOf(now) < 0) downNames.push(now);
+      if (failedAt[calIx] == null) failedAt[calIx] = now;
+      if (tell !== false && downAt[calIx] == null) downAt[calIx] = now;
       warn('calendar "' + now + '" did not answer' + (why ? ': ' + why : '')
         + ' (' + hostOf(cal.url) + ')');
       if (!state) return;
@@ -3798,6 +3842,7 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
   }));
 
   pruneState(state, (parsed.calendars || []).map(function (c) { return c.url; }));
+  trimFeedCache(state, (parsed.calendars || []).map(function (c) { return c.url; }));
 
   // ---- one event, drawn once -------------------------------------------
   //
@@ -3995,9 +4040,9 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       // its own forecast: a two-day board showing one temperature is
       // wrong about one of the days
       days: dayRows,
-      calendarsDown: downNames, holidays: holidays })
+      calendarsDown: inOrder(downAt), holidays: holidays })
   );
-  metro.board_notice = boardNotice(metro, { failed: feedsFailed, read: feedsRead }, (extra && extra.strings) || I18N.en);
+  metro.board_notice = boardNotice(metro, { failed: inOrder(failedAt), read: feedsRead }, (extra && extra.strings) || I18N.en);
   return metro;
 }
 
