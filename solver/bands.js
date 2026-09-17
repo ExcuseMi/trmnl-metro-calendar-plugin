@@ -935,6 +935,37 @@ function boardFor(spec, st) {
       // rail had its own spur climbing straight through the "o".
       var nbx = { a0: f.a0, a1: f.a1, c0: f.c0, c1: f.c1 };
       var cutters = b.lines.filter(function (o) { return o.branchOf && B.lineTouches(o, nbx); });
+
+      // THE BADGE IS THE PART THAT CAN GO; THE NAME IS NOT.
+      //
+      // A head carrying a route row is as wide as the ROW -- "Spring Break ·
+      // Fri" under "Bart" -- and when a branch crosses it, what steps aside
+      // is the whole two-row block. It is the BADGE that makes it wide and
+      // the badge that makes the step long: Bart's went a quarter of the
+      // board and left his name in the middle of the map with rails either
+      // side of it. "Bart end label is in the middle of the page."
+      //
+      // Measured over the households corpus, the step cannot be told from a
+      // legitimate one by its length -- the names that escape a branch this
+      // way want to end 20 to 50 per cent in, and Bart wanted 26. What is
+      // different is what he was dragging. So before anything moves, the
+      // badge is dropped and the name alone is tried where it belongs: at the
+      // end of its own rail. A line that loses its badge has lost a thing the
+      // day also says elsewhere; a line whose name is adrift has lost the one
+      // thing the name is for.
+      if (cutters.length && f.route && fx.nameW != null) {
+        var thin = f.align === 'right'
+          ? { a0: f.a1 - fx.nameW, a1: f.a1, c0: f.c0, c1: f.c0 + spec.nameH }
+          : { a0: f.a0, a1: f.a0 + fx.nameW, c0: f.c0, c1: f.c0 + spec.nameH };
+        var thinCut = b.lines.some(function (o) { return o.branchOf && B.lineTouches(o, thin); })
+          || b.fixed.some(function (g) { return B.capsOverlap(g.box(), thin); });
+        if (!thinCut) {
+          f.a0 = thin.a0; f.a1 = thin.a1; f.c1 = thin.c1;
+          f.route = null; f.rows = 1;
+          cutters = [];
+        }
+      }
+
       if (cutters.length) {
         var lo = Infinity, hi = -Infinity;
         cutters.forEach(function (o) {

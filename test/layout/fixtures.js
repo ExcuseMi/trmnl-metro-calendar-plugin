@@ -530,7 +530,32 @@ const twoPlaces = base({
   ],
 });
 
+// A HEAD CARRYING A ROUTE ROW, WITH A BRANCH UNDER IT AT THAT END.
+//
+// Reported from a photograph of the shipped example day: "Bart end label is
+// in the middle of the page". The far head is two rows -- the name with the
+// all-day badge under it -- and the escape that steps a name in off the edge
+// to get clear of a branch measured its allowance off the BOX, which for a
+// two-row head is as wide as the badge. Twice that is most of a TRMNL X, and
+// the name came to rest mid-board with the map either side of it.
+//
+// It survived every suite: `check` has no opinion about where a terminus is,
+// the sweep asks about faults, and not one fixture put an all-day badge and a
+// late branch on the same line.
+//
+// THE REAL PAYLOAD, not a reconstruction. Three attempts at building the
+// shape by hand all laid out clean -- it needs the badge on the SECOND day of
+// a rolling board, a branch arriving late on that day, and the head deep
+// enough in the run for the step to be worth taking -- and a fixture that
+// does not reproduce the bug is worse than none, because it says the bug is
+// covered. This is transform.js's own output for the simpsons example at
+// 21:26 on a Thursday, which is what the photograph was of. Verified by
+// putting the fault back: with the allowance measured off the box again,
+// this fixture fails and the hand-built ones do not.
+const badgeAndBranch = require('./badge-and-branch.json');
+
 module.exports = [
+  { name: 'badge-and-branch', metro: badgeAndBranch },
   { name: 'busy-day', metro: busyDay },
   { name: 'rolling-quiet', metro: rollingQuiet },
   { name: 'all-day-every-track', metro: allDayEveryTrack },
