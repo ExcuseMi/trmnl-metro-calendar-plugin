@@ -67,6 +67,23 @@ module.exports = function (test, h) {
       assert(!/…/.test(card.text), 'cut on a full-width board: "' + card.text + '"');
     });
 
+    test('a "now" row is never drawn in a later day\'s panel: ' + f.name, () => {
+      // The header above a panel is what says which day its contents are
+      // about, so "Nu Kantoor" under a badge reading Morgen tells the reader
+      // that tomorrow, now, somebody is at the office. Reported from a real
+      // board in three words: "Now in tomorrow?". It came of a fallback that
+      // drew today's rows in tomorrow's panel when today had no room.
+      const rep = layout(f, ROOMY);
+      const card = cardOf(rep);
+      if (!card) return;
+      const badges = badgesOf(rep).filter((b) => b.h > 0).sort((p, q) => p.x - q.x);
+      if (badges.length < 2) return;                 // one panel: nowhere else to be
+      const nowWord = (f.metro.i18n && f.metro.i18n.now) || 'Now';
+      if (card.text.indexOf(nowWord) !== 0) return;  // not a now row
+      assert(card.x < badges[1].x,
+        'a "' + nowWord + '" row sits in the panel of "' + badges[1].text.slice(0, 14) + '"');
+    });
+
     test('a card with both a now and a next keeps both rows: ' + f.name, () => {
       // WHAT THE BADGE ACTUALLY BROKE, and it was worse than it looked.
       // `.metro-pill` carries its own line-height and an inset top and bottom,

@@ -9445,11 +9445,22 @@ function draw(board, spec, ctx) {
     // prefix: the header already said the word, and "Tomorrow 08:30" under a
     // badge reading Tomorrow says it twice.
     //
-    // Only where today has nothing left to say. Where it has, this panel is
-    // still the old fallback -- a today that has shrunk to a sliver late in
-    // the evening has no room for the card, and tomorrow's panel beside it is
-    // wide -- so the rows below are today's, drawn over there.
-    if (dayIx > 0 && !on.length && !later.length) {
+    // AND TODAY'S ROWS NEVER GO IN ANOTHER DAY'S PANEL.
+    //
+    // There used to be a fallback here: a today shrunk to a sliver has no room
+    // for the card, and tomorrow's panel beside it is wide, so today's rows
+    // were drawn over there. It reads as a lie. The header above the panel is
+    // what says which day its contents are about, so "Nu Kantoor" under a
+    // badge reading Morgen tells the reader that tomorrow, now, somebody is at
+    // the office. Seen on a real board and reported in three words: "Now in
+    // tomorrow?"
+    //
+    // A card that will not fit today's panel is not drawn. That is a real
+    // loss, and it is the smaller one: the board says nothing rather than
+    // something untrue, and everything the card would have said is drawn on
+    // the map a few pixels below it anyway.
+    if (dayIx > 0) {
+      if (on.length || later.length) return false;
       var dayLo = (m.days && m.days[dayIx] && m.days[dayIx].start_min != null)
         ? m.days[dayIx].start_min : midnight;
       var own = evs.filter(function (ev) {
