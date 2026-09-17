@@ -87,6 +87,46 @@ module.exports = function (test, h) {
       'the replay put a sun marker back: ' + JSON.stringify(later.data.weather));
   });
 
+  // A SUN AT TEN AT NIGHT. "Rain stops" is drawn as a sun, because clearing
+  // up is what it means; after sunset that is a sun in the dark, on a board
+  // whose other corner draws the moon in its real phase.
+  test('rain that stops after sunset is a clear night, not a sun', async () => {
+    const snap = {
+      weather: { hi: 18, lo: 13, condition: 'rain', icon: 'wi-day-rain.svg', rain_chance: 96, unit: 'C',
+        milestones: [{ atMin: 16 * 60, kind: 'rain_starts' }, { atMin: 20 * 60, kind: 'rain_stops' }],
+        perDay: [{ hi: 18, lo: 13, condition: 'rain', rain_chance: 96,
+                   milestones: [{ atMin: 16 * 60, kind: 'rain_starts' }, { atMin: 20 * 60, kind: 'rain_stops' }],
+                   sunrise_min: 7 * 60 + 5, sunset_min: 19 * 60 + 45 }] },
+      weatherFetchedAt: NOW_S - 600,
+    };
+    const { run } = runTransform(net({ weatherFails: true }), NOW);
+    const r = await run(input({}, snap));
+    const marks = (r.data.weather || []).filter((i) => i.type === 'weather');
+    const stops = marks.filter((m) => /20:00|8pm/.test(m.label || ''))[0];
+    assert(stops, 'no rain-stops marker came back: ' + JSON.stringify(marks));
+    assert(/wi-night-clear/.test(stops.icon),
+      'rain stopping at 20:00, a quarter hour after sunset, drew ' + stops.icon);
+    const starts = marks.filter((m) => /16:00|4pm/.test(m.label || ''))[0];
+    assert(starts && /wi-rain/.test(starts.icon),
+      'the start of the rain should be unchanged: ' + JSON.stringify(starts));
+  });
+
+  test('rain that stops in daylight still clears to a sun', async () => {
+    const snap = {
+      weather: { hi: 18, lo: 13, condition: 'rain', icon: 'wi-day-rain.svg', rain_chance: 96, unit: 'C',
+        milestones: [{ atMin: 11 * 60, kind: 'rain_stops' }],
+        perDay: [{ hi: 18, lo: 13, condition: 'rain', rain_chance: 96,
+                   milestones: [{ atMin: 11 * 60, kind: 'rain_stops' }],
+                   sunrise_min: 7 * 60 + 5, sunset_min: 19 * 60 + 45 }] },
+      weatherFetchedAt: NOW_S - 600,
+    };
+    const { run } = runTransform(net({ weatherFails: true }), NOW);
+    const r = await run(input({}, snap));
+    const marks = (r.data.weather || []).filter((i) => i.type === 'weather');
+    assert(marks.length && /wi-day-sunny/.test(marks[0].icon),
+      'rain stopping at 11:00 should still be a sun: ' + JSON.stringify(marks));
+  });
+
   test('a replayed forecast old enough to be another day says so', async () => {
     // Six hours is the line: past it the "forecast" may be describing
     // yesterday, and a board that shows yesterday's weather as today's is
