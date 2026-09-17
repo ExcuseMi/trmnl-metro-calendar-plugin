@@ -496,13 +496,30 @@ const REPORTER = `
         });
       };
       var msg = part('.metro-banner-text');
+      // ...AND HOW ITS PIECES ARE SET. transform.js hands the banner its
+      // sentence split into segments -- the thing bold, the clock quiet -- and
+      // the template prints each in its own span. Reported as weight and
+      // colour per piece, because "is it bold" is a computed style and this is
+      // the only harness that has one.
+      var pieces = [];
+      if (msg) {
+        var textEl = bannerEl.querySelector('.metro-banner-text');
+        textEl.childNodes.forEach(function (n) {
+          var t = (n.textContent || '');
+          if (!t.trim()) return;
+          var cs2 = n.nodeType === 1 ? getComputedStyle(n) : bcs;
+          pieces.push({ text: t, weight: String(cs2.fontWeight), color: cs2.color,
+                        cls: n.nodeType === 1 ? n.className : '' });
+        });
+      }
       banner = Object.assign(rel(bannerEl.getBoundingClientRect()), {
         text: msg ? msg.text : (bannerEl.textContent || '').trim(),
         kind: bannerEl.getAttribute('data-metro-alert'),
         ink: bcs.backgroundColor, paper: bcs.color,
         radius: parseFloat(bcs.borderTopLeftRadius) || 0,
         lineHeight: parseFloat(bcs.lineHeight) || 0,
-        label: part('.metro-banner-label'), icon: part('.metro-banner-icon'), message: msg
+        label: part('.metro-banner-label'), icon: part('.metro-banner-icon'), message: msg,
+        pieces: pieces
       });
     }
     var dbg = null;

@@ -207,4 +207,37 @@ module.exports = function (test, h) {
         + 'board, so it is not a band');
     }
   });
+
+  // THE SENTENCE IN THREE WEIGHTS. transform.js splits the banner at its own
+  // placeholders and the template prints each piece in its own span; whether
+  // that actually lands as bold and as grey is a computed style, and this is
+  // the only harness that has one.
+  const PARTS = {
+    kind: 'rain', icon: ICONS + 'wi-rain.svg', label: 'Weather',
+    text: 'Rain from 14:00 until 17:00, 80% chance',
+    parts: [{ t: 'Rain', s: 'b' }, { t: ' from ', s: '' }, { t: '14:00', s: 'q' },
+            { t: ' until ', s: '' }, { t: '17:00,', s: 'q' }, { t: ' ', s: '' },
+            { t: '80%', s: 'b' }, { t: ' chance', s: '' }],
+  };
+
+  test('the banner sets the thing bold and the clock quiet', () => {
+    const rep = layout(busy, VIEWS[2], { service_alert: PARTS });
+    assertEqual(rep.banner.text, PARTS.text, 'the pieces must still read as the line');
+    const pieces = rep.banner.pieces || [];
+    assert(pieces.length > 1, 'the banner was printed as one piece: ' + JSON.stringify(pieces));
+    const weight = (t) => (pieces.filter((p) => p.text.indexOf(t) >= 0)[0] || {}).weight;
+    const plain = (pieces.filter((p) => p.text.indexOf('from') >= 0)[0] || {}).weight;
+    assert(+weight('Rain') > +plain, 'the thing itself is not bolder than the words around it: '
+      + weight('Rain') + ' vs ' + plain);
+    const clock = pieces.filter((p) => p.text.indexOf('14:00') >= 0)[0];
+    const body = pieces.filter((p) => p.text.indexOf('from') >= 0)[0];
+    assert(clock && body && clock.color !== body.color,
+      'the clock is the same colour as the words: ' + JSON.stringify([clock, body]));
+  });
+
+  test('a banner with no parts still prints its whole line', () => {
+    // Older saved state and anything else that never learned about `parts`.
+    const rep = layout(busy, VIEWS[2], { service_alert: RAIN });
+    assertEqual(rep.banner.text, RAIN.text, 'the fallback dropped the sentence');
+  });
 };

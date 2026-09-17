@@ -125,7 +125,24 @@
       {%- if data.service_alert.label -%}
         <span class="metro-banner-label label label--error 1bit:label--filled 2bit:label--filled 4bit:label--filled text--bold flex-none">{{ data.service_alert.label }}</span>
       {%- endif -%}
-      <span class="metro-banner-text">{{ data.service_alert.text }}</span>
+      {%- comment -%}
+        The same sentence, set in three weights: what is coming in bold, the
+        clock quiet, the words between them plain. transform.js splits it at
+        its own placeholders (see `segments`), because which piece is a time
+        and which is a unit differs per sentence and the ORDER of them is the
+        translator's. `text` is still there whole, for anything that wants the
+        line rather than the pieces, and this falls back to it.
+      {%- endcomment -%}
+      <span class="metro-banner-text">
+        {%- if data.service_alert.parts -%}
+          {%- for p in data.service_alert.parts -%}
+            {%- if p.s == "b" -%}<span class="text--bold">{{ p.t }}</span>
+            {%- elsif p.s == "q" -%}<span class="text--muted">{{ p.t }}</span>
+            {%- else -%}{{ p.t }}
+            {%- endif -%}
+          {%- endfor -%}
+        {%- else -%}{{ data.service_alert.text }}{%- endif -%}
+      </span>
     </div>
   {% endif %}
 

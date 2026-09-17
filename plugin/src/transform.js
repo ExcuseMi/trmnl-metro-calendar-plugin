@@ -234,6 +234,57 @@ function fmt(str, vars) {
   });
 }
 
+// THE SAME SENTENCE, IN PIECES, SO THE BANNER CAN SET THEM DIFFERENTLY.
+//
+// "Rain from 16:00 until 20:00, 96% chance" is one line of words doing three
+// jobs: what is coming, when, and how sure. At one weight the reader has to
+// read all of it to find the part they wanted. The board already does this to
+// its captions -- the name black, the clock grey.
+//
+// The split is made HERE, where the placeholders are, and not by looking for
+// digits in the finished string: `{t}` is a time in one sentence and `{u}` is
+// a time in that one and a UNIT in the temperature ones, and the order of the
+// pieces is the translator's, not this file's. Each caller says which of its
+// own placeholders are which, and the literal text between them is whatever
+// the language put there.
+//
+//   s: 'b' the thing itself, in bold -- Rain, Snow, -6°C
+//      'q' the clock, quiet
+//      ''  the words the sentence is made of
+function segments(str, vars, styles) {
+  var out = [], last = 0, re = /\{(\w+)\}/g, m;
+  while ((m = re.exec(String(str))) !== null) {
+    if (m.index > last) out.push({ t: String(str).slice(last, m.index), s: '' });
+    var k = m[1], has = vars && Object.prototype.hasOwnProperty.call(vars, k);
+    out.push({ t: has ? String(vars[k]) : m[0], s: (styles && styles[k]) || '' });
+    last = m.index + m[0].length;
+  }
+  if (last < String(str).length) out.push({ t: String(str).slice(last), s: '' });
+  out = out.filter(function (q) { return q.t !== ''; });
+
+  // PUNCTUATION GOES WITH THE NUMBER IT BELONGS TO. `{p}% chance` and
+  // `{v}\u00b0{u}` put the per-cent sign and the degree sign in the literal
+  // text, so styling the placeholders alone gives a bold 96 beside a plain %,
+  // and "-6" bold, "\u00b0" not, "C" bold again. Whatever follows a styled
+  // piece up to the first SPACE is part of it.
+  for (var i = 0; i < out.length - 1; i++) {
+    if (!out[i].s || out[i + 1].s) continue;
+    var run = /^\S+/.exec(out[i + 1].t);
+    if (!run) continue;
+    out[i].t += run[0];
+    out[i + 1].t = out[i + 1].t.slice(run[0].length);
+  }
+  out = out.filter(function (q) { return q.t !== ''; });
+
+  // ...and two pieces set the same way, now touching, are one piece.
+  var merged = [];
+  out.forEach(function (q) {
+    var prev = merged[merged.length - 1];
+    if (prev && prev.s === q.s) prev.t += q.t; else merged.push({ t: q.t, s: q.s });
+  });
+  return merged;
+}
+
 // ---------------------------------------------------------------------
 // Deadline and saved state.
 //
@@ -1634,10 +1685,17 @@ function wetRun(hours, from, wet) {
 function serviceAlert(snap, opts) {
   if (!opts || !opts.enabled || !snap || typeof snap !== 'object') return null;
   var strings = opts.strings || I18N.en;
-  function banner(kind, key, vars) {
+  function banner(kind, key, vars, styles) {
+    var tpl = tr(strings, key);
     return { kind: kind, icon: WEATHER_ICON_BASE + ALERT_ICON[kind], label: tr(strings, 'alert_title'),
-             text: fmt(tr(strings, key), vars) };
+             text: fmt(tpl, vars),
+             // the same sentence in pieces, for the banner to set (see segments)
+             parts: segments(tpl, vars, styles) };
   }
+  // In the spell sentences {t} and {u} are both clocks; in the temperature
+  // ones {u} is the unit and belongs with the number it qualifies.
+  var WHEN = { what: 'b', t: 'q', u: 'q', p: 'b' };
+  var DEG = { v: 'b', u: 'b' };
   function clock(min) { return timeLabel12(min, { hour12: opts.hour12 }); }
 
   var dayIx = (typeof opts.dayIx === 'number' && opts.dayIx > 0) ? opts.dayIx : 0;
@@ -1659,7 +1717,7 @@ function serviceAlert(snap, opts) {
     var key = run.toEnd ? (started ? 'alert_rest_of_day' : 'alert_from_on')
       : (started ? 'alert_until' : 'alert_from_until');
     return banner(kind, key, { what: tr(strings, 'alert_kind_' + kind), t: clock(run.start),
-                               u: clock(run.end), p: Math.round(run.pct) });
+                               u: clock(run.end), p: Math.round(run.pct) }, WHEN);
   }
   // A snapshot from a build that saved one wettest hour and no day behind
   // it. There is no spell to find, so it is that hour or nothing, still
@@ -1668,7 +1726,7 @@ function serviceAlert(snap, opts) {
   if (peak && from != null && peak.atMin + 60 <= from) peak = null;
   function around(kind) {
     return banner(kind, 'alert_around', { what: tr(strings, 'alert_kind_' + kind), t: clock(peak.atMin),
-                                          p: Math.round(peak.pct) });
+                                          p: Math.round(peak.pct) }, WHEN);
   }
 
   // One banner, so the kinds are ranked by how much of the day has to
@@ -1701,9 +1759,9 @@ function serviceAlert(snap, opts) {
   // line of words on it that somebody else might read.
   if (lo != null && lo <= low) {
     return banner('cold', lo <= lines.freezing ? 'alert_freezing' : 'alert_chilly',
-                  { v: Math.round(lo), u: unit });
+                  { v: Math.round(lo), u: unit }, DEG);
   }
-  if (hi != null && hi >= high) return banner('heat', 'alert_hot', { v: Math.round(hi), u: unit });
+  if (hi != null && hi >= high) return banner('heat', 'alert_hot', { v: Math.round(hi), u: unit }, DEG);
 
   var thr = opts.rainThreshold;
   if (thr == null) return null;
