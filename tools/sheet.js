@@ -15,8 +15,6 @@
 //   node tools/sheet.js                        every scenario, og-landscape
 //   node tools/sheet.js --view x-landscape     at a device's real size
 //   node tools/sheet.js --only shared,corridor pick scenarios by substring
-//   node tools/sheet.js --payload x.json        one payload, from anywhere
-//                                               (HOUSEHOLDS_OUT= writes them)
 //   node tools/sheet.js --out /tmp/sheet.png   where to write it
 //
 // ...and the other job: one picture per view, at the panel's real size, under
@@ -177,13 +175,6 @@ if (each && viewName !== 'all' && !vp.file) {
   process.exit(2);
 }
 const only = (arg('only', '') || '').split(',').map((s) => s.trim()).filter(Boolean);
-// A BOARD THAT IS NOT ONE OF THE NAMED SCENARIOS. test/households writes the
-// payload of every household at every board time when HOUSEHOLDS_OUT is set,
-// and those are the boards the corpus reports on -- six real-shaped families
-// rather than the shapes this file keeps one fixture each for. Without this
-// the only way to look at one was to add it to the fixtures and take it out
-// again.
-const payload = arg('payload', null);
 const out = path.resolve(arg('out', path.join(os.tmpdir(), 'metro-sheet.png')));
 const noBuild = process.argv.indexOf('--no-build') > 0;
 
@@ -196,16 +187,10 @@ const noBuild = process.argv.indexOf('--no-build') > 0;
   // EVERY SCENARIO THE PROJECT ALREADY NAMES. The layout fixtures are the
   // list: each one exists because some board shape needed its own name.
   const boards = [];
-  if (payload) {
-    const f = path.resolve(payload);
-    boards.push({ name: path.basename(f).replace(/\.json$/, ''), metro: JSON.parse(fs.readFileSync(f, 'utf-8')) });
-  }
   for (const f of require(path.join(ROOT, 'test/layout/fixtures'))) {
-    if (payload) break;
     boards.push({ name: f.name, metro: f.metro });
   }
   for (const set of DEMO_SETS) {
-    if (payload) break;
     for (const hm of DEMO_TIMES) {
       boards.push({ name: set + ' ' + hm, demo: [set, hm] });
     }
