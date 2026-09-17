@@ -98,7 +98,7 @@ function timeLabel(min) {
 // ---------------------------------------------------------------------
 var I18N = {
   en: { today: 'Today', tomorrow: 'Tomorrow', now: 'Now', next: 'Next', more: '+{n} more', earlier: '+{n} earlier', rain_pct: '{n}% rain',
-        clear: 'Clear', partly_cloudy: 'Partly cloudy', cloudy: 'Cloudy', foggy: 'Foggy', rain: 'Rain', snow: 'Snow', storms: 'Storms',
+        clear: 'Clear', partly_cloudy: 'Partly cloudy', cloudy: 'Cloudy', foggy: 'Foggy', rain: 'Rain', snow: 'Snow', storms: 'Storms', ice: 'Freezing rain',
         rain_starts: 'Rain starts', rain_stops: 'Rain stops',
         feed_down: '{n} unavailable', weather_stale: 'Forecast may be out of date',
         // When the board has nothing to draw, it says why (see boardNotice).
@@ -126,6 +126,7 @@ var I18N = {
         alert_kind_rain: 'Rain',
         alert_kind_snow: 'Snow',
         alert_kind_storms: 'Thunderstorms',
+        alert_kind_ice: 'Freezing rain',
         alert_from_until: '{what} from {t} until {u}, {p}% chance',
         alert_until: '{what} until {u}, {p}% chance',
         alert_from_on: '{what} from {t} into the night, {p}% chance',
@@ -1116,6 +1117,15 @@ function weatherCodeInfo(code) {
   if (code === 1 || code === 2) return { key: 'partly_cloudy', icon: 'wi-day-cloudy.svg' };
   if (code === 3) return { key: 'cloudy', icon: 'wi-day-cloudy.svg' };
   if (code === 45 || code === 48) return { key: 'foggy', icon: 'wi-day-fog.svg' };
+  // FREEZING RAIN IS NOT RAIN. 56 and 57 are freezing drizzle, 66 and 67
+  // freezing rain: water that falls wet and is ice the moment it lands. It
+  // sat inside the rain range, so a black-ice morning was a board that said
+  // "Rain" -- and, worse, said it only if the reader had set a rain threshold
+  // and the hour crossed it, while snow and thunderstorms say themselves. Of
+  // everything the forecast can name this is the one most likely to change
+  // what somebody does, so it is its own kind and it alerts on its own.
+  // Checked before the rain range, which still contains these codes.
+  if (code === 56 || code === 57 || code === 66 || code === 67) return { key: 'ice', icon: 'wi-sleet.svg' };
   if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return { key: 'rain', icon: 'wi-day-rain.svg' };
   if ((code >= 71 && code <= 77) || code === 85 || code === 86) return { key: 'snow', icon: 'wi-day-snow.svg' };
   if (code >= 95) return { key: 'storms', icon: 'wi-day-thunderstorm.svg' };
@@ -1509,14 +1519,20 @@ var TEMP_DEFAULTS = { C: { low: 0, high: 30, freezing: 0 }, F: { low: 32, high: 
 // before the words are, and a snowflake has already said half the sentence.
 var ALERT_ICON = {
   rain: 'wi-rain.svg', snow: 'wi-snow.svg', storms: 'wi-thunderstorm.svg',
+  ice: 'wi-sleet.svg',
   heat: 'wi-hot.svg', cold: 'wi-snowflake-cold.svg',
 };
 
-// Snow and thunderstorms alert whenever they are likely at all: there is no
-// setting for them, because nobody wants a threshold for snow. Likely is
-// RAIN_THRESHOLD, this file's own line between weather and precipitation
-// (it is what draws a rain_starts marker).
-var SEVERE_KINDS = ['snow', 'storms'];
+// Freezing rain, snow and thunderstorms alert whenever they are likely at all:
+// there is no setting for them, because nobody wants a threshold for snow.
+// Likely is RAIN_THRESHOLD, this file's own line between weather and
+// precipitation (it is what draws a rain_starts marker).
+//
+// IN THIS ORDER, and the order is the rule the banner is picked by: how much
+// of the day has to change because of it. Ice first -- it is the one that
+// takes a road away rather than making it unpleasant, and a reader who sees
+// only one of these should see that one.
+var SEVERE_KINDS = ['ice', 'snow', 'storms'];
 
 // What falls in one hour, as a banner kind. An hour from an older build
 // carries no code and reads as its day did (a snowy day's wet hours were
@@ -1527,7 +1543,7 @@ var SEVERE_KINDS = ['snow', 'storms'];
 function hourKind(h, dayCondition) {
   if (typeof h.code !== 'number' || !isFinite(h.code)) return dayCondition === 'snow' ? 'snow' : 'rain';
   var k = weatherCodeInfo(h.code).key;
-  return (k === 'snow' || k === 'storms') ? k : 'rain';
+  return (k === 'snow' || k === 'storms' || k === 'ice') ? k : 'rain';
 }
 
 // One day's hours, in order, with anything malformed dropped rather than

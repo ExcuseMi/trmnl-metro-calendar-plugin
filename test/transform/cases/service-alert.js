@@ -145,6 +145,73 @@ module.exports = function (test, h) {
     assertEqual((r.data.service_alert || {}).kind, 'snow', 'got ' + JSON.stringify(r.data.service_alert));
   });
 
+  // ---------------------------------------------------------------- combined
+  //
+  // ONE BANNER, AND WHICH ONE IS A RULE, NOT AN ACCIDENT OF ARRAY ORDER.
+  //
+  // A real winter day breaches several of these at once -- freezing, and
+  // snowing, and over the rain line -- and until these cases the ranking
+  // between them was only ever asserted a pair at a time, against rain. The
+  // order is how much of the day has to change because of it: ice, snow,
+  // storms, then the temperature, then rain.
+
+  test('a day that breaches everything raises the one that takes the road away', async () => {
+    // Freezing rain, under a freezing sky, over the rain line, with the
+    // temperature field set so cold breaches too. Every rule in the ladder
+    // fires and the reader gets the top of it.
+    const codes = HOURS.map((_, i) => (i + 7 === 17 ? 67 : 3));
+    const { run } = runTransform(net(forecast({ code: 67, hi: 1, lo: -6, codes })), NOW);
+    const r = await run(input(Object.assign({ alert_temp_low: '0' }, ON)));
+    assertEqual(r.data.service_alert,
+      alert('ice', 'Freezing rain from 17:00 until 18:00, 80% chance', 'wi-sleet.svg'),
+      'a freezing, icy, wet day should name the ice');
+  });
+
+  test('freezing rain is not rain: it alerts with the rain field emptied', async () => {
+    // 66 and 67 sat inside the rain bucket, so a black-ice morning said
+    // "Rain", and only if a threshold had been set and crossed. It says
+    // itself now, the way snow does.
+    const codes = HOURS.map((_, i) => (i + 7 === 17 ? 66 : 3));
+    const { run } = runTransform(net(forecast({ code: 66, hi: 2, lo: -1, codes })), NOW);
+    const r = await run(input({ alert_enabled: 'true', alert_rain_threshold: '' }));
+    assertEqual((r.data.service_alert || {}).kind, 'ice',
+      'got ' + JSON.stringify(r.data.service_alert));
+  });
+
+  test('freezing drizzle is ice too, and outranks the snow behind it', async () => {
+    const codes = HOURS.map((_, i) => (i + 7 === 17 ? 57 : 71));
+    const { run } = runTransform(net(forecast({ code: 57, hi: 0, lo: -4, codes })), NOW);
+    assertEqual((await run(input(ON))).data.service_alert.kind, 'ice', 'freezing drizzle should be ice');
+  });
+
+  test('snow outranks a freezing day: the sky before the thermometer', async () => {
+    // Both true, and only one banner. Snow is a thing happening that you can
+    // see out of the window; "Freezing, down to -9" is the same day said
+    // less usefully.
+    const { run } = runTransform(net(forecast({ code: 71, hi: -2, lo: -9 })), NOW);
+    const r = await run(input(Object.assign({ alert_temp_low: '0' }, ON)));
+    assertEqual((r.data.service_alert || {}).kind, 'snow',
+      'a freezing snowy day should say snow: ' + JSON.stringify(r.data.service_alert));
+  });
+
+  test('snow outranks thunderstorms', async () => {
+    const codes = HOURS.map((_, i) => (i + 7 === 17 ? 71 : (i + 7 === 18 ? 95 : 3)));
+    const probs = PROBS.map((p, i) => (i + 7 === 17 || i + 7 === 18 ? 80 : p));
+    const { run } = runTransform(net(forecast({ code: 71, codes, probs })), NOW);
+    assertEqual((await run(input(ON))).data.service_alert.kind, 'snow',
+      'snow and storms in one day should read as snow');
+  });
+
+  test('hail arrives as thunderstorms, which is what it comes with', async () => {
+    // WMO has no code for hail on its own: 96 and 99 are a thunderstorm WITH
+    // hail, so that is what the banner can honestly say.
+    for (const code of [96, 99]) {
+      const codes = HOURS.map((_, i) => (i + 7 === 17 ? code : 3));
+      const { run } = runTransform(net(forecast({ code, codes })), NOW);
+      assertEqual((await run(input(ON))).data.service_alert.kind, 'storms', 'code ' + code);
+    }
+  });
+
   test('cold and heat carry the temperature, and outrank rain', async () => {
     const cold = await runTransform(net(forecast({ hi: 1, lo: -6 })), NOW)
       .run(input(Object.assign({ alert_temp_low: '-5' }, ON)));
