@@ -9328,17 +9328,30 @@ function draw(board, spec, ctx) {
   if (dayBadges[0] && dayBadges[0].band && !spec.oneName && spec.metro && spec.metro.now_min != null && horizontal) {
     // Today's panel first; late in the day, when today is a sliver, the wide
     // panel of tomorrow beside it.
-    for (var nb = 0; nb < Math.min(2, dayBadges.length); nb++) {
-      if (dayBadges[nb] && dayBadges[nb].band && nowNext(dayBadges[nb], nb)) break;
+    var got = false;
+    for (var nb = 0; nb < Math.min(2, dayBadges.length) && !got; nb++) {
+      if (dayBadges[nb] && dayBadges[nb].band) got = nowNext(dayBadges[nb], nb);
     }
+    // ...AND IF TOMORROW'S PANEL COULD NOT TAKE IT, TODAY'S SAYS IT AFTER ALL.
+    //
+    // Sending the row to tomorrow's panel is right when tomorrow's panel has
+    // room for it, and late in the evening it usually has not: the forecast
+    // and the moon are already in that corner, so the row was refused there --
+    // and today's panel, which by then is nearly empty black, had already
+    // stood down. The line vanished off the board altogether, which is worse
+    // than saying the word twice. Asked again here, with the prefix, because
+    // now nothing else is going to say it.
+    if (!got && dayBadges[0] && dayBadges[0].band) nowNext(dayBadges[0], 0, false, true);
   }
   // ...AND ON A BOARD OF DAYS, WHERE THE FORECAST TOOK THE ROW UNDER THE
   // DATE, ONE LINE OF IT BESIDE THE DATE.
   if (dayBadges[0] && dayBadges[0].band && !spec.oneName && spec.metro && spec.metro.now_min != null && horizontal
       && !canvas.querySelector('.metro-nownext') && ((spec.metro.days || []).length > 1)) {
-    for (var nb2 = 0; nb2 < Math.min(2, dayBadges.length); nb2++) {
-      if (dayBadges[nb2] && dayBadges[nb2].band && nowNext(dayBadges[nb2], nb2, true)) break;
+    var got2 = false;
+    for (var nb2 = 0; nb2 < Math.min(2, dayBadges.length) && !got2; nb2++) {
+      if (dayBadges[nb2] && dayBadges[nb2].band) got2 = nowNext(dayBadges[nb2], nb2, true);
     }
+    if (!got2 && dayBadges[0] && dayBadges[0].band) nowNext(dayBadges[0], 0, true, true);
   }
   // ...AND THE MOON AFTER THEM, NOT BEFORE.
   //
@@ -9370,7 +9383,7 @@ function draw(board, spec, ctx) {
       if (free(mr2)) taken.push(mr2); else box.remove();
     });
   }
-  function nowNext(tb, dayIx, oneRow) {
+  function nowNext(tb, dayIx, oneRow, here) {
     var m = spec.metro, now = m.now_min, i18n = m.i18n || {};
     var names = {};
     (m.legend || []).forEach(function (p) { names[p.key] = p.name || p.key; });
@@ -9461,7 +9474,7 @@ function draw(board, spec, ctx) {
         // ...unless tomorrow has a panel of its own on this board, in which
         // case it is drawn there instead, unprefixed. Hand back a miss and the
         // loop moves along to it.
-        if (dayBadges.length > 1 && dayBadges[1] && dayBadges[1].band) return false;
+        if (!here && dayBadges.length > 1 && dayBadges[1] && dayBadges[1].band) return false;
         var tw = at(tom[0]);
         rows.push([(i18n.tomorrow || 'Tomorrow') + (tw ? '\u00a0' + tw : ''), tom[0].title, badgesFor(tom[0])]);
       }
