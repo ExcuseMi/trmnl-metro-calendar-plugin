@@ -249,17 +249,24 @@ function fmt(str, vars) {
 // the language put there.
 //
 //   s: 'b' the thing itself, in bold -- Rain, Snow, -6°C
-//      'q' the clock, quiet
-//      ''  the words the sentence is made of
+//      ''  what a reader is scanning for: the clock
+//      'q' everything holding the sentence together, quiet -- "from", "until",
+//          "chance", and the probability, which is a qualifier and not the news
+//
+// `styles._` is what the literal words between the placeholders take, so a
+// caller can make the sentence quiet and light up only the parts that answer
+// something.
 function segments(str, vars, styles) {
   var out = [], last = 0, re = /\{(\w+)\}/g, m;
+  var dflt = (styles && styles._) || '';
+  function lit(t) { return { t: t, s: dflt, lit: true }; }
   while ((m = re.exec(String(str))) !== null) {
-    if (m.index > last) out.push({ t: String(str).slice(last, m.index), s: '' });
+    if (m.index > last) out.push(lit(String(str).slice(last, m.index)));
     var k = m[1], has = vars && Object.prototype.hasOwnProperty.call(vars, k);
     out.push({ t: has ? String(vars[k]) : m[0], s: (styles && styles[k]) || '' });
     last = m.index + m[0].length;
   }
-  if (last < String(str).length) out.push({ t: String(str).slice(last), s: '' });
+  if (last < String(str).length) out.push(lit(String(str).slice(last)));
   out = out.filter(function (q) { return q.t !== ''; });
 
   // PUNCTUATION GOES WITH THE NUMBER IT BELONGS TO. `{p}% chance` and
@@ -268,7 +275,7 @@ function segments(str, vars, styles) {
   // and "-6" bold, "\u00b0" not, "C" bold again. Whatever follows a styled
   // piece up to the first SPACE is part of it.
   for (var i = 0; i < out.length - 1; i++) {
-    if (!out[i].s || out[i + 1].s) continue;
+    if (out[i].lit || !out[i + 1].lit) continue;
     var run = /^\S+/.exec(out[i + 1].t);
     if (!run) continue;
     out[i].t += run[0];
@@ -1692,10 +1699,19 @@ function serviceAlert(snap, opts) {
              // the same sentence in pieces, for the banner to set (see segments)
              parts: segments(tpl, vars, styles) };
   }
+  // WHAT THE READER CAME FOR IS LIT; THE SENTENCE AROUND IT IS NOT.
+  //
+  // The clock is the thing somebody scans a weather line for -- "from when,
+  // until when" -- so the times stay full black and the words joining them go
+  // quiet. The probability goes quiet with them: 80% or 96%, it is raining
+  // either way, and the number qualifies the news rather than being it. What
+  // is coming stays bold, because it is the one word that decides whether the
+  // rest is worth reading at all.
+  //
   // In the spell sentences {t} and {u} are both clocks; in the temperature
   // ones {u} is the unit and belongs with the number it qualifies.
-  var WHEN = { what: 'b', t: 'q', u: 'q', p: 'b' };
-  var DEG = { v: 'b', u: 'b' };
+  var WHEN = { _: 'q', what: 'b', t: '', u: '', p: 'q' };
+  var DEG = { _: 'q', v: 'b', u: 'b' };
   function clock(min) { return timeLabel12(min, { hour12: opts.hour12 }); }
 
   var dayIx = (typeof opts.dayIx === 'number' && opts.dayIx > 0) ? opts.dayIx : 0;

@@ -136,11 +136,20 @@ module.exports = function (test, h) {
     assertEqual(parts.map((p) => p.t).join(''), 'Rain from 17:00 until 18:00, 80% chance',
       'the pieces do not spell the line');
     const bold = parts.filter((p) => p.s === 'b').map((p) => p.t);
-    const quiet = parts.filter((p) => p.s === 'q').map((p) => p.t);
-    assert(bold.indexOf('Rain') >= 0, 'the thing itself is not bold: ' + JSON.stringify(bold));
-    assert(bold.indexOf('80%') >= 0, 'the per-cent sign left its number: ' + JSON.stringify(bold));
-    assert(quiet.join(' ').indexOf('17:00') >= 0 && quiet.join(' ').indexOf('18:00') >= 0,
-      'the clocks are not quiet: ' + JSON.stringify(quiet));
+    const lit = parts.filter((p) => p.s === '').map((p) => p.t).join(' ');
+    const quiet = parts.filter((p) => p.s === 'q').map((p) => p.t).join(' ');
+    // what is coming, bold: the one word that decides whether the rest is
+    // worth reading
+    assertEqual(bold, ['Rain'], 'the thing itself is not the bold one');
+    // the clocks are what a reader scans a weather line for, so they stay lit
+    assert(lit.indexOf('17:00') >= 0 && lit.indexOf('18:00') >= 0,
+      'the clocks went quiet: ' + JSON.stringify(parts));
+    // and the sentence holding them together does not compete, the
+    // probability included: 80% or 96%, it is raining either way
+    assert(quiet.indexOf('from') >= 0 && quiet.indexOf('until') >= 0,
+      'the joining words are not quiet: ' + quiet);
+    assert(quiet.indexOf('80% chance') >= 0,
+      'the probability is not quiet, or lost its per-cent sign: ' + quiet);
   });
 
   test('a temperature keeps its degree and its unit in one piece', async () => {
