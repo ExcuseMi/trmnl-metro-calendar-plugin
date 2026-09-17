@@ -422,29 +422,29 @@ var WEATHER_STALE_AFTER_S = 6 * 3600;  // older than this and the board says so 
 // into a particular day, so a cache that outlived its day is not stale, it is
 // wrong.
 var FEED_STALE_AFTER_S = 6 * 3600;
-var FEED_CACHE_MAX_EVENTS = 80;        // per feed; a household's two days, with room
-var FEED_CACHE_MAX_FEEDS = 12;         // state travels with every render
-// ...AND A HARD CEILING ON THE WHOLE OF SAVED STATE, WHICH IS A REAL NUMBER.
+// ...AND A WHOLE DAY OF IT IS NOT A FOOTNOTE ANY MORE.
+//
+// Six hours of silence puts a marked line under the map, which is the right
+// size for "this may be a little out of date". A calendar that has said
+// nothing for a DAY is not that: what is on the board for those people is
+// yesterday, and a line under the map is too quiet a way to say so. Past this
+// it takes the band along the bottom -- the one the weather uses -- because
+// that is the board's way of interrupting. "Show the errors as service alert
+// after 24h."
+var FEED_DOWN_LOUD_AFTER_S = 24 * 3600;
+// TRMNL's own ceiling on saved state, which is the reason the remembered
+// events are NOT in it:
 //
 //   "There is a limit of 8192 bytes. Go over it and TRMNL ignores the write,
 //    keeps the last good state"
 //   -- help.trmnl.com/en/articles/16777795-saved-state
 //
-// Over the line nothing is truncated: the write is REJECTED and the device
-// keeps whatever it had. Every clock in here then stops -- how long a feed
-// has been down, what the weather was, what a feed is called -- and the board
-// goes on rendering from a state that can no longer be corrected. Which looks
-// exactly like a warning that appears, vanishes for a few renders and comes
-// back.
-//
-// The counts above do not bound this: a real four-calendar household came to
-// 7.7KB of state where the same state without the remembered reads was 613
-// bytes, which is already inside the margin of the limit and was written with
-// a 12000-byte cap. So the WHOLE state is measured and the remembered reads
-// are dropped until it fits, oldest calendars in the config last, so the same
-// ones survive on every render.
-var STATE_LIMIT_BYTES = 8192;          // TRMNL's, not ours
-var STATE_SAFE_BYTES = 7000;           // ...with room for a longer feed name or one more clock
+// Nothing is truncated: the write is rejected and the device keeps what it
+// had, so every clock in here stops and the board renders from a state it can
+// no longer correct. A real four-calendar household's events came to 7.7KB on
+// their own. What is left in state is a number per feed, and the events come
+// back out of the previous render's payload instead (see replayFeed).
+var STATE_LIMIT_BYTES = 8192;
 // A FEED THAT IS NOT ANSWERING IS NAMED ON THIS RENDER, NOT ON A LATER ONE.
 //
 // It used to be named only once it had been failing for two hours, so that a
@@ -460,38 +460,6 @@ var STATE_SAFE_BYTES = 7000;           // ...with room for a longer feed name or
 var CALENDAR_DOWN_AFTER_S = 2 * 3600;  // kept for the "down since" clock in saved state; no longer gates what the board says
 var STATE_MAX_URLS = 40;               // state travels with every render; a config that once had 200 feeds must not grow it forever
 
-// One cached feed's events, kept only where every field is the shape parseIcs
-// writes. Returns null for anything that is not an array, so a feed whose
-// cache is rubbish falls through to being reported as missing rather than
-// putting nonsense on the board.
-function cleanCachedEvents(list) {
-  if (!Array.isArray(list)) return null;
-  var out = [];
-  for (var i = 0; i < list.length && out.length < FEED_CACHE_MAX_EVENTS; i++) {
-    var e = list[i];
-    if (!e || typeof e !== 'object' || typeof e.title !== 'string' || !e.title) continue;
-    if (typeof e.day !== 'number' || !isFinite(e.day)) continue;
-    var o = { title: e.title.slice(0, 200), day: e.day,
-      desc: typeof e.desc === 'string' ? e.desc.slice(0, 300) : '',
-      status: typeof e.status === 'string' ? e.status.slice(0, 40) : '',
-      location: typeof e.location === 'string' ? e.location.slice(0, 200) : '',
-      categories: Array.isArray(e.categories)
-        ? e.categories.filter(function (c) { return typeof c === 'string'; }).slice(0, 10) : [],
-      weekday: typeof e.weekday === 'number' && isFinite(e.weekday) ? e.weekday : undefined };
-    // A timed event carries its minutes; an all-day one carries its span.
-    if (typeof e.startMin === 'number' && isFinite(e.startMin)) {
-      o.startMin = e.startMin;
-      o.endMin = typeof e.endMin === 'number' && isFinite(e.endMin) ? e.endMin : null;
-      if (e.todo === true) o.todo = true;
-    } else {
-      o.span = typeof e.span === 'number' && isFinite(e.span) ? e.span : 1;
-      o.index = typeof e.index === 'number' && isFinite(e.index) ? e.index : 0;
-    }
-    out.push(o);
-  }
-  return out;
-}
-
 function readState(input) {
   var raw = null;
   try { raw = input.trmnl.state; } catch (e) { raw = null; }
@@ -502,7 +470,7 @@ function readState(input) {
   }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) raw = {};
 
-  var out = { weather: null, weatherFetchedAt: 0, calendarDown: {}, calendarNames: {}, i18n: null, feeds: {} };
+  var out = { weather: null, weatherFetchedAt: 0, calendarDown: {}, calendarNames: {}, i18n: null, feedOk: {} };
 
   if (raw.weather && typeof raw.weather === 'object' && !Array.isArray(raw.weather)) {
     out.weather = raw.weather;
@@ -520,18 +488,13 @@ function readState(input) {
       if (typeof n === 'string' && n.trim()) out.calendarNames[url] = n.trim().slice(0, 80);
     });
   }
-  // THE LAST GOOD READ OF EACH FEED. Untrusted like the rest of saved state:
-  // an older build wrote a different shape, and anything that is not exactly
-  // what parseIcs produces is dropped rather than handed to the rule engine.
-  if (raw.feeds && typeof raw.feeds === 'object' && !Array.isArray(raw.feeds)) {
-    Object.keys(raw.feeds).slice(0, FEED_CACHE_MAX_FEEDS).forEach(function (url) {
-      var f = raw.feeds[url];
-      if (!f || typeof f !== 'object' || typeof f.on !== 'string' || !f.on) return;
-      if (typeof f.at !== 'number' || !isFinite(f.at) || f.at <= 0) return;
-      var timed = cleanCachedEvents(f.timed), allDay = cleanCachedEvents(f.allDay);
-      if (!timed && !allDay) return;
-      out.feeds[url] = { at: f.at, on: f.on.slice(0, 10), timed: timed || [], allDay: allDay || [],
-        calName: typeof f.calName === 'string' ? f.calName.slice(0, 80) : '' };
+  // WHEN EACH FEED LAST ANSWERED. One number per calendar -- the events it
+  // drew are recovered from the previous payload, not from here, because
+  // 8192 bytes is not many meetings (see replayFeed).
+  if (raw.feedOk && typeof raw.feedOk === 'object' && !Array.isArray(raw.feedOk)) {
+    Object.keys(raw.feedOk).slice(0, STATE_MAX_URLS).forEach(function (url) {
+      var t = raw.feedOk[url];
+      if (typeof t === 'number' && isFinite(t) && t > 0) out.feedOk[url] = t;
     });
   }
   if (raw.i18n && typeof raw.i18n === 'object' && typeof raw.i18n.lang === 'string') {
@@ -544,36 +507,6 @@ function readState(input) {
   return out;
 }
 
-// KEPT UNDER THE CEILING, IN CONFIG ORDER. See FEED_CACHE_MAX_BYTES: what is
-// dropped has to be the same on every render, or the board forgets a
-// different calendar each time and the warning flickers.
-function trimFeedCache(state, urls) {
-  if (!state || !state.feeds) return;
-  // What the rest of the state costs, measured rather than assumed: it grows
-  // with the number of feeds and the length of their names.
-  var without = state.feeds;
-  state.feeds = {};
-  var room = STATE_SAFE_BYTES - JSON.stringify(state).length;
-  state.feeds = without;
-
-  var order = (urls || []).filter(function (u) { return state.feeds[u]; });
-  var kept = {}, used = 2;
-  for (var i = 0; i < order.length; i++) {
-    var one = JSON.stringify(state.feeds[order[i]]).length + order[i].length + 4;
-    if (used + one > room) break;
-    kept[order[i]] = state.feeds[order[i]];
-    used += one;
-  }
-  state.feeds = kept;
-  // Belt and braces: if the rest of the state is somehow already past the
-  // line, the reads go entirely rather than take the clocks down with them.
-  if (JSON.stringify(state).length > STATE_LIMIT_BYTES) {
-    warn('saved state is over TRMNL\'s ' + STATE_LIMIT_BYTES
-      + '-byte limit even with no remembered reads; they are dropped');
-    state.feeds = {};
-  }
-}
-
 // Feeds come and go from a config. Anything the config no longer names is
 // dropped, so a URL that was removed a year ago is not still being carried
 // (and counted as "down") on every render.
@@ -581,7 +514,7 @@ function pruneState(state, urls) {
   if (!state) return;
   var keep = {};
   (urls || []).forEach(function (u) { keep[u] = true; });
-  [state.calendarDown, state.calendarNames, state.feeds].forEach(function (map) {
+  [state.calendarDown, state.calendarNames, state.feedOk].forEach(function (map) {
     if (!map) return;
     Object.keys(map).forEach(function (u) { if (!keep[u]) delete map[u]; });
   });
@@ -962,6 +895,11 @@ function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, win
       location: ev.location || null,
       owner: line.key,
       co_owners: coOwners, // other line keys sharing this event (an interchange) — empty for a normal event
+      // WHICH CALENDAR PUT IT HERE. One number, so that the NEXT render can
+      // take one feed's day back out of this payload when that feed does not
+      // answer (see `replayFeed`). It is the only reason this is here; the
+      // board never reads it.
+      f: ev.feed,
       // NO PRESENTATION HERE. Which side an event's line runs on, its
       // colour, its weight and its dash pattern all belong to the LINE, and
       // the board looks them up on the legend entry the owner names. Copied
@@ -1002,7 +940,7 @@ function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, win
       // them on different days sat side by side with nothing saying which
       // was which. A holiday is a property of a DAY (see `parseRule`), so
       // the day has to survive the grouping.
-      row = allDayByTitle[ev.title] = { title: ev.title, owners: [], days: [] };
+      row = allDayByTitle[ev.title] = { title: ev.title, owners: [], days: [], f: ev.feed };
     }
     if (row.owners.indexOf(line.key) < 0) row.owners.push(line.key);
     if (ev.day != null && row.days.indexOf(ev.day) < 0) row.days.push(ev.day);
@@ -1134,6 +1072,7 @@ function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, win
         var ix = Math.min(span - 1, Math.max(0, h.index || 0));
         out.push({
           title: h.title,
+          f: h.feed,   // which calendar it came from; see the note on an event's own
           // which day of the board it is about: 0 is the day the board opens
           // on, 1 the day a rolling board reached into
           day: day,
@@ -3650,6 +3589,9 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
   // something new happening when nothing has. Keyed by where the calendar
   // sits in the config, which is the order the reader wrote them in.
   var downAt = {};
+  // ...and the ones that have been silent for a whole day, which is a louder
+  // thing (see FEED_DOWN_LOUD_AFTER_S).
+  var loudAt = {};
   // Every feed that failed on THIS render, by name, and how many answered:
   // a board with nothing on it says which of the two it is (boardNotice).
   var failedAt = {}, feedsRead = 0;
@@ -3657,6 +3599,99 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
   // WHICH DAY A CACHED READ BELONGS TO. Every event in it is minutes from
   // this day's midnight, so it means nothing against any other day.
   var cacheDay = isoDate(today);
+
+  // ONE FEED'S DAY, TAKEN BACK OUT OF THE LAST RENDER'S OWN OUTPUT.
+  //
+  //   "input.trmnl.previous_merge_variables -- the set of merge variables
+  //    your last run stored, the same values your markup rendered last time"
+  //   -- help.trmnl.com/en/articles/16777795-saved-state
+  //
+  // Saved state is 8192 bytes and that is not many meetings: remembering the
+  // feeds there, the households with enough calendars to need it were exactly
+  // the ones whose reads would not fit. The previous payload costs nothing,
+  // and it is the same day, already resolved -- rules applied, merges done,
+  // holidays sorted -- so replaying it cannot disagree with what the reader
+  // saw fifteen minutes ago.
+  //
+  // It is read a FEED at a time (`f`, set in buildMetro), so the feeds that
+  // did answer are not doubled by it.
+  //
+  // WHAT IT IS NOT. It is not a clock: a render that replayed a feed writes
+  // the replayed events back out as its own, so the payload's age says how
+  // long ago the last RENDER was, not how long ago the feed last answered.
+  // That is what state is for, and all it is for now: one number per feed
+  // (`feedOk`), which is small enough to never threaten the limit.
+  //
+  // Line keys are assigned in the order lines are registered and are not
+  // stable between renders, so nothing here trusts them: every key is turned
+  // back into a NAME through the previous legend and registered again.
+  var prevVars = null;
+  try {
+    var pv = input.trmnl.previous_merge_variables;
+    if (typeof pv === 'string') pv = JSON.parse(pv);
+    if (pv && typeof pv === 'object' && !Array.isArray(pv)) prevVars = pv;
+  } catch (e) { prevVars = null; }
+  // Events are minutes into a particular day. A payload from another day is
+  // not stale, it is wrong.
+  if (prevVars && prevVars.date_iso !== cacheDay) prevVars = null;
+
+  function prevNames(keys) {
+    var byKey = {};
+    (prevVars.legend || []).forEach(function (l) {
+      if (l && typeof l.key === 'string' && typeof l.name === 'string') byKey[l.key] = l.name;
+    });
+    var out = [];
+    (keys || []).forEach(function (k) { if (byKey[k] && out.indexOf(byKey[k]) < 0) out.push(byKey[k]); });
+    return out;
+  }
+
+  // Returns how many things it put back, or 0 if there was nothing of this
+  // feed's to put back.
+  function replayFeed(ix) {
+    if (!prevVars) return 0;
+    var n = 0;
+    (prevVars.events || []).forEach(function (e) {
+      if (!e || e.f !== ix || e.type !== 'event') return;
+      if (typeof e.title !== 'string' || !e.title) return;
+      if (typeof e.start_min !== 'number' || !isFinite(e.start_min)) return;
+      var names = prevNames([e.owner].concat(e.co_owners || []));
+      if (!names.length) return;
+      var primary = registry.add(names[0], 1);
+      var others = names.slice(1).map(function (nm) { return registry.add(nm, 0.5).key; });
+      if (names.length > 1) registry.link(names, null, e.start_min);
+      events.push({
+        line: primary.key,
+        interchange_with: others.length ? others : undefined,
+        title: e.title,
+        parts: Array.isArray(e.parts) ? e.parts : undefined,
+        todo: e.todo || undefined,
+        startMin: e.start_min,
+        endMin: typeof e.end_min === 'number' && isFinite(e.end_min) ? e.end_min : e.start_min + 30,
+        beganMin: typeof e.began_min === 'number' ? e.began_min : undefined,
+        location: e.location || null,
+        feed: ix,
+      });
+      n++;
+    });
+    (prevVars.all_day || []).forEach(function (a) {
+      if (!a || a.f !== ix || typeof a.title !== 'string' || !a.title) return;
+      var names = prevNames(a.owners || []);
+      var days = Array.isArray(a.days) && a.days.length ? a.days : [0];
+      names.forEach(function (nm) {
+        days.forEach(function (d) {
+          allDayEvents.push({ line: registry.add(nm, 0.25).key, title: a.title, day: d, feed: ix });
+          n++;
+        });
+      });
+    });
+    (prevVars.holidays || []).forEach(function (hd) {
+      if (!hd || hd.f !== ix || typeof hd.title !== 'string' || !hd.title) return;
+      holidays.push({ title: hd.title, day: Math.max(0, hd.day || 0),
+        span: Math.max(1, hd.day_span || 1), index: Math.max(0, hd.day_index || 0), feed: ix });
+      n++;
+    });
+    return n;
+  }
 
   // In config order, so the two lists below can be read back out in it.
   function inOrder(map) {
@@ -3677,10 +3712,11 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
     // from a fresh enough cache has taken nothing off the board, so the log
     // gets it and the map does not -- until the cache is six hours old, when
     // it is no longer something to present as today.
-    function failed(why, tell) {
+    function failed(why, tell, loud) {
       var now = knownName || urlLabel(cal.url);
       if (failedAt[calIx] == null) failedAt[calIx] = now;
       if (tell !== false && downAt[calIx] == null) downAt[calIx] = now;
+      if (loud && loudAt[calIx] == null) loudAt[calIx] = now;
       warn('calendar "' + now + '" did not answer' + (why ? ': ' + why : '')
         + ' (' + hostOf(cal.url) + ')');
       if (!state) return;
@@ -3697,35 +3733,58 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       // awaited, so every feed has the whole budget rather than what they left.
       var pre = extra && extra.prefetched && extra.prefetched[feedKey(url, cal.headers)];
       var got = pre ? await pre : await fetchFeedText(url, deadline, cal.headers);
+      // WHAT THIS CALENDAR PUT ON THE BOARD, MARKED AS ITS OWN.
+      //
+      // The payload is one merged list and nothing in it said where a line
+      // came from, so a feed that fails could not be told apart from a feed
+      // that is quiet -- and the previous render's own output, which is the
+      // cheapest copy of a feed's day there is, could not be read back a feed
+      // at a time. Everything added between here and the end of this block is
+      // this calendar's.
+      //
+      // Taken as a span rather than passed down through placeAllDay and
+      // addHoliday, which is safe because the rest of this function has no
+      // `await` in it: the callbacks are started together but each runs to
+      // its end without yielding. Anything awaited below breaks that and the
+      // marks have to become a parameter.
+      var evs0 = events.length, ad0 = allDayEvents.length, hol0 = holidays.length;
       var parsedIcs;
       if (!got || !got.ok) {
-        // THE LAST TIME IT ANSWERED, IF THAT WAS TODAY. Events are minutes
-        // into a particular day, so a cache from another day is not stale --
-        // it is wrong -- and is not used at all.
-        var keep = state && state.feeds && state.feeds[cal.url];
-        var usable = keep && keep.on === cacheDay;
         var why = got ? 'HTTP ' + got.status : 'no answer inside the render budget';
-        if (!usable) { failed(why, true); return; }
-        var oldS = nowS - keep.at;
-        var stale = oldS >= FEED_STALE_AFTER_S;
-        failed(why + '; showing what it last gave us, ' + Math.round(oldS / 60)
-          + ' minute(s) ago' + (stale ? ' -- too old to present as today, so the board says so' : ''),
-          stale);
-        parsedIcs = { timed: keep.timed || [], allDay: keep.allDay || [], calName: keep.calName || '' };
+        // WHAT THIS CALENDAR DREW LAST TIME, out of the last render's own
+        // output (see replayFeed). Same day only -- events are minutes into a
+        // particular day, so another day's are not stale, they are wrong.
+        var put = replayFeed(calIx);
+        if (!put) {
+          var downSince = state && state.calendarDown ? state.calendarDown[cal.url] : 0;
+          failed(why, true, !!downSince && nowS - downSince >= FEED_DOWN_LOUD_AFTER_S);
+          return;
+        }
+        // HOW OLD IT REALLY IS comes from state, not from the payload: a
+        // render that replayed a feed writes those events back out as its
+        // own, so the payload's day says nothing about when the feed last
+        // answered. One number per feed, which never threatens the limit.
+        var since = state && state.feedOk ? state.feedOk[cal.url] : 0;
+        var oldS = since ? nowS - since : null;
+        var stale = oldS == null || oldS >= FEED_STALE_AFTER_S;
+        var aDay = oldS != null && oldS >= FEED_DOWN_LOUD_AFTER_S;
+        failed(why + '; showing the ' + put + ' thing(s) it drew last time'
+          + (oldS == null ? ', last answered before this board remembered'
+             : ', last answered ' + Math.round(oldS / 60) + ' minute(s) ago')
+          + (stale ? ' -- too old to present as today, so the board says so' : ''),
+          stale, aDay);
         feedsRead++;
+        return;
       } else {
         parsedIcs = parseIcs(got.text, tz, days, cal.includeDescription, cal.ignoreTimezone);
         feedsRead++;
         if (state) {
           delete state.calendarDown[cal.url];
           if (parsedIcs.calName) state.calendarNames[cal.url] = parsedIcs.calName;
-          // ...AND REMEMBERED, so the next render that cannot reach it still
-          // has the day. Only what this render would have drawn anyway.
-          if (Object.keys(state.feeds).length < FEED_CACHE_MAX_FEEDS || state.feeds[cal.url]) {
-            state.feeds[cal.url] = { at: nowS, on: cacheDay, calName: parsedIcs.calName || '',
-              timed: (parsedIcs.timed || []).slice(0, FEED_CACHE_MAX_EVENTS),
-              allDay: (parsedIcs.allDay || []).slice(0, FEED_CACHE_MAX_EVENTS) };
-          }
+          // WHEN IT LAST ANSWERED. The events themselves live in the payload
+          // now; this is the clock that says whether they are still worth
+          // presenting as today's.
+          state.feedOk[cal.url] = nowS;
         }
       }
       // Last resort for whose line this is: the feed's own X-WR-CALNAME,
@@ -3861,10 +3920,12 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       // pass unnoticed either: it is named on the board like any other.
       failed('it could not be read: ' + (e && e.message ? e.message : e));
     }
+    for (var ti = evs0; ti < events.length; ti++) events[ti].feed = calIx;
+    for (var ai = ad0; ai < allDayEvents.length; ai++) allDayEvents[ai].feed = calIx;
+    for (var hi = hol0; hi < holidays.length; hi++) holidays[hi].feed = calIx;
   }));
 
   pruneState(state, (parsed.calendars || []).map(function (c) { return c.url; }));
-  trimFeedCache(state, (parsed.calendars || []).map(function (c) { return c.url; }));
 
   // ---- one event, drawn once -------------------------------------------
   //
@@ -4055,7 +4116,15 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       // hour that has gone.
       // The clock only travels with the day we are standing in: on any
       // other day there is no "already gone".
-      serviceAlert: alertFor(extra, snapIx, nowMin),
+      // A CALENDAR SILENT FOR A DAY OUTRANKS THE WEATHER.
+      //
+      // One band, and two things that might want it. Rain is a fact about the
+      // day the reader can see out of the window; a calendar that has said
+      // nothing since yesterday means the people on this board are showing a
+      // day that has been and gone, and they cannot tell by looking. The
+      // weather alert is the one that waits.
+      serviceAlert: feedAlert(inOrder(loudAt), (extra && extra.strings) || I18N.en)
+        || alertFor(extra, snapIx, nowMin),
       // "Today" is only true when it is
       todayWord: true,
       // one entry per day the board MAY draw, each with its own date and
@@ -4072,6 +4141,21 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
 // whether the day is quiet, the setting is broken, or every feed is down, and
 // those want three different things done about them. Null when the board has
 // something on it.
+// THE BAND ALONG THE BOTTOM, SAYING A CALENDAR HAS BEEN GONE A DAY.
+//
+// Same shape as the weather's, so the template prints it the same way, with
+// no icon of its own: the mark is drawn (see the banner in shared.liquid),
+// because this one has to be right on a 1-bit panel with nothing fetched.
+// The words are the ones already used under the map, so nothing new is
+// translated -- what changes is how loudly they are said.
+function feedAlert(names, strings) {
+  if (!names || !names.length) return null;
+  var tpl = tr(strings, 'feed_down');
+  var vars = { n: names.join(', ') };
+  return { kind: 'feed', icon: null, label: null, text: fmt(tpl, vars),
+           parts: segments(tpl, vars, { _: '', n: 'b' }) };
+}
+
 function boardNotice(metro, why, strings) {
   var empty = !metro || (!(metro.legend || []).length && !(metro.events || []).length && !(metro.all_day || []).length);
   // Every feed failing is said even over the lines `lines` keeps drawn:

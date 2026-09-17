@@ -267,117 +267,194 @@ module.exports = function (test, h) {
   // the map looking perfectly normal both times: "it's dropped events like
   // crazy", "we can't just drop events, feeds without the user knowing".
   //
-  // The forecast has never worked that way -- the last one that answered is
-  // kept in saved state and replayed, and the board says so once it is too
-  // old to pass off as today's. Feeds do the same now, for the same six
-  // hours: "use the state to hold the previous success for six hours, after
-  // that show an error, keep showing the state."
-  test('a good read is remembered, so the next render that cannot reach it still has the day', async () => {
+  // The day is put back from the LAST RENDER'S OWN OUTPUT --
+  // `input.trmnl.previous_merge_variables` -- rather than from saved state,
+  // which is 8192 bytes and not many meetings: remembering the feeds there,
+  // the households with enough calendars to need it were exactly the ones
+  // whose reads would not fit. State keeps one number per feed, which is when
+  // it last answered, because the payload cannot say that about itself: a
+  // render that replayed a feed writes those events back out as its own.
+  function prevOf(data) { return JSON.parse(JSON.stringify(data)); }
+  function withPrev(state, prev, extra) {
+    const i = input(extra || {}, state);
+    i.trmnl.previous_merge_variables = prev;
+    return i;
+  }
+
+  test('every event says which calendar drew it, and state remembers when it answered', async () => {
     const good = await runTransform(net(), NOW).run(input());
-    const kept = good.trmnl_state.feeds && good.trmnl_state.feeds[ICS_URL];
-    assert(kept, 'nothing was remembered: ' + JSON.stringify(Object.keys(good.trmnl_state)));
-    assert(kept.at === NOW_S, 'the read is not stamped with when it happened: ' + kept.at);
-    assert(typeof kept.on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(kept.on),
-      'the read is not stamped with the day it is about: ' + JSON.stringify(kept.on));
-    assert((kept.timed || []).length > 0, 'the events themselves were not kept: ' + JSON.stringify(kept));
+    const ev = (good.data.events || []).filter((e) => e.type === 'event');
+    assert(ev.length > 0, 'the healthy board drew no events');
+    assert(ev.every((e) => e.f === 0),
+      'an event does not say which calendar drew it: ' + JSON.stringify(ev.map((e) => e.f)));
+    assertEqual(good.trmnl_state.feedOk[ICS_URL], NOW_S,
+      'state did not record when the feed answered: ' + JSON.stringify(good.trmnl_state.feedOk));
+    // ...and that is ALL it records. The events are 8192 bytes' worth of
+    // nothing waiting to happen.
+    const size = JSON.stringify(good.trmnl_state).length;
+    assert(size < 1500, 'saved state is carrying more than the clocks: ' + size + ' bytes');
   });
 
-  test('a feed that fails is replayed from what it last gave us, and says nothing yet', async () => {
+  test('a feed that fails is replayed from the last render, and says nothing yet', async () => {
     const good = await runTransform(net(), NOW).run(input());
     const had = eventItems(good.data).map((e) => e.title).sort();
     assert(had.length > 0, 'the healthy board had no events to compare against');
 
-    const down = runTransform(net({ calendarsFail: true }), NOW);
-    const r = await down.run(input({}, JSON.parse(JSON.stringify(good.trmnl_state))));
+    const r = await runTransform(net({ calendarsFail: true }), NOW)
+      .run(withPrev(good.trmnl_state, prevOf(good.data)));
     assertEqual(eventItems(r.data).map((e) => e.title).sort(), had,
-      'the events were not replayed from the remembered read');
+      'the events were not replayed from the previous render');
     // Nothing is missing from the map, so nothing is claimed to be.
     assertEqual(r.data.calendars_down, [],
       'the board cried wolf about a feed whose day it was still showing');
+    // ...and they still say whose calendar they are, so the render after
+    // this one can do the same again.
+    assert((r.data.events || []).filter((e) => e.type === 'event').every((e) => e.f === 0),
+      'the replayed events lost the mark saying which calendar drew them');
   });
 
-  test('...and once that read is six hours old the board says so, still showing it', async () => {
+  test('...and once that feed has been silent six hours the board says so, still showing it', async () => {
     const good = await runTransform(net(), NOW).run(input());
     const had = eventItems(good.data).map((e) => e.title).sort();
+    const state = JSON.parse(JSON.stringify(good.trmnl_state));
+    state.feedOk[ICS_URL] = NOW_S - 6 * 3600 - 60;
 
-    const saved = JSON.parse(JSON.stringify(good.trmnl_state));
-    saved.feeds[ICS_URL].at = NOW_S - 6 * 3600 - 60;
-    const r = await runTransform(net({ calendarsFail: true }), NOW).run(input({}, saved));
-
+    const r = await runTransform(net({ calendarsFail: true }), NOW)
+      .run(withPrev(state, prevOf(good.data)));
     assertEqual(eventItems(r.data).map((e) => e.title).sort(), had,
-      'a stale read is still the best there is and must stay on the board');
+      'a stale day is still the best there is and must stay on the board');
     assertEqual(r.data.calendars_down, ['Alex Personal'],
-      'a read too old to present as today was not announced');
+      'a feed silent for six hours was not announced');
   });
 
-  test('a remembered read from another day is wrong, not stale, and is not used', async () => {
+  test('a calendar silent for a whole day takes the band along the bottom', async () => {
+    // Six hours is a marked line under the map, which is the right size for
+    // "this may be a little out of date". A day is not that: what is on the
+    // board for those people is yesterday and they cannot tell by looking.
+    // "Show the errors as service alert after 24h."
+    const good = await runTransform(net(), NOW).run(input());
+    const had = eventItems(good.data).map((e) => e.title).sort();
+    const state = JSON.parse(JSON.stringify(good.trmnl_state));
+    state.feedOk[ICS_URL] = NOW_S - 24 * 3600 - 60;
+
+    const r = await runTransform(net({ calendarsFail: true }), NOW)
+      .run(withPrev(state, prevOf(good.data)));
+    const a = r.data.service_alert;
+    assert(a && a.kind === 'feed', 'a day-old calendar did not reach the band: ' + JSON.stringify(a));
+    assert(a.text.indexOf('Alex Personal') >= 0, 'the band does not say which calendar: ' + a.text);
+    // Nothing to fetch: the mark is drawn by the template, because a board
+    // whose network failed is the worst moment to want another request.
+    assertEqual(a.icon, null, 'the feed band is asking for an icon off the network');
+    // ...and it is still under the map as well, and still showing the day.
+    assertEqual(r.data.calendars_down, ['Alex Personal'], 'the quieter line was dropped');
+    assertEqual(eventItems(r.data).map((e) => e.title).sort(), had,
+      'the band replaced the day instead of announcing it');
+  });
+
+  test('a calendar gone a day outranks the weather for the band', async () => {
+    // One band, two things that might want it. Rain is a fact the reader can
+    // check out of the window; a day of somebody else's calendar missing is
+    // not something they can check at all.
+    const good = await runTransform(net(), NOW).run(input());
+    const state = JSON.parse(JSON.stringify(good.trmnl_state));
+    state.feedOk[ICS_URL] = NOW_S - 24 * 3600 - 60;
+    const wet = { alert_enabled: 'true', alert_rain_threshold: '10' };
+    const r = await runTransform(net({ calendarsFail: true }), NOW)
+      .run(withPrev(state, prevOf(good.data), wet));
+    assertEqual((r.data.service_alert || {}).kind, 'feed',
+      'the weather took the band from a calendar that has been gone a day');
+  });
+
+  test('...and under a day the weather keeps the band', async () => {
+    const good = await runTransform(net(), NOW).run(input());
+    const state = JSON.parse(JSON.stringify(good.trmnl_state));
+    state.feedOk[ICS_URL] = NOW_S - 7 * 3600;   // named under the map, not loud
+    const wet = { alert_enabled: 'true', alert_rain_threshold: '10' };
+    const r = await runTransform(net({ calendarsFail: true }), NOW)
+      .run(withPrev(state, prevOf(good.data), wet));
+    assert((r.data.service_alert || {}).kind !== 'feed',
+      'a feed down seven hours shouted over the weather');
+    assertEqual(r.data.calendars_down, ['Alex Personal'], 'it should still be named under the map');
+  });
+
+  test('a previous render from another day is wrong, not stale, and is not used', async () => {
     // Every event in it is minutes from ITS day's midnight. Replayed against
     // today it would put yesterday's afternoon on this afternoon.
     const good = await runTransform(net(), NOW).run(input());
-    const saved = JSON.parse(JSON.stringify(good.trmnl_state));
-    saved.feeds[ICS_URL].on = '2019-01-01';
-    const r = await runTransform(net({ calendarsFail: true }), NOW).run(input({}, saved));
-    assertEqual(eventItems(r.data), [], 'yesterday\'s events were drawn as today\'s');
+    const prev = prevOf(good.data);
+    prev.date_iso = '2019-01-01';
+    const r = await runTransform(net({ calendarsFail: true }), NOW)
+      .run(withPrev(good.trmnl_state, prev));
+    assertEqual(eventItems(r.data), [], "yesterday's events were drawn as today's");
     assertEqual(r.data.calendars_down, ['Alex Personal'],
       'the feed took its day off the board and did not say so');
   });
 
-  test('the remembered reads are kept under a ceiling, and the same ones every time', async () => {
-    // "There is a limit of 8192 bytes. Go over it and TRMNL ignores the write,
-    // keeps the last good state" -- help.trmnl.com, saved-state.
+  test('with nothing to replay from, the feed is named at once', async () => {
+    const r = await runTransform(net({ calendarsFail: true }), NOW).run(input());
+    assertEqual(eventItems(r.data), [], 'events appeared from nowhere');
+    assert(r.data.calendars_down.length === 1,
+      'a feed with nothing behind it was not named: ' + JSON.stringify(r.data.calendars_down));
+  });
+
+  test('only the feed that failed is replayed, so a healthy one is not doubled', async () => {
+    // The whole reason an event carries the mark. Read back whole, the
+    // previous payload would put every calendar's day on the board a second
+    // time beside the copy that was just fetched.
+    const A = 'https://example.com/a.ics', B = 'https://example.com/b.ics';
+    const icsA = icsWithEvents([{ start: '20260909T100000Z', end: '20260909T110000Z', summary: 'Alpha thing' }]);
+    const icsB = icsWithEvents([{ start: '20260909T140000Z', end: '20260909T150000Z', summary: 'Beta thing' }]);
+    const both = (failB) => async (url) => {
+      const u = String(url);
+      if (u.indexOf('api.open-meteo.com') >= 0) return fail(503);
+      if (u.indexOf('/i18n/') >= 0) return fail(404);
+      if (u === A) return okText(icsA);
+      return failB ? fail(500) : okText(icsB);
+    };
+    const cfg = JSON.stringify({ calendars: [
+      { url: A, name: 'Alpha' }, { url: B, name: 'Beta' }] });
+    const good = await runTransform(both(false), NOW).run(baseInput(NOW, { use_demo_data: 'false', config_json: cfg }));
+    assertEqual(eventItems(good.data).map((e) => e.title).sort(), ['Alpha thing', 'Beta thing'],
+      'the healthy board is not what this test assumes');
+
+    const i = baseInput(NOW, { use_demo_data: 'false', config_json: cfg });
+    i.trmnl.state = good.trmnl_state;
+    i.trmnl.previous_merge_variables = prevOf(good.data);
+    const r = await runTransform(both(true), NOW).run(i);
+    assertEqual(eventItems(r.data).map((e) => e.title).sort(), ['Alpha thing', 'Beta thing'],
+      'the failed feed was not replayed, or the healthy one was drawn twice');
+    assertEqual(r.data.calendars_down, [], 'nothing was missing, so nothing should be announced');
+  });
+
+  test('a previous render that is rubbish is dropped, not handed to the board', async () => {
+    // It is the last run's output, but it has been through storage and an
+    // older build wrote a different shape.
+    const junk = { date_iso: '2026-09-09', legend: [{ key: 'p0', name: 'Alex' }, 'not a line'],
+      events: [{ type: 'event', f: 0, title: 'Kept', owner: 'p0', start_min: 600, end_min: 660 },
+               { type: 'event', f: 0, owner: 'p0', start_min: 700 },        // no title
+               { type: 'event', f: 0, title: 'No owner', owner: 'nope', start_min: 800 },
+               { type: 'event', f: 0, title: 'No clock', owner: 'p0' },
+               'not an object', null] };
+    const r = await runTransform(net({ calendarsFail: true }), NOW)
+      .run(withPrev({}, junk));
+    assert(!r.data.board_notice, 'a malformed previous render took this one down: ' + r.data.board_notice);
+    const titles = eventItems(r.data).map((e) => e.title);
+    assertEqual(titles, ['Kept'], 'the bad entries were not dropped one by one: ' + JSON.stringify(titles));
+  });
+
+  test('saved state stays under TRMNL\'s limit, for a household of twelve calendars', async () => {
+    // "There is a limit of 8192 bytes. Go over it and TRMNL ignores the
+    // write, keeps the last good state" -- help.trmnl.com, saved-state.
     //
     // Nothing is truncated: the write is REJECTED and the device keeps what
     // it had, so every clock in saved state stops -- how long a feed has been
     // down, what the weather was, what a feed is called -- and the board goes
-    // on rendering from a state that can no longer be corrected. A real
-    // four-calendar household came to 7.7KB once reads were remembered, which
-    // is already inside the margin, so the counts alone do not bound this.
-    const many = [];
-    for (let f = 0; f < 10; f++) {
-      let t = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nX-WR-CALNAME:Cal' + f + '\r\n';
-      for (let e = 0; e < 40; e++) {
-        t += 'BEGIN:VEVENT\r\nUID:' + f + '-' + e + '@x\r\n'
-          + 'DTSTART:' + ISO_TODAY + 'T' + String(7 + (e % 12)).padStart(2, '0') + '0000Z\r\n'
-          + 'DTEND:' + ISO_TODAY + 'T' + String(8 + (e % 12)).padStart(2, '0') + '0000Z\r\n'
-          + 'SUMMARY:A meeting with a name of a realistic length ' + f + '-' + e + '\r\n'
-          + 'LOCATION:Microsoft Teams Meeting, Room 214, Building B\r\nEND:VEVENT\r\n';
-      }
-      many.push(t + 'END:VCALENDAR\r\n');
-    }
-    const urls = many.map((_, i) => 'https://example.com/big' + i + '.ics');
-    const impl = async (url) => {
-      const u = String(url);
-      if (u.indexOf('api.open-meteo.com') >= 0) return fail(503);
-      if (u.indexOf('/i18n/') >= 0) return fail(404);
-      const ix = urls.indexOf(u);
-      return ix < 0 ? fail(404) : okText(many[ix]);
-    };
-    const i = baseInput(NOW, { use_demo_data: 'false',
-      config_json: JSON.stringify({ calendars: urls.map((u, ix) => ({ url: u, name: 'Cal' + ix })) }) });
-    const r = await runTransform(impl, NOW).run(i);
-
-    const size = JSON.stringify(r.trmnl_state).length;
-    assert(size <= 8192, 'saved state came to ' + size + " bytes; TRMNL's limit is 8192 and "
-      + 'over it the write is ignored, so the device keeps a state it can never correct');
-
-    // ...and WHICH ones survive is the same every render: dropped from the
-    // end of the config, never by whoever answered first, or the board
-    // forgets a different calendar each time and the warning flickers.
+    // on rendering from a state it can never correct.
     //
-    // How MANY survive is not asserted, and on ten feeds this size it is
-    // none: 8192 bytes is not many meetings, which is the whole reason the
-    // previous render's own output is the better place to read a failed feed
-    // back from. What has to hold here is that the limit is never crossed and
-    // that the choice is deterministic.
-    const kept = Object.keys(r.trmnl_state.feeds || {});
-    assertEqual(kept, urls.slice(0, kept.length),
-      'the feeds kept are not the first ones the config names');
-  });
-
-  test('...and the ceiling holds for a household whose feeds are all enormous', async () => {
-    // The trimming measures what the REST of the state costs before deciding
-    // what is left for the reads, and the rest grows with the feeds: a name
-    // and a down-clock apiece.
+    // This is a ratchet on the whole of it, not on any one thing in it. It is
+    // the test that would have caught remembering the feeds' events in here:
+    // a real four-calendar household measured 7715 bytes that way, inside the
+    // margin of a limit nobody had read.
     let big = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nX-WR-CALNAME:A calendar with quite a long name\r\n';
     for (let e = 0; e < 70; e++) {
       big += 'BEGIN:VEVENT\r\nUID:x' + e + '@x\r\n'
@@ -398,7 +475,8 @@ module.exports = function (test, h) {
     const r = await runTransform(impl, NOW).run(baseInput(NOW, { use_demo_data: 'false',
       config_json: JSON.stringify({ calendars: urls.map((u) => ({ url: u })) }) }));
     const size = JSON.stringify(r.trmnl_state).length;
-    assert(size <= 8192, 'saved state came to ' + size + ' bytes on twelve large feeds');
+    assert(size <= 8192, 'saved state came to ' + size + ' bytes on twelve busy calendars; '
+      + "TRMNL's limit is 8192 and over it the write is ignored");
   });
 
   test('several feeds down are named in the order the config names them', async () => {
@@ -427,23 +505,6 @@ module.exports = function (test, h) {
     const r = await runTransform(slow, NOW).run(i);
     assertEqual(r.data.calendars_down, ['Alpha', 'Beta'],
       'the warning is ordered by whichever feed gave up first');
-  });
-
-  test('a remembered read that is rubbish is dropped, not handed to the board', async () => {
-    // Saved state is untrusted input: an older build wrote a different shape,
-    // and a truncated one is a shape nobody wrote.
-    const good = await runTransform(net(), NOW).run(input());
-    const day = good.trmnl_state.feeds[ICS_URL].on;
-    const junk = { feeds: { [ICS_URL]: { at: NOW_S, on: day,
-      timed: [{ title: 'Kept', day: 0, startMin: 600, endMin: 660 },
-              { day: 0, startMin: 1 },            // no title
-              'not an object', null,
-              { title: 'No day', startMin: 5 }] } } };
-    const r = await runTransform(net({ calendarsFail: true }), NOW).run(input({}, junk));
-    assert(!r.data.board_notice, 'a malformed cache took the render down: ' + r.data.board_notice);
-    const titles = eventItems(r.data).map((e) => e.title);
-    assert(titles.indexOf('Kept') >= 0, 'the good entry was thrown out with the bad: ' + JSON.stringify(titles));
-    assert(titles.indexOf('No day') < 0, 'an event with no day was drawn: ' + JSON.stringify(titles));
   });
 
   test('state left over from feeds the config no longer names is dropped', async () => {

@@ -140,6 +140,19 @@
       {%- if data.service_alert.icon -%}
         <img class="metro-banner-icon image--adaptive flex-none" src="{{ data.service_alert.icon }}" alt=""
              data-adaptive="true" style="--framework-icon-src: url('{{ data.service_alert.icon }}')">
+      {%- elsif data.service_alert.kind == "feed" -%}
+        {%- comment -%}
+          A CALENDAR GONE A DAY TAKES THIS BAND (see FEED_DOWN_LOUD_AFTER_S in
+          transform.js), and it is the one alert with nothing to fetch: the
+          weather's glyphs come off trmnl.com, and a board whose network is
+          what failed is the worst possible moment to want another request.
+          Drawn, in the band's own paper, at the size the glyphs are.
+        {%- endcomment -%}
+        <svg class="metro-banner-icon flex-none" viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M8 1.5 15 14H1z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M8 6v3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="8" cy="11.9" r="0.95" fill="currentColor"/>
+        </svg>
       {%- endif -%}
       {%- comment -%}
         The same sentence, set in three weights: what is coming in bold, the
