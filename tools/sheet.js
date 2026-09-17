@@ -17,6 +17,12 @@
 //   node tools/sheet.js --only shared,corridor pick scenarios by substring
 //   node tools/sheet.js --out /tmp/sheet.png   where to write it
 //
+// ...and the other job: one picture per view, at the panel's real size, under
+// the name `docs/` knows it by, which is where the README's and the config
+// editor's screenshots come from.
+//
+//   node tools/sheet.js --view all --each docs --only "simpsons 13:40"
+//
 // It builds the plugin first unless --no-build, because a stale _build is a
 // sheet of yesterday's boards, which is worse than no sheet at all. A layout
 // run and a build must not happen at the same time (AGENTS.md), so do not run
@@ -38,14 +44,30 @@ const JS_URL = 'https://trmnl.com/js/3.3.1/plugins.js';
 // The device each view is really drawn on. Getting these wrong renders one
 // panel's board at another panel's size and every conclusion from it is
 // worthless, so they are the layout suite's own table, copied deliberately.
+//
+// `file` is the name each one keeps in `docs/` under --each, so the README and
+// the config editor go on pointing at the same pictures after a regeneration.
 const VIEWPORTS = {
-  'og-landscape': { w: 800, h: 480, page: 'full',
+  'og-landscape': { w: 800, h: 480, page: 'full', file: 'og-800x480-1bit',
     classes: 'screen--og screen--md screen--1bit screen--density-1x' },
-  'x-landscape': { w: 1872, h: 1404, page: 'full',
+  'x-landscape': { w: 1872, h: 1404, page: 'full', file: 'trmnl-x-landscape',
     classes: 'screen--v2 screen--lg screen--4bit screen--density-2x' },
-  'x-portrait': { w: 1404, h: 1872, page: 'full',
+  'x-portrait': { w: 1404, h: 1872, page: 'full', file: 'trmnl-x-portrait',
     classes: 'screen--v2 screen--lg screen--4bit screen--density-2x screen--portrait' },
   'og-half': { w: 800, h: 480, page: 'full', slot: { w: 400, h: 480 },
+    classes: 'screen--og screen--md screen--1bit screen--density-1x' },
+  // THE MASHUP SLOTS, shot at the slot's own size rather than the device's.
+  // A slot is a box INSIDE the screen (AGENTS.md), so the board lays out in
+  // --full-w/--full-h and the rest of an 800x480 window is blank ground: the
+  // window is sized to the slot so the picture is the panel a reader sees.
+  'og-half-horizontal': { w: 800, h: 240, page: 'full', slot: { w: 800, h: 240 },
+    file: 'og-half-horizontal',
+    classes: 'screen--og screen--md screen--1bit screen--density-1x' },
+  'og-half-vertical': { w: 400, h: 480, page: 'full', slot: { w: 400, h: 480 },
+    file: 'og-half-vertical',
+    classes: 'screen--og screen--md screen--1bit screen--density-1x' },
+  'og-quadrant': { w: 400, h: 240, page: 'full', slot: { w: 400, h: 240 },
+    file: 'og-quadrant',
     classes: 'screen--og screen--md screen--1bit screen--density-1x' },
 };
 
@@ -137,9 +159,19 @@ function arg(name, dflt) {
   return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : dflt;
 }
 const viewName = arg('view', 'og-landscape');
-const vp = VIEWPORTS[viewName];
+// --each writes one picture per view instead of one sheet, so `all` is a view.
+const each = arg('each', null);
+const viewNames = viewName === 'all' ? Object.keys(VIEWPORTS).filter(function (k) {
+  return VIEWPORTS[k].file;
+}) : [viewName];
+const vp = VIEWPORTS[viewNames[0]];
 if (!vp) {
-  console.error('unknown view "' + viewName + '"; try: ' + Object.keys(VIEWPORTS).join(', '));
+  console.error('unknown view "' + viewName + '"; try: '
+    + Object.keys(VIEWPORTS).join(', ') + ', all');
+  process.exit(2);
+}
+if (each && viewName !== 'all' && !vp.file) {
+  console.error('--each needs a view with a docs name; try --view all');
   process.exit(2);
 }
 const only = (arg('only', '') || '').split(',').map((s) => s.trim()).filter(Boolean);
@@ -170,6 +202,46 @@ const noBuild = process.argv.indexOf('--no-build') > 0;
   }
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'metro-sheet-'));
+
+  // ONE PICTURE PER VIEW, under its own name, for `docs/`.
+  //
+  // The sheet is for looking at a change across every board at once; this is
+  // the other job the same machinery does -- the handful of pictures the
+  // README and the config editor show a reader, at the real size of the panel
+  // they are about. They were made by hand before, which is why the repo could
+  // not say which board they were of or when.
+  if (each) {
+    const dest = path.resolve(each);
+    fs.mkdirSync(dest, { recursive: true });
+    if (wanted.length !== 1) {
+      console.error('--each wants exactly one board; --only matched ' + wanted.length
+        + ': ' + wanted.map((b) => b.name).join(', '));
+      process.exit(2);
+    }
+    const b = wanted[0];
+    const metro = b.demo ? await demoPayload(b.demo[0], b.demo[1]) : b.metro;
+    for (const vn of viewNames) {
+      const v = VIEWPORTS[vn];
+      if (!v.file) continue;
+      const html = path.join(dir, vn + '.html');
+      const png = path.join(dest, v.file + '.png');
+      fs.writeFileSync(html, pageFor(metro, v));
+      try {
+        execFileSync(CHROME, ['--headless=new', '--disable-gpu', '--hide-scrollbars',
+          '--force-device-scale-factor=1', '--virtual-time-budget=8000',
+          '--window-size=' + v.w + ',' + v.h, '--screenshot=' + png, 'file://' + html],
+          { stdio: 'pipe', timeout: 120000 });
+      } catch (e) {
+        process.stderr.write('  ' + vn + ': chromium failed, skipped\n');
+        continue;
+      }
+      const kb = Math.round(fs.statSync(png).size / 1024);
+      console.log('  ' + vn + ' -> ' + path.relative(ROOT, png) + ' (' + kb + 'KB)');
+    }
+    console.log(b.name + ' at ' + viewNames.length + ' view(s) -> ' + path.relative(ROOT, dest));
+    return;
+  }
+
   const tiles = [];
   for (const b of wanted) {
     const metro = b.demo ? await demoPayload(b.demo[0], b.demo[1]) : b.metro;
