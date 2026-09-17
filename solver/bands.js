@@ -1410,16 +1410,48 @@ function nameCut(b) {
 // PAPER NOBODY IS USING AT THE EDGES. The gaps start even and only move
 // when a caption gains by it, so a board with room to spare kept a band and
 // a half of empty paper above the first line and below the last while the
-// lines in the middle sat as close as ever: "unused space". The edge gaps
-// have one side of captions to hold, so past six tenths of an inner gap
-// they are slack, and slack is charged a little -- less than any caption
-// preference, so it only moves paper nobody wanted.
-function edgeSlack(gaps) {
+// lines in the middle sat as close as ever: "unused space".
+//
+// MEASURED, NOT ESTIMATED. This was a proportion -- an edge gap was allowed
+// six tenths of an inner one and charged for the rest -- and a proportion is
+// only ever right by accident. On a full X the inner gaps are two hundred
+// pixels deep because that is what two sides of captions need, and six
+// tenths of that is a hundred and twenty pixels allowed to a gap holding one
+// name: the board came out with a hundred and forty pixels of blank paper
+// under the clock and its bottom line's captions running into the banner.
+// "Why are we not more space efficient".
+//
+// So the allowance is what is actually IN the gap: the line's own name, plus
+// however far the captions that were placed there reach into it. Everything
+// past that is paper nobody is using, and is charged a little -- less than
+// any caption preference, so it only ever moves paper nobody wanted.
+function edgeSlack(spec, st, sol) {
+  var gaps = st.gaps;
   if (!gaps || gaps.length < 3) return 0;
-  var inner = gaps.slice(1, -1), mean = 0;
-  inner.forEach(function (g) { mean += g / inner.length; });
-  var allow = mean * 0.6;
-  var slack = Math.max(0, gaps[0] - allow) + Math.max(0, gaps[gaps.length - 1] - allow);
+  var lines = spec.lines || [];
+  if (lines.length < 2) return 0;
+  var top = spec.cross.c0 + gaps[0], bot = top;
+  for (var i = 1; i < lines.length; i++) bot += gaps[i];
+  // How far the captions that were placed reach past the outermost rails. A
+  // box in the middle of the board is inside both, so the clamps below leave
+  // it out without having to ask which gap it is in.
+  var up = top, dn = bot;
+  if (sol && sol.pick) {
+    for (var j = 0; j < sol.pick.length; j++) {
+      var k = sol.pick[j];
+      if (k < 0) continue;
+      var box = C.posBox(sol.cands[j][k]);
+      if (box.c0 < up) up = box.c0;
+      if (box.c1 > dn) dn = box.c1;
+    }
+  }
+  // A rail is named at its own end, above the first one and below the last,
+  // so that room is spoken for whatever the captions did.
+  var floor = (spec.nameH || 14) + spec.railGap;
+  var needTop = Math.max(floor, (top - up) + spec.railGap);
+  var needBot = Math.max(floor, (dn - bot) + spec.railGap);
+  var slack = Math.max(0, gaps[0] - needTop)
+            + Math.max(0, gaps[gaps.length - 1] - needBot);
   // IN STEPS, so the search does not spend its budget chasing six pixels of
   // paper at a time: measured to the pixel, every small shift of paper
   // inward was an improvement and the descent ran to its limit on a board
@@ -1470,9 +1502,9 @@ function trial(spec, b, st) {
   var sol = C.solve(spec.wants, b, { iters: 0, minLift: spec.minLift, muddlePrice: spec.muddlePrice,
                                      cache: spec._cands });
   b.straddles = straddles(spec, b, st);
-  b.edgeSlack = edgeSlack(st.gaps);
+  b.edgeSlack = edgeSlack(spec, st, sol);
   b.drift = drift(spec, b);   // measured, not charged: see the note on `drift`
-  return { cost: boardCost(spec, b, sol), shed: sol.shed };
+  return { cost: boardCost(spec, b, sol), shed: sol.shed, sol: sol };
 }
 
 
@@ -1491,61 +1523,136 @@ function trial(spec, b, st) {
 // what the board achieves -- same names placed, same faults, same pairing,
 // same slopes. It is priced in the tens against thousands for anything a
 // reader would notice, so a line that genuinely needs depth still takes it.
-function tidiness(spec, gaps) {
-  // A GAP BETWEEN TWO LINES WITH NOTHING ON THEM IS NOT SPREAD, IT IS
-  // SPENT. Three empty people above one busy one took even gaps, and the busy
-  // line's names shrank and its spurs ran together: "Copilot updates doesn't
-  // get any space here. The rest of the tracks could compact a bit." Such a
-  // gap is charged for every pixel past what two names need, and left out of
-  // the evenness, so the room goes where there is something to draw.
-  var busy = {};
-  (spec.wants || []).forEach(function (w) {
-    if (w.line) busy[w.line] = 1;
-    if (w.pill) (spec.pills || []).forEach(function (p) {
-      if (p.id === w.pill) p.lines.forEach(function (k) { busy[k] = 1; });
-    });
-  });
-  var idle = 0, keep = [];
-  var floor = (spec.nameH || 14) * 2 + spec.railGap * 2;
-  for (var gi = 1; gi < gaps.length - 1; gi++) {
-    var up = spec.lines[gi - 1], dn = spec.lines[gi];
-    if (up && dn && !busy[up.key] && !busy[dn.key]) idle += Math.max(0, gaps[gi] - floor);
-    else keep.push(gaps[gi]);
+//
+// ...AND A GAP IS IDLE WHEN NEITHER LINE BESIDE IT HAS ANYTHING ON IT, which
+// is a narrower test than it sounds and was asked to be widened: "if person A
+// has unused space but person B is struggling to place items, person A
+// shrinks a bit". Somebody with one appointment at nine is a busy line by
+// this test and leaves the rest of their band empty.
+//
+// IT WAS TRIED, MEASURED, AND TAKEN BACK OUT. A gap's real occupancy is
+// knowable -- where the captions that were placed actually landed, out of the
+// same solve everything here is priced from -- and charging a gap for the
+// paper nobody stood in made every board WORSE, in three different shapes.
+// The reason is that the gaps sum to the panel: paper charged out of one gap
+// has to land in another, so a penalty on slack is not a force towards
+// tightness, it is a race to whichever gap is charged least. Charged per gap,
+// the search piled the lot at the top edge -- slow-day came out with five
+// hundred and fifty pixels of nothing under the clock, five times what it
+// started with. Charged only on the deepest single band, it found the one gap
+// that was not being measured. Charged on all of them, edges included, it
+// came back to roughly where it started for a good deal more work per
+// candidate. Measured over the eighteen boards of test/layout at every view:
+// 1643px of blank paper before, 1089 with the edge measure above, 2124, 2077
+// and 1303 for the three shapes of this.
+//
+// What moves paper to the line that needs it is making the room that line
+// needs cost something, which the caption search already does, and then not
+// fighting it with a tidiness rule that has no idea what is on the board.
+// That is what the edge measure above became.
+// WHAT IS EQUALISED IS THE EMPTY PAPER, NOT THE GAPS.
+//
+// Two rules used to share this job and they disagreed. One spread the gaps
+// evenly, which is only right when every line carries the same amount. The
+// other, for the case where it plainly is not -- "three empty people above
+// one busy one took even gaps, and the busy line's names shrank" -- squeezed
+// a gap between two people with nothing on them down to a floor. That one
+// over-corrected: it took ALL the paper out of the quiet gaps and had
+// nowhere to put it but the one gap next to somebody busy, so `slow-day`
+// came out as three rails stacked at the top, six hundred pixels of nothing,
+// and Alex alone at the bottom. "No reason to move stuff around like that."
+//
+// Both are the same question asked badly. What a reader sees is not how deep
+// a gap is, it is how much of it nobody is using -- and a board always has
+// some paper spare, so the honest thing to do with it is share it out. So
+// the measure is the spread of the EMPTY runs: every gap keeps what is
+// standing in it and takes an equal share of what is left. A busy gap ends
+// up deeper than a quiet one without anything having to know which is which,
+// and the leftover is a little air everywhere rather than a hole in one
+// place. (A plainer word than the CSS one for it, deliberately: this file is
+// bundled into the template, and the plugin's linter counts a handful of
+// property names in the markup it is given -- comments included.)
+//
+// Priced in the tens against thousands for anything a reader would notice,
+// so a line that genuinely needs depth still takes it.
+
+// The deepest unbroken stretch of each gap with nothing standing in it: the
+// captions that were placed, out of the same solve everything here is priced
+// from, and a name's worth of room at each rail.
+function gapFree(spec, gaps, sol) {
+  var out = new Float64Array(gaps.length);
+  var lines = spec.lines || [];
+  if (lines.length < 2) return out;
+  var base = [], c = spec.cross.c0;
+  for (var i = 0; i < lines.length; i++) { c += gaps[i]; base.push(c); }
+  var boxes = [];
+  if (sol && sol.pick) {
+    for (var j = 0; j < sol.pick.length; j++) {
+      var k = sol.pick[j];
+      if (k < 0) continue;
+      var bx = C.posBox(sol.cands[j][k]);
+      boxes.push([bx.c0, bx.c1]);
+    }
   }
-  if (!idle && keep.length === gaps.length - 2) return tidinessOf(gaps);
-  // What is left is shared evenly between the busy lines' own gaps, the
-  // paper's edges included, so the room lands on both sides of the lines
-  // that need it rather than all in one band.
-  var ends = [];
-  if (spec.lines[0] && busy[spec.lines[0].key]) ends.push(gaps[0]);
-  var lastL = spec.lines[spec.lines.length - 1];
-  if (lastL && busy[lastL.key]) ends.push(gaps[gaps.length - 1]);
-  var all = keep.concat(ends), mean = 0, v = 0;
-  all.forEach(function (g) { mean += g / all.length; });
-  all.forEach(function (g) { v += (g - mean) * (g - mean); });
-  return (all.length ? Math.sqrt(v / all.length) * 0.6 : 0) + idle * 1.0;
+  boxes.sort(function (p, q) { return p[0] - q[0]; });
+  var room = (spec.nameH || 14) + spec.railGap;
+  for (var gi = 0; gi < gaps.length; gi++) {
+    var lo = gi === 0 ? spec.cross.c0 : base[gi - 1] + room;
+    var hi = gi === gaps.length - 1 ? spec.cross.c1 : base[gi] - room;
+    if (hi <= lo) continue;
+    var at = lo, best = 0;
+    for (var bi = 0; bi < boxes.length; bi++) {
+      if (boxes[bi][1] <= lo || boxes[bi][0] >= hi) continue;
+      if (boxes[bi][0] - at > best) best = boxes[bi][0] - at;
+      if (boxes[bi][1] > at) at = boxes[bi][1];
+    }
+    if (hi - at > best) best = hi - at;
+    out[gi] = best > 0 ? best : 0;
+  }
+  return out;
 }
+
+function tidiness(spec, gaps, sol) {
+  var n = gaps.length;
+  if (n < 3) return 0;
+  var free = gapFree(spec, gaps, sol), mean = 0;
+  for (var i = 0; i < n; i++) mean += free[i] / n;
+  // A BOARD WITH NOTHING SPARE FALLS BACK TO EVEN GAPS.
+  //
+  // Where every gap is full there is no free paper to share, the measure
+  // above returns zero and stops saying anything at all -- and a crowded
+  // mashup strip with no tidying force on it put three households a person
+  // short. Evenness of the gaps is the right tiebreak exactly there and the
+  // wrong one everywhere else, so it is a fallback and not a second term:
+  // added to the first it pulls a board with room back towards even gaps,
+  // which is the empty band this all started with.
+  if (mean < (spec.nameH || 14)) return tidinessOf(gaps);
+  return spread(free) * 0.6;
+}
+
+// THE OLD MEASURE, KEPT FOR THE BOARDS THAT HAVE NOTHING SPARE. Evenness of
+// the gaps, and an edge gap wider than the gaps between the lines counted as
+// board nobody is using: on the first real panel the top edge came out at
+// three hundred and thirty pixels of a four hundred and eighty pixel board,
+// with the bottom three lines crowded into what was left, because nothing was
+// asking for that space and nothing was stopping it going there either.
 function tidinessOf(gaps) {
   var inner = gaps.slice(1, gaps.length - 1);
   if (!inner.length) return 0;
   var mean = inner.reduce(function (a, x) { return a + x; }, 0) / inner.length;
   var v = 0;
   inner.forEach(function (x) { v += (x - mean) * (x - mean); });
-  // ...AND AN EDGE GAP IS AN EDGE GAP, NOT A PLACE TO PUT SPARE BOARD.
-  //
-  // Only the gaps BETWEEN lines were weighed, on the reading that the two at
-  // the edges are edges and nobody minds how wide an edge is. On the first
-  // real panel the top edge came out at three hundred and thirty pixels of
-  // a four hundred and eighty pixel board -- a third of the panel blank,
-  // with the bottom three lines crowded into what was left -- because
-  // nothing was asking for that space and nothing was stopping it going
-  // there either. An edge wider than the gaps between the lines is board
-  // nobody is using.
   var edge = 0;
   [gaps[0], gaps[gaps.length - 1]].forEach(function (g) {
     edge += Math.max(0, g - mean);
   });
   return (Math.sqrt(v / inner.length) + edge) * 0.6;
+}
+function spread(xs) {
+  var n = xs.length, mean = 0, v = 0;
+  for (var i = 0; i < n; i++) mean += xs[i] / n;
+  for (var j = 0; j < n; j++) v += (xs[j] - mean) * (xs[j] - mean);
+  return Math.sqrt(v / n);
 }
 
 // A FEW RUNS FROM DIFFERENT STARTS, KEEPING THE BEST.
@@ -1595,6 +1702,24 @@ function solveBands(spec, opts) {
   var span = spec.cross.c1 - spec.cross.c0;
   var minGap = opts.minGap != null ? opts.minGap : 14;
 
+  // AN EDGE GAP IS HALF A GAP -- but only in what it is CHARGED, not in
+  // where the search begins.
+  //
+  // A gap BETWEEN two lines holds two sides of captions: what hangs under the
+  // line above and what stands over the line below. An edge gap holds one,
+  // and the line's own name. Given the same paper it comes out looking like
+  // the band nobody used, because it is -- on a real four-line board the top
+  // gap was as deep as the gaps between the lines with a single name in it,
+  // while the last line's captions ran into the banner. The evenness term
+  // below now weighs an edge at twice its own depth, so "even" means half a
+  // gap there, and `edgeSlack` charges the same shape of thing in pixels.
+  //
+  // The START stays even, edges included. Begun from halved edges a tight
+  // board shed a name it had been placing: the edges are where a caption
+  // spills when the middle is full, and a search that starts without them
+  // does not always find its way back. An edge that needs the room still
+  // asks for it -- `busy-day` opens with a gap half again the inner one,
+  // because two captions are standing in it.
   function evenGaps() {
     var even = span / (n + 1);
     return new Float64Array(n + 1).fill(even);
@@ -1603,7 +1728,7 @@ function solveBands(spec, opts) {
     dress(state);
     var b = boardFor(spec, state);
     var r = trial(spec, b, state);
-    return { cost: r.cost + tidiness(spec, state.gaps) + plainness(state),
+    return { cost: r.cost + tidiness(spec, state.gaps, r.sol) + plainness(state),
              starved: r.shed, board: b };
   }
   function dress(state) {
@@ -1742,6 +1867,40 @@ function solveBands(spec, opts) {
         }
       }
     }
+    // ...AND ONE MOVE THAT TIDIES BOTH EDGES AT ONCE.
+    //
+    // Paper leaves an edge gap one pair at a time, and the first step of that
+    // journey lands in ONE inner gap and makes the inner gaps uneven, which
+    // the evenness term charges. So a board with every gap the same sits in a
+    // local minimum: each single move out of an edge is uphill, and the place
+    // they are all going is downhill. `five-lines` came out 63|63|63|63|63|63
+    // on an OG with two edges paying for it, and stayed there.
+    //
+    // This offers the whole trip as one move. The edges go to half an inner
+    // gap -- e = span/2n, which is what "even, counting an edge as half" works
+    // out to -- and the inner gaps keep their own proportions to each other,
+    // scaled into what is left, so a gap that earned its depth keeps it.
+    // Offered, not applied: the descent takes it only if it is cheaper.
+    if (!stopped && n >= 2) {
+      var span2 = 0, innerNow = 0;
+      for (i = 0; i <= n; i++) span2 += st.gaps[i];
+      for (i = 1; i < n; i++) innerNow += st.gaps[i];
+      var edge2 = span2 / (2 * n), room = span2 - 2 * edge2;
+      if (innerNow > 0 && edge2 >= minGap) {
+        var f2 = room / innerNow, tidy = new Float64Array(n + 1), ok = true;
+        tidy[0] = tidy[n] = edge2;
+        for (i = 1; i < n; i++) { tidy[i] = st.gaps[i] * f2; if (tidy[i] < minGap) ok = false; }
+        // Nothing to offer when the board is already there.
+        var moved = Math.abs(tidy[0] - st.gaps[0]) + Math.abs(tidy[n] - st.gaps[n]);
+        if (ok && moved >= 8) {
+          var wasGaps = st.gaps;
+          st.gaps = tidy;
+          stopped = !!onMove();
+          st.gaps = wasGaps;
+        }
+      }
+    }
+
     // A SHELF IS OFFERED TO EVERY EVENT, not only to the ones in trouble: a
     // shelf is the form an event takes (shelfWorth), and a flat board with
     // every name placed had nothing troubled and so was never offered one
@@ -2074,7 +2233,7 @@ function solve(spec, opts) {
     var fl = require('./board').check(bb);
     var cuts = fl.filter(function (f) { return f.kind === 'namecut' && f.own; }).length;
     var faults = fl.length - cuts;
-    bb.edgeSlack = edgeSlack(cand.st.gaps);
+    bb.edgeSlack = edgeSlack(spec, cand.st, ss);
     var score = faults * 1e6 + cuts * spec.muddlePrice * 4 + boardCost(spec, bb, ss);
     if (score < bestScore) {
       bestScore = score; bestBoard = bb; bestSol = ss; bestSt = cand.st;
