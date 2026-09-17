@@ -127,7 +127,16 @@
       {%- endif -%}
       {%- comment -%}
         The same sentence, set in three weights: what is coming in bold, the
-        clock quiet, the words between them plain. transform.js splits it at
+        clock quiet, the words between them plain.
+
+        THE QUIET ONE IS DARKER WHERE THE PANEL CAN SHOW IT. `text--muted` is
+        the framework's context-aware grey and on this inverted banner it
+        computes to #ddd -- thirteen per cent off white, which is a shade a
+        4-bit panel can just about hold and a 1-bit one rounds straight back
+        to white. So the grey is deepened to #aaa on the depths that have the
+        levels for it, and 1-bit is left alone: there, any grey either
+        disappears or dithers into mush at this size, and the bold carries
+        the hierarchy on its own. transform.js splits it at
         its own placeholders (see `segments`), because which piece is a time
         and which is a unit differs per sentence and the ORDER of them is the
         translator's. `text` is still there whole, for anything that wants the
@@ -137,7 +146,7 @@
         {%- if data.service_alert.parts -%}
           {%- for p in data.service_alert.parts -%}
             {%- if p.s == "b" -%}<span class="text--bold">{{ p.t }}</span>
-            {%- elsif p.s == "q" -%}<span class="text--muted">{{ p.t }}</span>
+            {%- elsif p.s == "q" -%}<span class="metro-when text--muted 2bit:text--gray-30 4bit:text--gray-30">{{ p.t }}</span>
             {%- else -%}{{ p.t }}
             {%- endif -%}
           {%- endfor -%}
