@@ -17,7 +17,7 @@
 // nonsense: it is input, and it comes from outside.
 
 module.exports = function (test, h) {
-  const { runTransform, icsWithEvents, okText, fail, baseInput, eventItems, assert } = h;
+  const { runTransform, icsWithEvents, okText, fail, baseInput, eventItems, assert, assertEqual } = h;
 
   const NOW = Date.parse('2026-09-09T09:00:00Z');
   const NOW_S = Math.floor(NOW / 1000);
@@ -190,23 +190,46 @@ module.exports = function (test, h) {
       'a feed that answered again is still marked down: ' + JSON.stringify(r2.trmnl_state.calendarDown));
   });
 
-  test('a feed down for hours is named on the board; a blip is not', async () => {
-    // A single 500 on a morning refresh is noise: the plugin retries in
-    // fifteen minutes. What has to reach the reader is a feed that has been
-    // failing since before breakfast, because those events are missing and
-    // nothing else on the board says so.
+  test('a feed that is not answering is named on THIS board, not on a later one', async () => {
+    // It used to take two hours. The thinking was that a single 500 on a
+    // morning refresh is noise -- the plugin retries in fifteen minutes --
+    // and that is true of the FEED. It is not true of the board: for those
+    // two hours a person's whole day is missing from the map and every other
+    // thing on it looks completely normal. A reader cannot tell a quiet
+    // Tuesday from a calendar that did not load.
+    //
+    // Asked for directly, after two photographs of one board six minutes
+    // apart lost different people's events each time: "we can't just drop
+    // events, feeds without the user knowing".
     const { run } = runTransform(net({ calendarsFail: true }), NOW);
 
-    const blip = await run(input({}, { calendarDown: { [ICS_URL]: NOW_S - 10 * 60 } }));
-    assert(blip.data.calendars_down.length === 0,
-      'a ten-minute outage should not be announced, got ' + JSON.stringify(blip.data.calendars_down));
+    const first = await run(input());
+    assert(first.data.calendars_down.length === 1,
+      'a feed that failed on this very render was not named: '
+      + JSON.stringify(first.data.calendars_down));
 
-    const real = await run(input({}, {
-      calendarDown: { [ICS_URL]: NOW_S - 3 * 3600 },
+    // ...and it is named with the name it had when it last answered, which
+    // is the only thing a feed that cannot answer cannot tell us.
+    const known = await run(input({}, {
+      calendarDown: { [ICS_URL]: NOW_S - 10 * 60 },
       calendarNames: { [ICS_URL]: 'Alex Personal' },
     }));
-    assert(real.data.calendars_down.join(',') === 'Alex Personal',
-      'expected the failing feed named on the board, got ' + JSON.stringify(real.data.calendars_down));
+    assert(known.data.calendars_down.join(',') === 'Alex Personal',
+      'expected the failing feed named on the board, got ' + JSON.stringify(known.data.calendars_down));
+
+    // The clock is still kept: it is what lets a feed that comes back clear
+    // itself, and how long it has been down is worth knowing even though it
+    // no longer decides whether the reader is told.
+    assert(known.trmnl_state.calendarDown[ICS_URL] === NOW_S - 10 * 60,
+      'the down-since clock was not carried: ' + JSON.stringify(known.trmnl_state.calendarDown));
+  });
+
+  test('a feed that answers says nothing, so the mark means something', async () => {
+    // The other half of the ratchet: if a working board ever shows the
+    // warning, the warning stops being read at all.
+    const { run } = runTransform(net(), NOW);
+    const r = await run(input());
+    assertEqual(r.data.calendars_down, [], 'a board whose feeds all answered raised an alert');
   });
 
   test('a failing feed keeps the name it had, instead of becoming its URL', async () => {
@@ -219,17 +242,100 @@ module.exports = function (test, h) {
     assert(good.trmnl_state.calendarNames[ICS_URL] === 'Alex Personal',
       'the feed name was not remembered: ' + JSON.stringify(good.trmnl_state.calendarNames));
 
+    // Named only when there is nothing to show in its place -- the remembered
+    // read is what decides that, so it is dropped here and kept in the cache
+    // tests below.
     const saved = JSON.parse(JSON.stringify(good.trmnl_state));
-    saved.calendarDown = { [ICS_URL]: NOW_S - 3 * 3600 };
+    delete saved.feeds;
     const second = runTransform(net({ calendarsFail: true }), NOW);
     const later = await second.run(input({}, saved));
     assert(later.data.calendars_down.join(',') === 'Alex Personal',
       'the failing feed lost its name: ' + JSON.stringify(later.data.calendars_down));
 
     // and with nothing remembered it falls back to the link, not to nothing
-    const cold = await second.run(input({}, { calendarDown: { [ICS_URL]: NOW_S - 3 * 3600 } }));
+    const cold = await second.run(input({}, {}));
     assert(cold.data.calendars_down.length === 1 && /Cal/.test(cold.data.calendars_down[0]),
       'expected a URL-derived name as the last resort, got ' + JSON.stringify(cold.data.calendars_down));
+  });
+
+  // ------------------------------------------- the last good read of a feed
+  //
+  // A feed that does not answer used to take its events off the board with
+  // it, and say nothing about it for two hours. Two photographs of one real
+  // board six minutes apart lost different people's events each time, with
+  // the map looking perfectly normal both times: "it's dropped events like
+  // crazy", "we can't just drop events, feeds without the user knowing".
+  //
+  // The forecast has never worked that way -- the last one that answered is
+  // kept in saved state and replayed, and the board says so once it is too
+  // old to pass off as today's. Feeds do the same now, for the same six
+  // hours: "use the state to hold the previous success for six hours, after
+  // that show an error, keep showing the state."
+  test('a good read is remembered, so the next render that cannot reach it still has the day', async () => {
+    const good = await runTransform(net(), NOW).run(input());
+    const kept = good.trmnl_state.feeds && good.trmnl_state.feeds[ICS_URL];
+    assert(kept, 'nothing was remembered: ' + JSON.stringify(Object.keys(good.trmnl_state)));
+    assert(kept.at === NOW_S, 'the read is not stamped with when it happened: ' + kept.at);
+    assert(typeof kept.on === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(kept.on),
+      'the read is not stamped with the day it is about: ' + JSON.stringify(kept.on));
+    assert((kept.timed || []).length > 0, 'the events themselves were not kept: ' + JSON.stringify(kept));
+  });
+
+  test('a feed that fails is replayed from what it last gave us, and says nothing yet', async () => {
+    const good = await runTransform(net(), NOW).run(input());
+    const had = eventItems(good.data).map((e) => e.title).sort();
+    assert(had.length > 0, 'the healthy board had no events to compare against');
+
+    const down = runTransform(net({ calendarsFail: true }), NOW);
+    const r = await down.run(input({}, JSON.parse(JSON.stringify(good.trmnl_state))));
+    assertEqual(eventItems(r.data).map((e) => e.title).sort(), had,
+      'the events were not replayed from the remembered read');
+    // Nothing is missing from the map, so nothing is claimed to be.
+    assertEqual(r.data.calendars_down, [],
+      'the board cried wolf about a feed whose day it was still showing');
+  });
+
+  test('...and once that read is six hours old the board says so, still showing it', async () => {
+    const good = await runTransform(net(), NOW).run(input());
+    const had = eventItems(good.data).map((e) => e.title).sort();
+
+    const saved = JSON.parse(JSON.stringify(good.trmnl_state));
+    saved.feeds[ICS_URL].at = NOW_S - 6 * 3600 - 60;
+    const r = await runTransform(net({ calendarsFail: true }), NOW).run(input({}, saved));
+
+    assertEqual(eventItems(r.data).map((e) => e.title).sort(), had,
+      'a stale read is still the best there is and must stay on the board');
+    assertEqual(r.data.calendars_down, ['Alex Personal'],
+      'a read too old to present as today was not announced');
+  });
+
+  test('a remembered read from another day is wrong, not stale, and is not used', async () => {
+    // Every event in it is minutes from ITS day's midnight. Replayed against
+    // today it would put yesterday's afternoon on this afternoon.
+    const good = await runTransform(net(), NOW).run(input());
+    const saved = JSON.parse(JSON.stringify(good.trmnl_state));
+    saved.feeds[ICS_URL].on = '2019-01-01';
+    const r = await runTransform(net({ calendarsFail: true }), NOW).run(input({}, saved));
+    assertEqual(eventItems(r.data), [], 'yesterday\'s events were drawn as today\'s');
+    assertEqual(r.data.calendars_down, ['Alex Personal'],
+      'the feed took its day off the board and did not say so');
+  });
+
+  test('a remembered read that is rubbish is dropped, not handed to the board', async () => {
+    // Saved state is untrusted input: an older build wrote a different shape,
+    // and a truncated one is a shape nobody wrote.
+    const good = await runTransform(net(), NOW).run(input());
+    const day = good.trmnl_state.feeds[ICS_URL].on;
+    const junk = { feeds: { [ICS_URL]: { at: NOW_S, on: day,
+      timed: [{ title: 'Kept', day: 0, startMin: 600, endMin: 660 },
+              { day: 0, startMin: 1 },            // no title
+              'not an object', null,
+              { title: 'No day', startMin: 5 }] } } };
+    const r = await runTransform(net({ calendarsFail: true }), NOW).run(input({}, junk));
+    assert(!r.data.board_notice, 'a malformed cache took the render down: ' + r.data.board_notice);
+    const titles = eventItems(r.data).map((e) => e.title);
+    assert(titles.indexOf('Kept') >= 0, 'the good entry was thrown out with the bad: ' + JSON.stringify(titles));
+    assert(titles.indexOf('No day') < 0, 'an event with no day was drawn: ' + JSON.stringify(titles));
   });
 
   test('state left over from feeds the config no longer names is dropped', async () => {

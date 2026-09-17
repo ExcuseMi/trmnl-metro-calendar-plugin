@@ -85,14 +85,33 @@
     exactly like a fresh one. Under the map rather than over it: they are
     rare, they are prose, and the map is what the reader came for.
   {%- endcomment -%}
+  {%- comment -%}
+    A MARK, NOT JUST A SENTENCE. These lines were set in the same quiet grey
+    the board uses for a clock, at the bottom, and a calendar that was not on
+    the map at all read as a footnote -- which is how a person's whole day
+    went missing with nothing to say so. What is wrong with the board is not
+    a quiet thing: the words keep their size, so they never cost the map a
+    row, and they are marked and set in the board's own ink so the eye stops
+    on them.
+
+    The mark is drawn here rather than fetched: it has to be right on a
+    1-bit panel with no network, and it is two paths.
+  {%- endcomment -%}
+  {%- capture warn_icon -%}
+    <svg class="metro-alert-icon flex-none" viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path d="M8 1.5 15 14H1z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+      <path d="M8 6v3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      <circle cx="8" cy="11.9" r="0.95" fill="currentColor"/>
+    </svg>
+  {%- endcapture -%}
   {% if data.calendars_down and data.calendars_down.size > 0 %}
     {%- assign down_names = data.calendars_down | join: ", " -%}
     {%- assign feed_down_tpl = data.i18n.feed_down | default: "{n} unavailable" -%}
     {%- assign feed_down_msg = feed_down_tpl | replace: "{n}", down_names -%}
-    <div class="metro-alerts label label--small text--muted 1bit:text--default px--3 flex-none">{{ feed_down_msg }}</div>
+    <div class="metro-alerts label label--small text--bold px--3 flex-none flex flex--row flex--left flex--center-y gap--xsmall">{{ warn_icon }}<span>{{ feed_down_msg }}</span></div>
   {% endif %}
   {% if data.weather_stale %}
-    <div class="metro-alerts label label--small text--muted 1bit:text--default px--3 flex-none">{{ data.i18n.weather_stale | default: "Forecast may be out of date" }}</div>
+    <div class="metro-alerts label label--small text--bold px--3 flex-none flex flex--row flex--left flex--center-y gap--xsmall">{{ warn_icon }}<span>{{ data.i18n.weather_stale | default: "Forecast may be out of date" }}</span></div>
   {% endif %}
   {%- comment -%}
     The service banner. A sibling of the canvas rather than a band reserved

@@ -221,8 +221,11 @@ async function loadStrings(locale, state, deadline) {
       }
     } catch (e) {
       // offline, GitHub down, or a language nobody has translated yet
+      warn('the ' + lang + ' language file could not be fetched: '
+        + (e && e.message ? e.message : e));
     }
   }
+  if (!cached) warn('no ' + lang + ' language file and nothing remembered; the board reads in English');
   return cached ? mergeStrings(cached.strings) : I18N.en;
 }
 
@@ -343,6 +346,31 @@ function segments(str, vars, styles) {
 // and a bad one is dropped rather than trusted.
 // ---------------------------------------------------------------------
 
+// SAY SO, IN THE PLACE A PERSON DEBUGGING THIS WOULD LOOK.
+//
+// Everything that can go wrong here is something the board then cannot show,
+// and until now none of it left a trace anywhere: a feed that did not answer,
+// a forecast that timed out, a language file that 404ed, a config that would
+// not parse. The board says what it can (see `calendars_down` and
+// `board_notice`); this is the other half, for whoever is looking at the
+// render log wondering why.
+//
+// Guarded because the runtime is not promised to have a console, and a
+// transform that throws while trying to log is a blank board.
+function warn(msg) {
+  try {
+    if (typeof console !== 'undefined' && console && console.warn) console.warn('metro: ' + msg);
+  } catch (e) { /* a log is never worth a render */ }
+}
+
+// Enough of a URL to recognise a feed by, and never enough to leak one: a
+// calendar link is a secret (anybody holding it can read the calendar), so
+// the host is logged and the path never is.
+function hostOf(url) {
+  var m = /^[a-z]+:\/\/([^/?#]+)/i.exec(String(url || ''));
+  return m ? m[1] : 'unknown host';
+}
+
 function msUntil(deadline) {
   return deadline - Date.now();
 }
@@ -380,8 +408,68 @@ function msUntil(deadline) {
 var RENDER_BUDGET_MS = 4000;
 
 var WEATHER_STALE_AFTER_S = 6 * 3600;  // older than this and the board says so rather than presenting it as today's forecast
-var CALENDAR_DOWN_AFTER_S = 2 * 3600;  // a feed that has been failing this long is named on the board instead of quietly missing
+// THE SAME SIX HOURS FOR A CALENDAR, AND FOR THE SAME REASON.
+//
+// A feed that does not answer used to take its events off the board with it,
+// which is the one thing the board must never do quietly -- a reader cannot
+// tell a quiet Tuesday from a calendar that failed. The forecast has never
+// worked that way: the last one that answered is kept in saved state and
+// replayed, and the board says so once it is too old to pass off as today's.
+// Feeds do that now too: "use the state to hold the previous success for six
+// hours, after that show an error, keep showing the state".
+//
+// Kept per feed and only for the day it was read for -- events are minutes
+// into a particular day, so a cache that outlived its day is not stale, it is
+// wrong.
+var FEED_STALE_AFTER_S = 6 * 3600;
+var FEED_CACHE_MAX_EVENTS = 80;        // per feed; a household's two days, with room
+var FEED_CACHE_MAX_FEEDS = 12;         // state travels with every render
+// A FEED THAT IS NOT ANSWERING IS NAMED ON THIS RENDER, NOT ON A LATER ONE.
+//
+// It used to be named only once it had been failing for two hours, so that a
+// blip -- one 500, one slow morning -- changed nothing on the board. What
+// that actually bought was two hours in which a person's whole day could be
+// missing from the map with nothing anywhere to say so, and the map looking
+// entirely normal. That is the one thing this board must never do: "we can't
+// just drop events, feeds without the user knowing".
+//
+// The clock is still kept, because `state.calendarDown` is what lets a feed
+// that comes back clear itself, and how long it has been down is worth
+// knowing. It no longer decides whether the reader is told.
+var CALENDAR_DOWN_AFTER_S = 2 * 3600;  // kept for the "down since" clock in saved state; no longer gates what the board says
 var STATE_MAX_URLS = 40;               // state travels with every render; a config that once had 200 feeds must not grow it forever
+
+// One cached feed's events, kept only where every field is the shape parseIcs
+// writes. Returns null for anything that is not an array, so a feed whose
+// cache is rubbish falls through to being reported as missing rather than
+// putting nonsense on the board.
+function cleanCachedEvents(list) {
+  if (!Array.isArray(list)) return null;
+  var out = [];
+  for (var i = 0; i < list.length && out.length < FEED_CACHE_MAX_EVENTS; i++) {
+    var e = list[i];
+    if (!e || typeof e !== 'object' || typeof e.title !== 'string' || !e.title) continue;
+    if (typeof e.day !== 'number' || !isFinite(e.day)) continue;
+    var o = { title: e.title.slice(0, 200), day: e.day,
+      desc: typeof e.desc === 'string' ? e.desc.slice(0, 300) : '',
+      status: typeof e.status === 'string' ? e.status.slice(0, 40) : '',
+      location: typeof e.location === 'string' ? e.location.slice(0, 200) : '',
+      categories: Array.isArray(e.categories)
+        ? e.categories.filter(function (c) { return typeof c === 'string'; }).slice(0, 10) : [],
+      weekday: typeof e.weekday === 'number' && isFinite(e.weekday) ? e.weekday : undefined };
+    // A timed event carries its minutes; an all-day one carries its span.
+    if (typeof e.startMin === 'number' && isFinite(e.startMin)) {
+      o.startMin = e.startMin;
+      o.endMin = typeof e.endMin === 'number' && isFinite(e.endMin) ? e.endMin : null;
+      if (e.todo === true) o.todo = true;
+    } else {
+      o.span = typeof e.span === 'number' && isFinite(e.span) ? e.span : 1;
+      o.index = typeof e.index === 'number' && isFinite(e.index) ? e.index : 0;
+    }
+    out.push(o);
+  }
+  return out;
+}
 
 function readState(input) {
   var raw = null;
@@ -393,7 +481,7 @@ function readState(input) {
   }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) raw = {};
 
-  var out = { weather: null, weatherFetchedAt: 0, calendarDown: {}, calendarNames: {}, i18n: null };
+  var out = { weather: null, weatherFetchedAt: 0, calendarDown: {}, calendarNames: {}, i18n: null, feeds: {} };
 
   if (raw.weather && typeof raw.weather === 'object' && !Array.isArray(raw.weather)) {
     out.weather = raw.weather;
@@ -409,6 +497,20 @@ function readState(input) {
     Object.keys(raw.calendarNames).slice(0, STATE_MAX_URLS).forEach(function (url) {
       var n = raw.calendarNames[url];
       if (typeof n === 'string' && n.trim()) out.calendarNames[url] = n.trim().slice(0, 80);
+    });
+  }
+  // THE LAST GOOD READ OF EACH FEED. Untrusted like the rest of saved state:
+  // an older build wrote a different shape, and anything that is not exactly
+  // what parseIcs produces is dropped rather than handed to the rule engine.
+  if (raw.feeds && typeof raw.feeds === 'object' && !Array.isArray(raw.feeds)) {
+    Object.keys(raw.feeds).slice(0, FEED_CACHE_MAX_FEEDS).forEach(function (url) {
+      var f = raw.feeds[url];
+      if (!f || typeof f !== 'object' || typeof f.on !== 'string' || !f.on) return;
+      if (typeof f.at !== 'number' || !isFinite(f.at) || f.at <= 0) return;
+      var timed = cleanCachedEvents(f.timed), allDay = cleanCachedEvents(f.allDay);
+      if (!timed && !allDay) return;
+      out.feeds[url] = { at: f.at, on: f.on.slice(0, 10), timed: timed || [], allDay: allDay || [],
+        calName: typeof f.calName === 'string' ? f.calName.slice(0, 80) : '' };
     });
   }
   if (raw.i18n && typeof raw.i18n === 'object' && typeof raw.i18n.lang === 'string') {
@@ -428,7 +530,8 @@ function pruneState(state, urls) {
   if (!state) return;
   var keep = {};
   (urls || []).forEach(function (u) { keep[u] = true; });
-  [state.calendarDown, state.calendarNames].forEach(function (map) {
+  [state.calendarDown, state.calendarNames, state.feeds].forEach(function (map) {
+    if (!map) return;
     Object.keys(map).forEach(function (u) { if (!keep[u]) delete map[u]; });
   });
 }
@@ -1464,7 +1567,7 @@ async function fetchWeather(latLonRaw, tz, deadline, unit, opts) {
     var budget = msUntil(deadline);
     if (budget <= 0) return null;
     var resp = await fetchWithTimeout('https://api.open-meteo.com/v1/forecast?' + params.toString(), Math.min(budget, 3000));
-    if (!resp.ok) return null;
+    if (!resp.ok) { warn('the forecast answered HTTP ' + resp.status + '; the board keeps the last one it had'); return null; }
     var body = await resp.json();
     var daily = body.daily || {};
     var info = weatherCodeInfo((daily.weathercode || [])[0]);
@@ -3491,6 +3594,9 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
   // a board with nothing on it says which of the two it is (boardNotice).
   var feedsFailed = [], feedsRead = 0;
   var nowS = Math.floor(Date.now() / 1000);
+  // WHICH DAY A CACHED READ BELONGS TO. Every event in it is minutes from
+  // this day's midnight, so it means nothing against any other day.
+  var cacheDay = isoDate(today);
 
   await Promise.all((parsed.calendars || []).map(async function (cal) {
     var url = feedUrl(cal.url);
@@ -3499,15 +3605,20 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
     // remembered one an unnamed feed that goes down loses its identity and
     // comes back as a URL fragment, which is the "Calendar 2" problem.
     var knownName = cal.name || (state && state.calendarNames[cal.url]) || null;
-    function failed() {
+    // `tell` is whether the reader has to be told. A feed that failed and had
+    // nothing remembered has taken its events off the board, so yes, on this
+    // render (see CALENDAR_DOWN_AFTER_S). A feed that failed and was replayed
+    // from a fresh enough cache has taken nothing off the board, so the log
+    // gets it and the map does not -- until the cache is six hours old, when
+    // it is no longer something to present as today.
+    function failed(why, tell) {
       var now = knownName || urlLabel(cal.url);
       if (feedsFailed.indexOf(now) < 0) feedsFailed.push(now);
+      if (tell !== false && downNames.indexOf(now) < 0) downNames.push(now);
+      warn('calendar "' + now + '" did not answer' + (why ? ': ' + why : '')
+        + ' (' + hostOf(cal.url) + ')');
       if (!state) return;
       if (!state.calendarDown[cal.url]) state.calendarDown[cal.url] = nowS;
-      if (nowS - state.calendarDown[cal.url] >= CALENDAR_DOWN_AFTER_S) {
-        var label = knownName || urlLabel(cal.url);
-        if (downNames.indexOf(label) < 0) downNames.push(label);
-      }
       // A kept line keeps its remembered name too, so the rail that is
       // missing its events is still labelled with whose it is.
       if (cal.keepEmpty && !cal.owner && cal.fallbackName) registry.keep(cal.fallbackName);
@@ -3520,13 +3631,36 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       // awaited, so every feed has the whole budget rather than what they left.
       var pre = extra && extra.prefetched && extra.prefetched[feedKey(url, cal.headers)];
       var got = pre ? await pre : await fetchFeedText(url, deadline, cal.headers);
-      if (!got || !got.ok) { failed(); return; }
-      var text = got.text;
-      var parsedIcs = parseIcs(text, tz, days, cal.includeDescription, cal.ignoreTimezone);
-      feedsRead++;
-      if (state) {
-        delete state.calendarDown[cal.url];
-        if (parsedIcs.calName) state.calendarNames[cal.url] = parsedIcs.calName;
+      var parsedIcs;
+      if (!got || !got.ok) {
+        // THE LAST TIME IT ANSWERED, IF THAT WAS TODAY. Events are minutes
+        // into a particular day, so a cache from another day is not stale --
+        // it is wrong -- and is not used at all.
+        var keep = state && state.feeds && state.feeds[cal.url];
+        var usable = keep && keep.on === cacheDay;
+        var why = got ? 'HTTP ' + got.status : 'no answer inside the render budget';
+        if (!usable) { failed(why, true); return; }
+        var oldS = nowS - keep.at;
+        var stale = oldS >= FEED_STALE_AFTER_S;
+        failed(why + '; showing what it last gave us, ' + Math.round(oldS / 60)
+          + ' minute(s) ago' + (stale ? ' -- too old to present as today, so the board says so' : ''),
+          stale);
+        parsedIcs = { timed: keep.timed || [], allDay: keep.allDay || [], calName: keep.calName || '' };
+        feedsRead++;
+      } else {
+        parsedIcs = parseIcs(got.text, tz, days, cal.includeDescription, cal.ignoreTimezone);
+        feedsRead++;
+        if (state) {
+          delete state.calendarDown[cal.url];
+          if (parsedIcs.calName) state.calendarNames[cal.url] = parsedIcs.calName;
+          // ...AND REMEMBERED, so the next render that cannot reach it still
+          // has the day. Only what this render would have drawn anyway.
+          if (Object.keys(state.feeds).length < FEED_CACHE_MAX_FEEDS || state.feeds[cal.url]) {
+            state.feeds[cal.url] = { at: nowS, on: cacheDay, calName: parsedIcs.calName || '',
+              timed: (parsedIcs.timed || []).slice(0, FEED_CACHE_MAX_EVENTS),
+              allDay: (parsedIcs.allDay || []).slice(0, FEED_CACHE_MAX_EVENTS) };
+          }
+        }
       }
       // Last resort for whose line this is: the feed's own X-WR-CALNAME,
       // then the last thing in the URL. Only reached when the config named
@@ -3657,9 +3791,9 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
         placeAllDay(resolved, lineNames, ev.day);
       });
     } catch (e) {
-      // one calendar failing shouldn't blank the whole render — skip it,
-      // but remember that it failed
-      failed();
+      // one calendar failing must not blank the whole render, and must not
+      // pass unnoticed either: it is named on the board like any other.
+      failed('it could not be read: ' + (e && e.message ? e.message : e));
     }
   }));
 
@@ -3923,6 +4057,7 @@ async function run(input) {
   var typedCfg = configRaw ? parseConfig(configRaw) : null;
   var noUsableConfig = !typedCfg || !typedCfg.calendars.length;
   var configProblem = !useDemo && typedCfg && typedCfg.unreadable ? 'config_invalid' : null;
+  if (configProblem) warn('the Calendars box could not be read as JSON; the board shows the example day and says so');
 
   // Read before anything else needs it, and written back on every exit
   // below: what the weather was last time the API answered, which feeds
@@ -3961,7 +4096,7 @@ async function run(input) {
         wxOpts = { localSun: true, dateKey: isoDate(fromEpoch(nowTsW * 1000, wxTz)) };
       }
       wxStarted = fetchWeather(latLonRaw, typeof wxTz === 'string' ? wxTz : 'GMT', deadline, tempUnit, wxOpts);
-    } catch (e) { wxStarted = null; }
+    } catch (e) { warn('the forecast could not be asked for: ' + (e && e.message ? e.message : e)); wxStarted = null; }
   }
 
   var strings = await loadStrings(locale, state, deadline);

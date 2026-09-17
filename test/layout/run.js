@@ -522,6 +522,19 @@ const REPORTER = `
         pieces: pieces
       });
     }
+    // WHAT THE BOARD SAYS IS WRONG WITH ITSELF. A feed that did not answer, a
+    // forecast too old to present as today's. Outside the canvas, like the
+    // banner, so nothing in the labels list has ever seen one -- which is how
+    // they came to be a grey footnote nobody had looked at.
+    var alerts = [].slice.call(document.querySelectorAll('.metro-alerts')).map(function (el) {
+      var cs = getComputedStyle(el);
+      var ic = el.querySelector('.metro-alert-icon');
+      return Object.assign(rel(el.getBoundingClientRect()), {
+        text: (el.textContent || '').trim(), color: cs.color,
+        weight: String(cs.fontWeight),
+        icon: ic ? rel(ic.getBoundingClientRect()) : null
+      });
+    });
     var dbg = null;
     try { dbg = JSON.parse(canvas.getAttribute('data-metro-debug')); } catch (e) {}
     if (dbg) dbg.runs = window.__metroRuns || 0;
@@ -533,6 +546,7 @@ const REPORTER = `
       root: rel(root.getBoundingClientRect()), view: rel(viewEl.getBoundingClientRect()),
       boardBg: bgOf(canvas), banner: banner,
       debug: dbg, labels: labels, paths: paths, rects: rects, painted: painted, overlays: overlays,
+      alerts: alerts,
       header: head, badges: badges, errors: (window.__metroErrors || []).slice(0, 8),
       circles: circles.concat(shapeMarkers)
     });
