@@ -111,6 +111,42 @@ module.exports = function (test, h) {
       'the start of the rain should be unchanged: ' + JSON.stringify(starts));
   });
 
+  test('rain that stops before sunrise is a clear night too', async () => {
+    // The other half of the night, and the half that was only ever in the
+    // code: a spell ending at half six on a morning the sun comes up at five
+    // past seven is still dark out.
+    const snap = {
+      weather: { hi: 18, lo: 13, condition: 'rain', icon: 'wi-day-rain.svg', rain_chance: 96, unit: 'C',
+        milestones: [{ atMin: 6 * 60 + 30, kind: 'rain_stops' }],
+        perDay: [{ hi: 18, lo: 13, condition: 'rain', rain_chance: 96,
+                   milestones: [{ atMin: 6 * 60 + 30, kind: 'rain_stops' }],
+                   sunrise_min: 7 * 60 + 5, sunset_min: 19 * 60 + 45 }] },
+      weatherFetchedAt: NOW_S - 600,
+    };
+    const { run } = runTransform(net({ weatherFails: true }), NOW);
+    const r = await run(input({}, snap));
+    const marks = (r.data.weather || []).filter((i) => i.type === 'weather');
+    assert(marks.length, 'no marker came back at all');
+    assert(/wi-night-clear/.test(marks[0].icon),
+      'rain stopping at 06:30, half an hour before sunrise, drew ' + marks[0].icon);
+  });
+
+  test('a snapshot with no sun times keeps the sun it always drew', async () => {
+    // Saved state outlives a build. A snapshot written before the board knew
+    // its own sunrise has no sun to reason from, and the answer to that is
+    // the old picture rather than a guess at the dark.
+    const snap = {
+      weather: { hi: 18, lo: 13, condition: 'rain', icon: 'wi-day-rain.svg', rain_chance: 96, unit: 'C',
+        milestones: [{ atMin: 20 * 60, kind: 'rain_stops' }] },
+      weatherFetchedAt: NOW_S - 600,
+    };
+    const { run } = runTransform(net({ weatherFails: true }), NOW);
+    const r = await run(input({}, snap));
+    const marks = (r.data.weather || []).filter((i) => i.type === 'weather');
+    assert(marks.length && /wi-day-sunny/.test(marks[0].icon),
+      'with no sun times it should draw what it always drew: ' + JSON.stringify(marks));
+  });
+
   test('rain that stops in daylight still clears to a sun', async () => {
     const snap = {
       weather: { hi: 18, lo: 13, condition: 'rain', icon: 'wi-day-rain.svg', rain_chance: 96, unit: 'C',
