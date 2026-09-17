@@ -386,6 +386,26 @@ function check(board) {
                     px: Math.round(Math.min(o.a1, p.a1) - Math.max(o.a0, p.a0)) });
     }
   }
+  // A CAPTION WRITTEN ACROSS A MIDNIGHT. The words are read as belonging to
+  // the day they are over, so a name that straddles the cut belongs to both
+  // days and to neither: "Moe's Tavern" at half past eleven at night was
+  // written into the small hours -- "the event labels move over to the other
+  // days, that should never be allowed."
+  //
+  // The caption SEARCH has refused this all along (`readable`, captions.js).
+  // It was never a fault, though, and everything that adjusts a caption after
+  // the search keeps its result "where the board has no more faults than it
+  // had" -- so `growCrowds` was free to grow one straight over a midnight,
+  // and did. A rule the search enforces and the checker cannot see is a rule
+  // with a hole in it the exact size of every pass that runs afterwards.
+  for (i = 0; i < board.caps.length; i++) {
+    var cb = board.caps[i].box();
+    for (j = 0; j < (board.cuts || []).length; j++) {
+      if (cb.a0 < board.cuts[j] - 1 && cb.a1 > board.cuts[j] + 1) {
+        faults.push({ kind: 'midnight', what: board.caps[i].text, at: board.cuts[j] });
+      }
+    }
+  }
   // A caption written over the board's own furniture: the hour strip, a
   // line's name, a note at the end of the axis. All of it was on the board
   // before any event was, and none of it can move out of the way.

@@ -719,6 +719,17 @@ function edged(metro) {
 function frameFor(view, opts) {
   var rowH = (opts && opts.rowH) || 12;
   var hours = Math.max(6, Math.min(24, Math.round(view.w / (rowH * 2.0))));
+  // ...AND A SHORTER WINDOW IS SOMETHING THE CALLER CAN ASK FOR.
+  //
+  // How many hours fit is a fact about the paper, and it is not the only
+  // thing the hours cost: past a certain density the captions start giving up
+  // their time row to fit beside each other, and a board of names with no
+  // times on it is a worse answer than the same board showing less of the day
+  // -- "just show less hours until it can show the times again". The caller
+  // solves, looks, and asks again for less (see Fit.best). Six hours is the
+  // floor whatever is asked: under that it is not a day.
+  var share = opts && opts.hourShare;
+  if (share != null && share > 0 && share < 1) hours = Math.max(6, Math.round(hours * share));
   var events = Math.max(3, Math.min(60, Math.round(view.w * view.h / (rowH * rowH * 45))));
   // ...AND HOW MANY PEOPLE. The third cap, and the one that buys time rather
   // than paper: `fit` sheds a line at a time from the top, re-solving at

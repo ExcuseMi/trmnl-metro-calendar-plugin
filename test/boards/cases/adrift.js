@@ -26,31 +26,24 @@ module.exports = function (test, h) {
   // Each of these stood clear of its own event before the pass and over it
   // after, on a board with the same number of names on it.
   //
-  // TWO OF THEM CAME BACK, AND WERE LET. Fixing a line's NAME landing in the
+  // ONE OF THEM CAME BACK, AND WAS LET. Fixing a line's NAME landing in the
   // middle of the board ("Bart end label is in the middle of the page",
   // test/layout/cases/names.js) meant taking the all-day badge off a head
   // whose escape from a branch would otherwise have carried it a quarter of
   // the way across, and a board with one fewer badge on it is a board the
-  // caption search solves differently. On these two, one caption comes to
-  // rest past its own stop again: School Run by 15px against a 12px bar, Team
-  // Standup by 31px.
+  // caption search solves differently. School Run comes to rest 15px past its
+  // own stop against a 12px bar.
   //
-  // Kept as failures rather than re-baselined, because they ARE failures --
-  // the bar is right and the boards are worse for it. What bought them is on
-  // the households corpus, which is the closest thing here to real days: 216
+  // Kept as a failure rather than re-baselined, because it IS one -- the bar
+  // is right and that board is worse for it. What bought it is on the
+  // households corpus, which is the closest thing here to real days: 216
   // boards, and three people who were being left off one are now on it
-  // (dropped 30 -> 27) with shed, muddle and faults level or better. Three
-  // people on the map against two captions adrift on a mashup half is the
-  // trade, and by this project's own currency -- a person is worth eight, an
-  // unreadable name four -- it is not close.
+  // (dropped 30 -> 27) with shed, muddle and faults level or better.
   //
-  // The badge-drop is the crude half of it. What it wants is for the caption
-  // search to see the head's own choice rather than be handed it: see the
-  // note by the escape in bands.js.
+  // Team Standup was here too and is not any more: the window ladder took it
+  // back off the list by giving that board a shorter day to draw.
   var KNOWN = {
     'all-day-every-track/og-half/School Run':
-      'the badge-drop that keeps a name at its own end (bands.js) reflows this board',
-    'three-day-holiday/og-half/Team Standup':
       'the badge-drop that keeps a name at its own end (bands.js) reflows this board',
   };
   [['double-booked', 'og-landscape', 'Design Review'],

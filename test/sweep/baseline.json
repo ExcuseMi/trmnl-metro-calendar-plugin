@@ -21,7 +21,7 @@
     "shed": 0,
     "dropped": 0,
     "caps": 3,
-    "timed": 1
+    "timed": 2
   },
   "friends 07:30 x-landscape": {
     "shed": 0,
@@ -188,14 +188,14 @@
   "futurama 07:30 og-half-vertical": {
     "shed": 0,
     "dropped": 0,
-    "caps": 12,
-    "timed": 3
+    "caps": 9,
+    "timed": 5
   },
   "futurama 07:30 og-landscape": {
     "shed": 0,
     "dropped": 0,
-    "caps": 12,
-    "timed": 2
+    "caps": 7,
+    "timed": 7
   },
   "futurama 07:30 og-quadrant": {
     "shed": 2,
@@ -224,14 +224,14 @@
   "futurama 12:00 og-half-vertical": {
     "shed": 0,
     "dropped": 0,
-    "caps": 12,
-    "timed": 1
+    "caps": 10,
+    "timed": 2
   },
   "futurama 12:00 og-landscape": {
     "shed": 0,
     "dropped": 0,
-    "caps": 12,
-    "timed": 1
+    "caps": 10,
+    "timed": 10
   },
   "futurama 12:00 og-quadrant": {
     "shed": 2,
@@ -294,28 +294,28 @@
     "timed": 3
   },
   "futurama 21:30 og-half-vertical": {
-    "shed": 1,
-    "dropped": 0,
-    "caps": 14,
-    "timed": 0
+    "shed": 0,
+    "dropped": 1,
+    "caps": 9,
+    "timed": 9
   },
   "futurama 21:30 og-landscape": {
     "shed": 0,
     "dropped": 0,
-    "caps": 15,
-    "timed": 1
+    "caps": 10,
+    "timed": 2
   },
   "futurama 21:30 og-quadrant": {
-    "shed": 3,
+    "shed": 1,
     "dropped": 0,
     "caps": 6,
-    "timed": 0
+    "timed": 1
   },
   "futurama 21:30 x-landscape": {
     "shed": 0,
     "dropped": 0,
-    "caps": 18,
-    "timed": 18
+    "caps": 15,
+    "timed": 15
   },
   "futurama 21:30 x-portrait": {
     "shed": 0,
@@ -331,21 +331,21 @@
   },
   "futurama 23:40 og-half-vertical": {
     "shed": 0,
-    "dropped": 0,
-    "caps": 14,
-    "timed": 0
+    "dropped": 1,
+    "caps": 9,
+    "timed": 9
   },
   "futurama 23:40 og-landscape": {
     "shed": 0,
     "dropped": 0,
-    "caps": 14,
-    "timed": 1
+    "caps": 7,
+    "timed": 4
   },
   "futurama 23:40 og-quadrant": {
-    "shed": 3,
+    "shed": 1,
     "dropped": 0,
     "caps": 6,
-    "timed": 0
+    "timed": 1
   },
   "futurama 23:40 x-landscape": {
     "shed": 0,
@@ -368,8 +368,8 @@
   "simpsons 07:30 og-half-vertical": {
     "shed": 0,
     "dropped": 0,
-    "caps": 17,
-    "timed": 1
+    "caps": 11,
+    "timed": 11
   },
   "simpsons 07:30 og-landscape": {
     "shed": 0,
@@ -404,8 +404,8 @@
   "simpsons 12:00 og-half-vertical": {
     "shed": 0,
     "dropped": 0,
-    "caps": 17,
-    "timed": 1
+    "caps": 11,
+    "timed": 3
   },
   "simpsons 12:00 og-landscape": {
     "shed": 0,
@@ -474,16 +474,16 @@
     "timed": 1
   },
   "simpsons 21:30 og-half-vertical": {
-    "shed": 0,
+    "shed": 1,
     "dropped": 0,
-    "caps": 18,
-    "timed": 0
+    "caps": 8,
+    "timed": 2
   },
   "simpsons 21:30 og-landscape": {
-    "shed": 0,
-    "dropped": 1,
-    "caps": 13,
-    "timed": 2
+    "shed": 1,
+    "dropped": 0,
+    "caps": 8,
+    "timed": 8
   },
   "simpsons 21:30 og-quadrant": {
     "shed": 1,
@@ -512,26 +512,26 @@
   "simpsons 23:40 og-half-vertical": {
     "shed": 0,
     "dropped": 0,
-    "caps": 16,
-    "timed": 1
+    "caps": 7,
+    "timed": 4
   },
   "simpsons 23:40 og-landscape": {
     "shed": 0,
-    "dropped": 1,
-    "caps": 13,
-    "timed": 2
+    "dropped": 0,
+    "caps": 7,
+    "timed": 7
   },
   "simpsons 23:40 og-quadrant": {
-    "shed": 1,
+    "shed": 0,
     "dropped": 1,
-    "caps": 6,
-    "timed": 1
+    "caps": 7,
+    "timed": 2
   },
   "simpsons 23:40 x-landscape": {
     "shed": 0,
     "dropped": 0,
-    "caps": 23,
-    "timed": 23
+    "caps": 16,
+    "timed": 16
   },
   "simpsons 23:40 x-portrait": {
     "shed": 0,

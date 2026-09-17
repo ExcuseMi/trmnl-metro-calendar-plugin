@@ -341,4 +341,107 @@ function fit(spec, opts) {
   return best;
 }
 
-module.exports = { fit: fit, worth: worth, withoutLines: withoutLines };
+// ---------------------------------------------------------------- the window
+//
+// LESS OF THE DAY, RATHER THAN A DAY WITH NO CLOCK ON IT.
+//
+// A caption is drawn as its name with its time under it, and the first thing
+// a crowded board gives up is that second row: the band search takes the whole
+// board down a rung, which fixes every overlap on it at once, and the gaps
+// then close around one-row captions so it cannot climb back. On a full X
+// showing two days -- twenty-seven events -- simpsons at 18:45 came out with
+// the time under NOT ONE of them. "Why are we dropping time labels here btw."
+//
+// It is not a fault and the search is not stuck: that board genuinely costs
+// about three shed names' worth of ambiguity with its times on, because at two
+// rows tall the captions stop being pinnable to their own marks. The board is
+// making the right trade with the hours it was given.
+//
+// So give it fewer hours. "Just show less hours until it can show the times
+// again." The same board at three quarters of the window draws twenty-one
+// events, every one with its time, sheds nothing, and says "+8 more" at the
+// edge -- which is the board's own way of saying there is more day than this.
+//
+// WHAT IT COSTS IS COUNTED IN THE SAME CURRENCY as everything else here: an
+// unreadable name at four, a person not shown at eight, an event not shown at
+// one -- and now a time row given up at one, because a name whose time is
+// missing has lost about as much as an event pushed off the edge has. On the
+// board above that is twenty-seven against six, and six wins.
+//
+// AND IT IS ONLY EVER ASKED OF A BOARD THAT GAVE SOMETHING UP. A board that
+// already shows every time is returned on the first solve, having paid for
+// nothing -- which is almost all of them.
+var SHARES = [1, 0.75, 0.6];
+
+// A caption that is wearing fewer rows than its richest form has: its time.
+function timeless(spec, board) {
+  var rich = {};
+  (spec.wants || []).forEach(function (w) {
+    var f = w.forms && w.forms[0];
+    rich[w.id] = f && (f.rows || []).length > 1;
+  });
+  var n = 0;
+  (board.caps || []).forEach(function (c) {
+    if (rich[c.id] && (c.rows || []).length < 2) n++;
+  });
+  return n;
+}
+
+// `build(share)` hands back the spec for a window that much of the full one.
+// Everything else is `fit`, once per rung.
+function best(build, opts) {
+  opts = opts || {};
+  // ONE CLOCK AND ONE POOL FOR THE WHOLE LADDER. `fit` turns `timeMs` into a
+  // deadline of its own, so three rungs given the same `timeMs` would each
+  // take it in full and the page would wait three times as long as it was
+  // promised. Turned into a deadline HERE, the rungs share it: the first has
+  // as long as it needs and a later one runs only in what is left.
+  if (opts.timeMs && !opts.deadline) {
+    opts = Object.assign({}, opts, { deadline: Date.now() + opts.timeMs });
+  }
+  var base = null, baseCost = Infinity, baseWants = 0, baseFaults = Infinity;
+  for (var i = 0; i < SHARES.length; i++) {
+    // The clock and the eval pool are shared with the solve itself, so a
+    // board that has spent them keeps what it has rather than starving the
+    // rung it already found.
+    if (i && opts.deadline && Date.now() > opts.deadline) break;
+    if (i && opts.pool && opts.pool.left != null && opts.pool.used >= opts.pool.left) break;
+    var spec = build(SHARES[i]);
+    if (!spec) break;
+    if (!i) baseWants = (spec.wants || []).length;
+    var board = fit(spec, opts);
+    // WHICH SPEC WON, ALWAYS. `fit` sets this only when it drops a line, and
+    // everything downstream draws against `board.spec || spec` -- so a board
+    // solved on a shorter window was drawn against the full one, and every
+    // event on it lost the marks at its own minutes.
+    if (!board.spec) board.spec = spec;
+    var w = worth(spec, board);
+    var gone = timeless(spec, board);
+    var cost = w.lost * 4
+      + (board.dropped || []).length * 8
+      + Math.max(0, baseWants - (spec.wants || []).length)
+      + gone;
+    // SHOWING LESS OF THE DAY MUST NOT MAKE THE BOARD WRONG. A time row is a
+    // preference and is priced like one; a caption written across a midnight,
+    // a name with its own rail through it, a name nobody can pin are not, and
+    // a shorter window that introduces one of them has not helped. A veto
+    // rather than a price, because at one time row apiece a board full of
+    // them could buy a fault and still come out ahead.
+    //
+    // `check` and not `worth`: worth leaves out the two kinds a dropped
+    // PERSON cannot fix (a name clash is the band search's to answer), and
+    // those are exactly the ones a shorter window was introducing.
+    var faults = B.check(board).length;
+    if (!i) baseFaults = faults;
+    if (faults <= baseFaults && cost < baseCost - 1e-9) {
+      base = board; baseCost = cost; base.window = SHARES[i];
+    }
+    // Nothing given up and nothing lost: no shorter window can beat this.
+    if (!gone && !w.lost) break;
+    // ...and a window that cannot be shortened any further is the end of it.
+    if (i && (spec.wants || []).length === baseWants) break;
+  }
+  return base;
+}
+
+module.exports = { fit: fit, best: best, worth: worth, withoutLines: withoutLines };

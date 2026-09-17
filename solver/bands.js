@@ -984,7 +984,17 @@ function boardFor(spec, st) {
         var shift = f.align === 'right' ? -(f.a1 - (lo - gap)) : (hi + gap) - f.a0;
         if (isFinite(shift) && shift !== 0 && Math.abs(shift) <= wdt) {
           var moved = { a0: f.a0 + shift, a1: f.a1 + shift, c0: f.c0, c1: f.c1 };
-          var clear = moved.a0 >= b.axis.a0 - 0.5 && moved.a1 <= (spec.axis.edge1 != null ? spec.axis.edge1 : b.axis.a1) + 0.5
+          // ...AND IT STILL HAS TO BE AT THE END IT BELONGS TO. Twice the box
+          // is a long way on a narrow panel: "Professor" on a 459px mashup
+          // half stepped a third of the board and stopped naming anything.
+          // A name a little way in from the end of its rail still reads as
+          // that rail's, which is what this escape is for; a fifth of the
+          // board in is not a little way.
+          var spanA = b.axis.a1 - b.axis.a0;
+          var home = f.align === 'right'
+            ? moved.a1 >= b.axis.a1 - spanA * 0.18
+            : moved.a0 <= b.axis.a0 + spanA * 0.18;
+          var clear = home && moved.a0 >= b.axis.a0 - 0.5 && moved.a1 <= (spec.axis.edge1 != null ? spec.axis.edge1 : b.axis.a1) + 0.5
             && !b.lines.some(function (o) { return o.key !== fx.line && B.lineTouches(o, moved); })
             && !b.fixed.some(function (g) { return B.capsOverlap(g.box(), moved); });
           if (clear) { f.a0 = moved.a0; f.a1 = moved.a1; cutters = []; }
