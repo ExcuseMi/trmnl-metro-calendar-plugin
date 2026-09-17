@@ -5902,6 +5902,34 @@ function specFor(metro, view, opts) {
   opts = opts || {};
   metro = framed(edged(opened(metro)), view, opts);
   var measure = opts.measure || charMeasure(opts.cell, opts.rowH);
+  // LEVEL WORDS ON A BOARD THAT STANDS UP.
+  //
+  // A measured form is the words as they are set: `w` the width of the line
+  // of text, `h` the rows it takes. The solver knows neither -- it knows
+  // ALONG the axis and ACROSS it -- and everything downstream of here is
+  // written in those two terms, `check()` included.
+  //
+  // Lying down the two coincide: along is the width of the words. Standing
+  // up they did too, because the renderer turned every caption to read down
+  // the page, so the box the solver booked was the box that was drawn. Turned
+  // back level, they are the other way round: the words now reach ACROSS the
+  // board by their width and ALONG it by their rows.
+  //
+  // So the swap is here, at the one boundary where the words stop being words
+  // and start being a rectangle, rather than in the caption search or the
+  // band search or the checker -- none of which should ever learn which way
+  // up the board is. It also means the folded forms `measure-dom` already
+  // offers ("Shift" over "Handover" over its time, a narrow tall box) arrive
+  // on a standing board as the NARROW-across ones, which is exactly what a
+  // board with five bands in seven hundred pixels needs them to be.
+  if (opts.standing) {
+    var measured = measure;
+    measure = function (ev, o) {
+      return measured(ev, o).map(function (f) {
+        return Object.assign({}, f, { w: f.h, h: f.w });
+      });
+    };
+  }
   var cell = opts.cell || 7;
   var pad = opts.pad != null ? opts.pad : 10;
   // THE NAMES NO LONGER COST THE DAY A GUTTER.
@@ -9870,20 +9898,16 @@ function draw(board, spec, ctx) {
   board.caps.forEach(function (cp) {
     var el = cp.el;
     if (!el) return;
-    // STANDING UP, THE WORDS RUN DOWN THE RAIL. The solver books a caption's
-    // length ALONG the axis and its rows ACROSS it, whichever way the board
-    // is turned; written level on a board standing up, every name was as wide
-    // as its words across a column a rail-gap wide and ran over the next
-    // line. Turned to read down the page, the drawn box is the booked box.
-    // `vertical-lr` so the rows stack in the same order across the rail as
-    // they do lying down, and the label's inset turned with them (the
-    // stylesheet reads it from two custom properties, so the turn costs the
-    // inline-style lint nothing).
-    if (!horizontal) {
-      el.style.writingMode = 'vertical-lr';
-      el.style.setProperty('--metro-inset-along', '0');
-      el.style.setProperty('--metro-inset-across', '3px');
-    }
+    // LEVEL, WHICHEVER WAY THE BOARD RUNS. A caption used to be turned to read
+    // down the page on a standing board, because the solver books a caption's
+    // length ALONG the axis and its rows ACROSS it: written level, every name
+    // was as wide as its words across a column a rail-gap wide and ran over
+    // the next line. Turning it made the drawn box the booked box, at the
+    // price of a reader tilting their head.
+    //
+    // The books are kept the other way round now (`specFor`, where a standing
+    // board's measured forms have their two extents swapped), so level IS the
+    // booked box and the turn is gone.
     var p = xy(cp.a, cp.c);
     el.style.left = p[0] + 'px';
     el.style.top = p[1] + 'px';
@@ -9996,7 +10020,10 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
       // caption ruled in the wrong font.
       root: canvas, maxWidth: Math.round(along * 0.3),
       // titles a size up where the panel is whole (1 is the full view)
-      large: (canvas.getAttribute('data-metro-view') || '1') === '1'
+      large: (canvas.getAttribute('data-metro-view') || '1') === '1',
+      // ...and a board that stands up draws its captions level, so it measures
+      // its own ladder of narrow forms (measure-dom standingTiers)
+      standing: !horiz
     });
     // HOW TALL A LINE'S NAME IS, IN THE FACE THIS PANEL HAS.
     //

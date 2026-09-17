@@ -49,6 +49,20 @@ VIEWS['og-half'] = Object.assign({}, VIEWS['og-half-vertical'], { slot: false })
 
 var cache = new Map();
 
+// HOW WIDE A CAPTION MAY GET BEFORE IT IS CUT.
+//
+// A caption's words reach ALONG the axis lying down and ACROSS it standing up,
+// so the ceiling has to be measured in the direction the words actually run.
+// Held at a third of the day lying down; standing, at a band and a bit -- the
+// panel across, divided between the people on it -- because that is the room
+// a caption really has beside its rail, and a ceiling taken from the height
+// of a portrait board is no ceiling at all.
+function capWidth(o, metro) {
+  if (o.horiz) return Math.round(o.along * 0.3);
+  var n = Math.max(2, ((metro && metro.legend) || []).length);
+  return Math.round(Math.min(o.along * 0.3, (o.across / n) * 1.3));
+}
+
 function optsFor(v, metro) {
   var horiz = metro.orientation === 'vertical' ? false
     : metro.orientation === 'horizontal' ? true : v.W >= v.H;
@@ -114,7 +128,10 @@ function lengthOf(pts) {
 }
 
 function specOf(metro, v, o, extra) {
-  var measure = metrics.measure({ dev: o.dev, base: o.base, maxWidth: Math.round(o.along * 0.3), large: !v.slot,
+  var measure = metrics.measure({ dev: o.dev, base: o.base, maxWidth: capWidth(o, metro), large: !v.slot,
+    // a board that stands up draws its captions level and so measures its own
+    // ladder of narrow forms (measure-dom standingTiers)
+    standing: !o.horiz,
                                   hour12: !!metro.hour12, clock: clockFor(metro) });
   var probe = measure.plain('Mg');
   // A NAME IN ITS OWN CLASS AS WELL AS THE TITLE'S, which is what the template

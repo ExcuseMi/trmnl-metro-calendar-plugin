@@ -51,16 +51,12 @@ function rowWidth(t, s) {
   return Math.round(widthOf(t, s) + (t.pad || 0));
 }
 
-function foldTitle(title) {
-  var words = String(title).trim().split(/\s+/);
-  if (words.length < 2) return null;
-  var best = null, bestD = Infinity;
-  for (var i = 1; i < words.length; i++) {
-    var a = words.slice(0, i).join(' '), b = words.slice(i).join(' ');
-    var d = Math.abs(a.length - b.length);
-    if (d < bestD) { bestD = d; best = [a, b]; }
-  }
-  return best;
+// Where a name folds is `measure-dom`'s answer, not a second copy of it: this
+// ruler exists to give the same forms as the browser one without a browser,
+// and two implementations of the fold is two boards.
+function foldFor(t, title) {
+  if (!t.fold) return null;
+  return t.fold > 2 ? MD.foldInto(title, t.fold) : MD.foldTitle(title);
 }
 
 function measure(o) {
@@ -96,8 +92,9 @@ function measure(o) {
   function fn(ev) {
     var title = ev.title || '';
     var forms = [];
-    MD.tiersFor(o.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0).forEach(function (t) {
-      var halves = t.fold ? foldTitle(title) : null;
+    MD.tiersFor(o.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0,
+                o.standing).forEach(function (t) {
+      var halves = foldFor(t, title);
       if (t.fold && (!halves || ev.stack)) return;
       var rows = MD.stackRows(ev, t, halves, function (part) { return part.start_min != null ? timeText(part) : null; });
       if (!rows.length) return;

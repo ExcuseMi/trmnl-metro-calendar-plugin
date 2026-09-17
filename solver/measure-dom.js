@@ -100,14 +100,53 @@ function tiersAt(titleCls) {
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' }], size: 1, rung: 1 },
   ];
 }
-var TIERS = tiersAt('text--base').concat([
-  { rows: [{ kind: 'title', cls: 'metro-title-text text--small text--bold' }], size: 0.82, rung: 2 },
-]);
+var SMALL_TIER = { rows: [{ kind: 'title', cls: 'metro-title-text text--small text--bold' }],
+                   size: 0.82, rung: 2 };
+var TIERS = tiersAt('text--base').concat([SMALL_TIER]);
+
+// A BOARD THAT STANDS UP NEEDS RUNGS THE OTHER ONE NEVER ASKS FOR.
+//
+// Lying down, a caption is short and wide and the board has width to spare:
+// one fold is the most it ever wants, and the ladder above is the whole of
+// it. Standing up, the words reach ACROSS a band that is the panel's width
+// divided by the number of people on it -- a hundred pixels on a six-line X
+// portrait -- and the wide ladder simply does not reach: measured over the
+// households, the narrowest form the ladder above can offer "Cardiology f/u
+// Dr. Oka" is 113 wide against a band of 97, and half of every standing
+// board's captions were shed for want of a narrower one.
+//
+// So the standing board gets its own rungs, under the wide ones and over
+// giving up: fold the name three ways, and drop the face a size and fold
+// that. They cost what a fold costs -- a name in three glances instead of
+// one -- and they are only ever reached by a caption that would otherwise not
+// be drawn at all.
+function standingTiers(titleCls) {
+  var title = 'metro-title-text ' + titleCls + ' text--bold';
+  var small = 'metro-title-text text--small text--bold';
+  return [
+    // folded twice with no time: the fold at rung 0.35 keeps its time, which
+    // is usually the widest row of the three and the reason it will not fit
+    { rows: [{ kind: 'title', cls: title }], size: 1, rung: 1.1, fold: 2 },
+    { rows: [{ kind: 'title', cls: title }, { kind: 'time', cls: TIME_CLS }],
+      size: 1, rung: 1.25, fold: 3 },
+    { rows: [{ kind: 'title', cls: title }], size: 1, rung: 1.4, fold: 3 },
+    // ...and the same again a size down, which is still a whole name
+    { rows: [{ kind: 'title', cls: small }], size: 0.82, rung: 2.2, fold: 2 },
+    { rows: [{ kind: 'title', cls: small }], size: 0.82, rung: 2.4, fold: 3 },
+  ];
+}
+function standingLadder(titleCls) {
+  return tiersAt(titleCls).concat(standingTiers(titleCls)).concat([SMALL_TIER]);
+}
+var STANDING_TIERS = standingLadder('text--base');
 // TITLES A THIRD LARGER WHERE THE PANEL IS WHOLE: "increase font sizes for
 // event titles by at least 30%". `text--large` is 21px against 16. Offered
 // first, with every base form still behind it, so a crowded full board gives
 // the size back before it gives a caption up; a half or a quadrant is not
 // offered them at all.
+var LARGE_STANDING_TIERS = standingLadder('text--large').concat(STANDING_TIERS.map(function (t) {
+  return Object.assign({}, t, { rung: t.rung + 0.8 });
+}));
 var LARGE_TIERS = tiersAt('text--large').concat(TIERS.map(function (t) {
   return Object.assign({}, t, { rung: t.rung + 0.8 });
 }));
@@ -136,7 +175,7 @@ var LARGE_PART_TIERS = partTiersAt('text--large').concat(PART_TIERS.map(function
 // step poorer. With only "four, or three and more, or two and more" a list
 // of six stood at two rows with room under it for two more ("why not show 2
 // more lines").
-function tiersFor(large, parts, crowdLen) {
+function tiersFor(large, parts, crowdLen, standing) {
   if (crowdLen > 1) {
     var out = [];
     (large ? LARGE_PART_TIERS : PART_TIERS).forEach(function (t) {
@@ -154,6 +193,7 @@ function tiersFor(large, parts, crowdLen) {
     return out;
   }
   if (parts) return large ? LARGE_PART_TIERS : PART_TIERS;
+  if (standing) return large ? LARGE_STANDING_TIERS : STANDING_TIERS;
   return large ? LARGE_TIERS : TIERS;
 }
 
@@ -169,6 +209,41 @@ function foldTitle(title) {
     var d = Math.abs(a.length - b.length);
     if (d < bestD) { bestD = d; best = [a, b]; }
   }
+  return best;
+}
+
+// ...AND INTO MORE THAN TWO, WHICH ONLY A STANDING BOARD ASKS FOR.
+//
+// Lying down a caption is short and wide and the board has width to spare, so
+// one fold is all it ever needs. Standing up the words reach ACROSS a band
+// that is the panel's width divided by the number of people on it -- a
+// hundred pixels on a six-line X portrait -- and one fold does not get near
+// it: "Cardiology f/u Dr. Oka" folded once is still a hundred and thirteen
+// wide against a band of ninety-seven. Folded three ways it fits.
+//
+// Balanced by the longest row, not by the split point, because what the board
+// pays for is the widest row and nothing else. Greedy from the front would
+// leave "Pick up Rx at / Walgreens" with one row twice the other; this walks
+// every way of cutting the words into n runs and keeps the one whose longest
+// run is shortest. Titles are a handful of words, so the walk is small, and a
+// title with fewer words than rows simply has no such form.
+function foldInto(title, n) {
+  var words = String(title).trim().split(/\s+/);
+  if (words.length < n || n < 2) return null;
+  var best = null, bestMax = Infinity;
+  (function cut(from, made, rows, widest) {
+    if (widest >= bestMax) return;                  // already worse than the best
+    if (made === n - 1) {
+      var last = words.slice(from).join(' ');
+      var w = Math.max(widest, last.length);
+      if (w < bestMax) { bestMax = w; best = rows.concat([last]); }
+      return;
+    }
+    for (var i = from + 1; i <= words.length - (n - made - 1); i++) {
+      var piece = words.slice(from, i).join(' ');
+      cut(i, made + 1, rows.concat([piece]), Math.max(widest, piece.length));
+    }
+  })(0, 0, [], 0);
   return best;
 }
 
@@ -212,8 +287,9 @@ function stackRows(ev, t, halves, timeText) {
     t.rows.forEach(function (r) {
       if (r.kind === 'time') { rows.push({ text: timeText ? timeText(part) : null, cls: r.cls }); return; }
       if (halves) {
-        rows.push({ text: halves[0], cls: r.cls });
-        rows.push({ text: halves[1], cls: r.cls });
+        // however many the fold made: two lying down, and as many as three
+        // on a board that stands up (see `standingTiers`)
+        for (var hi = 0; hi < halves.length; hi++) rows.push({ text: halves[hi], cls: r.cls });
       } else rows.push({ text: ev.stack ? part.title || '' : ev.title || '', cls: r.cls });
     });
   });
@@ -304,8 +380,9 @@ function domMeasure(doc, opts) {
   function measure(ev, o) {
     var title = ev.title || '';
     var forms = [];
-    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0).forEach(function (t) {
-      var halves = t.fold ? foldTitle(title) : null;
+    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0,
+             opts.standing).forEach(function (t) {
+      var halves = t.fold ? (t.fold > 2 ? foldInto(title, t.fold) : foldTitle(title)) : null;
       if (t.fold && (!halves || ev.stack)) return;
       var rows = stackRows(ev, t, halves, o && o.timeText);
       if (!rows.length) return;
@@ -373,4 +450,4 @@ function domMeasure(doc, opts) {
   return measure;
 }
 
-module.exports = { domMeasure: domMeasure, stackRows: stackRows, titleRow: titleRow, timeText: timeText, RANGE_MIN: RANGE_MIN, TIERS: TIERS, LARGE_TIERS: LARGE_TIERS, tiersFor: tiersFor };
+module.exports = { domMeasure: domMeasure, stackRows: stackRows, titleRow: titleRow, timeText: timeText, RANGE_MIN: RANGE_MIN, TIERS: TIERS, LARGE_TIERS: LARGE_TIERS, tiersFor: tiersFor, foldTitle: foldTitle, foldInto: foldInto };

@@ -924,6 +924,34 @@ function specFor(metro, view, opts) {
   opts = opts || {};
   metro = framed(edged(opened(metro)), view, opts);
   var measure = opts.measure || charMeasure(opts.cell, opts.rowH);
+  // LEVEL WORDS ON A BOARD THAT STANDS UP.
+  //
+  // A measured form is the words as they are set: `w` the width of the line
+  // of text, `h` the rows it takes. The solver knows neither -- it knows
+  // ALONG the axis and ACROSS it -- and everything downstream of here is
+  // written in those two terms, `check()` included.
+  //
+  // Lying down the two coincide: along is the width of the words. Standing
+  // up they did too, because the renderer turned every caption to read down
+  // the page, so the box the solver booked was the box that was drawn. Turned
+  // back level, they are the other way round: the words now reach ACROSS the
+  // board by their width and ALONG it by their rows.
+  //
+  // So the swap is here, at the one boundary where the words stop being words
+  // and start being a rectangle, rather than in the caption search or the
+  // band search or the checker -- none of which should ever learn which way
+  // up the board is. It also means the folded forms `measure-dom` already
+  // offers ("Shift" over "Handover" over its time, a narrow tall box) arrive
+  // on a standing board as the NARROW-across ones, which is exactly what a
+  // board with five bands in seven hundred pixels needs them to be.
+  if (opts.standing) {
+    var measured = measure;
+    measure = function (ev, o) {
+      return measured(ev, o).map(function (f) {
+        return Object.assign({}, f, { w: f.h, h: f.w });
+      });
+    };
+  }
   var cell = opts.cell || 7;
   var pad = opts.pad != null ? opts.pad : 10;
   // THE NAMES NO LONGER COST THE DAY A GUTTER.

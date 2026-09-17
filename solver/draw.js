@@ -2787,20 +2787,16 @@ function draw(board, spec, ctx) {
   board.caps.forEach(function (cp) {
     var el = cp.el;
     if (!el) return;
-    // STANDING UP, THE WORDS RUN DOWN THE RAIL. The solver books a caption's
-    // length ALONG the axis and its rows ACROSS it, whichever way the board
-    // is turned; written level on a board standing up, every name was as wide
-    // as its words across a column a rail-gap wide and ran over the next
-    // line. Turned to read down the page, the drawn box is the booked box.
-    // `vertical-lr` so the rows stack in the same order across the rail as
-    // they do lying down, and the label's inset turned with them (the
-    // stylesheet reads it from two custom properties, so the turn costs the
-    // inline-style lint nothing).
-    if (!horizontal) {
-      el.style.writingMode = 'vertical-lr';
-      el.style.setProperty('--metro-inset-along', '0');
-      el.style.setProperty('--metro-inset-across', '3px');
-    }
+    // LEVEL, WHICHEVER WAY THE BOARD RUNS. A caption used to be turned to read
+    // down the page on a standing board, because the solver books a caption's
+    // length ALONG the axis and its rows ACROSS it: written level, every name
+    // was as wide as its words across a column a rail-gap wide and ran over
+    // the next line. Turning it made the drawn box the booked box, at the
+    // price of a reader tilting their head.
+    //
+    // The books are kept the other way round now (`specFor`, where a standing
+    // board's measured forms have their two extents swapped), so level IS the
+    // booked box and the turn is gone.
     var p = xy(cp.a, cp.c);
     el.style.left = p[0] + 'px';
     el.style.top = p[1] + 'px';
