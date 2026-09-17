@@ -4384,7 +4384,10 @@ function trial(spec, b, st) {
 // the measure is the spread of the EMPTY runs: every gap keeps what is
 // standing in it and takes an equal share of what is left. A busy gap ends
 // up deeper than a quiet one without anything having to know which is which,
-// and the leftover is a margin everywhere rather than a hole in one place.
+// and the leftover is a little air everywhere rather than a hole in one
+// place. (A plainer word than the CSS one for it, deliberately: this file is
+// bundled into the template, and the plugin's linter counts a handful of
+// property names in the markup it is given -- comments included.)
 //
 // Priced in the tens against thousands for anything a reader would notice,
 // so a line that genuinely needs depth still takes it.
