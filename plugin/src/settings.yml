@@ -36,6 +36,7 @@ custom_fields:
   field_type: author_bio
   description: Your family's day as a metro map. Everyone gets a <strong>line</strong>, their events are <strong>stops</strong> along it, and when people do something together their lines meet at an <strong>interchange</strong>. It shows today and rolls on into tomorrow as the day runs out, with holidays, the weather and the moon in the header. It fits itself to every TRMNL screen and mashup.<br /><br />Nothing to switch on to try it. Until you add calendars below, it shows an example day.
   github_url: https://github.com/ExcuseMi/trmnl-metro-calendar-plugin
+  learn_more_url: https://excusemi.github.io/trmnl-metro-calendar-plugin/tools/config-editor.html
   category: calendar
   help_text: TRMNL X Ready · English, français, español, Deutsch, Nederlands, italiano, português, polski
 - keyname: config_json
