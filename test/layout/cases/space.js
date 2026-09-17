@@ -9,27 +9,38 @@
 // the banner.
 //
 // The band search prices an allocation by placing the captions on it, so a
-// gap that nothing needs should have collapsed on its own. What kept it open
-// was the rule that tidies the gaps: an edge gap was ALLOWED six tenths of an
-// inner one before it was charged for anything, and a proportion is only ever
-// right by accident. On a full X the inner gaps are two hundred pixels deep
-// because two sides of captions need them; six tenths of that is a hundred
-// and twenty pixels handed to a gap holding one name. It is measured now --
-// what the captions that were placed actually reach, plus the name -- and the
-// rest is charged (`edgeSlack`, solver/bands.js).
+// gap that nothing needs should have collapsed on its own. Two rules kept it
+// open, and both were asking about the wrong thing:
 //
-// This is the ratchet on that. Over the eighteen fixtures at every lying-down
-// view, blank paper between the header and the first ink of the map came to
-// 1704px before and 1130px after, worst board 142px and 112px. The cap here
-// is loose enough that an honest board can still open with a wide band when
-// something is standing in it, and tight enough that the old rule fails it.
+//   an edge gap was ALLOWED six tenths of an inner one before it was charged
+//   for anything, and a proportion is only ever right by accident -- on a
+//   full X the inner gaps are two hundred pixels deep because two sides of
+//   captions need them, and six tenths of that is a hundred and twenty pixels
+//   handed to a gap holding one name;
+//
+//   and what was equalised was the GAPS, which is only right when every line
+//   carries the same amount. The rule for when it plainly is not -- squeeze
+//   the gap between two people with nothing on them -- over-corrected, taking
+//   all the paper out of the quiet gaps with nowhere to put it but the one
+//   gap beside somebody busy. `slow-day` came out as three rails stacked at
+//   the top, six hundred pixels of nothing, and one line alone at the bottom.
+//
+// Both are measured now (`edgeSlack` and `tidiness`, solver/bands.js): every
+// gap keeps what is standing in it and takes an equal share of what is left.
+//
+// This is the ratchet. Over the eighteen fixtures at every lying-down view,
+// blank paper between the header and the first ink of the map came to 1704px
+// before and 1063px after; the worst board went from 142px to 94px. The cap
+// here is loose enough that an honest board can still open with a wide band
+// when something is standing in it, and tight enough that either old rule
+// fails it.
 
 module.exports = function (test, h) {
   const { layout, fixtures, VIEWPORTS, assert } = h;
   // The furniture of the header, which is not the map and does not count as
   // ink in it.
   const STRIP = /metro-hour|metro-axis-note|metro-sky|metro-daybadge|metro-nownext|metro-wx/;
-  const CAP = 150;
+  const CAP = 120;
 
   test('no board opens with a band of paper nobody is using', () => {
     const bad = [];
