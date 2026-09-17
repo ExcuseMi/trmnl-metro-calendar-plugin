@@ -1342,7 +1342,13 @@ function fixedFor(metro, scale, axis, cross, opts) {
   list.forEach(function (d, di) {
     var wx = d.weather;
     if (!wx || wx.hi == null) return;
-    var t = Math.round(wx.hi) + '\u00b0/' + Math.round(wx.lo) + '\u00b0';
+    // WHICH SCALE THE NUMBERS ARE ON, once. "18\u00b0 13\u00b0" is two numbers
+    // and no unit, which is fine on a board you set up yourself and useless to
+    // anybody else looking at it -- and the setting that decides it is two
+    // clicks away in a form nobody opens twice. Once per reading, at the end,
+    // where it covers both numbers.
+    var u = wx.unit || (metro.header_weather && metro.header_weather.unit) || '';
+    var t = Math.round(wx.hi) + '\u00b0/' + Math.round(wx.lo) + '\u00b0' + u;
     if (wx.rain_chance >= 30) {
       t += '  ' + (i18n.rain_pct || '{n}% rain').replace('{n}', wx.rain_chance);
     }

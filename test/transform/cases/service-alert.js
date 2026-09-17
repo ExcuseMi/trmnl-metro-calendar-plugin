@@ -149,12 +149,12 @@ module.exports = function (test, h) {
     const cold = await runTransform(net(forecast({ hi: 1, lo: -6 })), NOW)
       .run(input(Object.assign({ alert_temp_low: '-5' }, ON)));
     assertEqual(cold.data.service_alert,
-      alert('cold', 'Freezing, down to -6°', 'wi-snowflake-cold.svg'), 'the cold banner');
+      alert('cold', 'Freezing, down to -6°C', 'wi-snowflake-cold.svg'), 'the cold banner');
 
     const heat = await runTransform(net(forecast({ hi: 36, lo: 24 })), NOW)
       .run(input(Object.assign({ alert_temp_high: '35' }, ON)));
     assertEqual(heat.data.service_alert,
-      alert('heat', 'Hot, up to 36°', 'wi-hot.svg'), 'the heat banner');
+      alert('heat', 'Hot, up to 36°C', 'wi-hot.svg'), 'the heat banner');
   });
 
   test('cold above freezing is called cold, not freezing', async () => {
@@ -162,7 +162,7 @@ module.exports = function (test, h) {
     // 3" would be a wrong statement about the one number on the banner.
     const r = await runTransform(net(forecast({ hi: 9, lo: 3 })), NOW)
       .run(input(Object.assign({ alert_temp_low: '5' }, ON)));
-    assertEqual(r.data.service_alert, alert('cold', 'Cold, down to 3°', 'wi-snowflake-cold.svg'),
+    assertEqual(r.data.service_alert, alert('cold', 'Cold, down to 3°C', 'wi-snowflake-cold.svg'),
       'got ' + JSON.stringify(r.data.service_alert));
   });
 
@@ -172,10 +172,10 @@ module.exports = function (test, h) {
   // about temperatures at all. Each is the line itself (fires) and one
   // degree short of it (does not).
   const DEFAULTS = [
-    { unit: 'c', at: { lo: 0 }, short: { lo: 1 }, kind: 'cold', text: 'Freezing, down to 0°' },
-    { unit: 'f', at: { lo: 32 }, short: { lo: 33 }, kind: 'cold', text: 'Freezing, down to 32°' },
-    { unit: 'c', at: { hi: 30 }, short: { hi: 29 }, kind: 'heat', text: 'Hot, up to 30°' },
-    { unit: 'f', at: { hi: 86 }, short: { hi: 85 }, kind: 'heat', text: 'Hot, up to 86°' },
+    { unit: 'c', at: { lo: 0 }, short: { lo: 1 }, kind: 'cold', text: 'Freezing, down to 0°C' },
+    { unit: 'f', at: { lo: 32 }, short: { lo: 33 }, kind: 'cold', text: 'Freezing, down to 32°F' },
+    { unit: 'c', at: { hi: 30 }, short: { hi: 29 }, kind: 'heat', text: 'Hot, up to 30°C' },
+    { unit: 'f', at: { hi: 86 }, short: { hi: 85 }, kind: 'heat', text: 'Hot, up to 86°F' },
   ];
   for (const d of DEFAULTS) {
     test('a blank ' + d.kind + ' field alerts at the default for ' + d.unit.toUpperCase(), async () => {
@@ -214,7 +214,7 @@ module.exports = function (test, h) {
     const noRain = Object.assign({}, ON, { alert_rain_threshold: '', alert_temp_low: '20' });
 
     const c = await runTransform(sameDay, NOW).run(input(Object.assign({ temperature_unit: 'c' }, noRain)));
-    assertEqual(c.data.service_alert, alert('cold', 'Cold, down to 18°', 'wi-snowflake-cold.svg'),
+    assertEqual(c.data.service_alert, alert('cold', 'Cold, down to 18°C', 'wi-snowflake-cold.svg'),
       '18C is at or below a threshold of 20 on a Celsius board');
 
     const f = await runTransform(sameDay, NOW).run(input(Object.assign({ temperature_unit: 'f' }, noRain)));
@@ -233,7 +233,7 @@ module.exports = function (test, h) {
 
     const later = await runTransform(net(null), NOW)
       .run(input(Object.assign({ temperature_unit: 'f', alert_temp_low: '25', alert_rain_threshold: '' }, ON), null, saved));
-    assertEqual(later.data.service_alert, alert('cold', 'Freezing, down to 21°', 'wi-snowflake-cold.svg'),
+    assertEqual(later.data.service_alert, alert('cold', 'Freezing, down to 21°F', 'wi-snowflake-cold.svg'),
       'got ' + JSON.stringify(later.data.service_alert));
   });
 
@@ -282,19 +282,19 @@ module.exports = function (test, h) {
   const COPY = {
     en: { label: 'Weather', ahead: 'Rain from 17:00 until 18:00, 80% chance',
           started: 'Rain until 16:00, 85% chance', snow: 'Snow for the rest of the day, 90% chance',
-          cold: 'Freezing, down to -3°' },
+          cold: 'Freezing, down to -3°C' },
     de: { label: 'Wetter', ahead: 'Regen von 17:00 bis 18:00, 80' + NB + '% Wahrscheinlichkeit',
           started: 'Regen bis 16:00, 85' + NB + '% Wahrscheinlichkeit',
-          snow: 'Schnee für den Rest des Tages, 90' + NB + '% Wahrscheinlichkeit', cold: 'Frost, Tiefstwert -3°' },
+          snow: 'Schnee für den Rest des Tages, 90' + NB + '% Wahrscheinlichkeit', cold: 'Frost, Tiefstwert -3°C' },
     es: { label: 'Tiempo', ahead: 'Lluvia de 17:00 a 18:00, probabilidad del 80%',
           started: 'Lluvia hasta las 16:00, probabilidad del 85%',
-          snow: 'Nieve el resto del día, probabilidad del 90%', cold: 'Heladas, mínima de -3°' },
+          snow: 'Nieve el resto del día, probabilidad del 90%', cold: 'Heladas, mínima de -3°C' },
     fr: { label: 'Météo', ahead: 'Pluie de 17:00 à 18:00, risque de 80' + NB + '%',
           started: "Pluie jusqu'à 16:00, risque de 85" + NB + '%',
-          snow: "Neige jusqu'à la fin de la journée, risque de 90" + NB + '%', cold: 'Gel, minimum -3°' },
+          snow: "Neige jusqu'à la fin de la journée, risque de 90" + NB + '%', cold: 'Gel, minimum -3°C' },
     nl: { label: 'Weer', ahead: 'Regen van 17:00 tot 18:00, 80% kans',
           started: 'Regen tot 16:00, 85% kans',
-          snow: 'Sneeuw de rest van de dag, 90% kans', cold: 'Vorst, minimum -3°' },
+          snow: 'Sneeuw de rest van de dag, 90% kans', cold: 'Vorst, minimum -3°C' },
   };
 
   for (const lang of Object.keys(COPY)) {
@@ -603,7 +603,7 @@ module.exports = function (test, h) {
     // evening, and the clock must not quietly take these away too.
     const a = await alertAt(at(20), forecastDays([{ date: D0, hi: 36, lo: 24, by: { 9: 90 } }]),
       { alert_temp_high: '35' });
-    assertEqual(a, alert('heat', 'Hot, up to 36°', 'wi-hot.svg'), 'got ' + JSON.stringify(a));
+    assertEqual(a, alert('heat', 'Hot, up to 36°C', 'wi-hot.svg'), 'got ' + JSON.stringify(a));
   });
 
   test('the wettest hour of TOMORROW is not an alert about today', async () => {

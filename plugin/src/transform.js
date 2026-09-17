@@ -131,9 +131,9 @@ var I18N = {
         alert_from_on: '{what} from {t} into the night, {p}% chance',
         alert_rest_of_day: '{what} for the rest of the day, {p}% chance',
         alert_around: '{what} around {t}, {p}% chance',
-        alert_hot: 'Hot, up to {v}°',
-        alert_chilly: 'Cold, down to {v}°',
-        alert_freezing: 'Freezing, down to {v}°' },
+        alert_hot: 'Hot, up to {v}°{u}',
+        alert_chilly: 'Cold, down to {v}°{u}',
+        alert_freezing: 'Freezing, down to {v}°{u}' },
 };
 
 // Where the translated tables live, and how long a fetched one is trusted
@@ -1647,10 +1647,14 @@ function serviceAlert(snap, opts) {
   var hi = convertTemp(day ? day.hi : snap.hi, snap.unit, unit);
   // "Freezing" only where it is: a reader who set cold at 5 degrees is told
   // it is cold, not that it freezes.
+  // ...AND IN WHICH SCALE. "Hot, up to 36" is a different sentence in the two
+  // halves of the world the board is set up for, and the banner is the one
+  // line of words on it that somebody else might read.
   if (lo != null && lo <= low) {
-    return banner('cold', lo <= lines.freezing ? 'alert_freezing' : 'alert_chilly', { v: Math.round(lo) });
+    return banner('cold', lo <= lines.freezing ? 'alert_freezing' : 'alert_chilly',
+                  { v: Math.round(lo), u: unit });
   }
-  if (hi != null && hi >= high) return banner('heat', 'alert_hot', { v: Math.round(hi) });
+  if (hi != null && hi >= high) return banner('heat', 'alert_hot', { v: Math.round(hi), u: unit });
 
   var thr = opts.rainThreshold;
   if (thr == null) return null;

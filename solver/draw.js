@@ -2047,7 +2047,11 @@ function draw(board, spec, ctx) {
         box.className = box.className.replace('gap--xsmall', 'gap--small');
         var hi = doc.createElement('span');
         hi.className = 'metro-wx-hi value value--small text--bold';
-        hi.textContent = Math.round(wx.hi) + '\u00b0';
+        // ON THE HIGH ONLY: it is the headline number and the low sits under
+        // it in the same reading, so the scale is said once. See day.js for
+        // the one-row form, which puts it after the low for the same reason.
+        hi.textContent = Math.round(wx.hi) + '\u00b0'
+          + (wx.unit || (spec.metro.header_weather && spec.metro.header_weather.unit) || '');
         box.appendChild(hi);
         // ONE BLOCK, READ FROM ITS LEFT EDGE: the low and the sky under it
         // start where the high ends, rather than each centred on the other
