@@ -9325,6 +9325,31 @@ function draw(board, spec, ctx) {
   // date and the forecast. Only on a full view, only where that band is two
   // rows deep, and only in the room the strip has left; a line that does not
   // fit is cut at a word, then the "Now" line goes, then the card.
+  if (dayBadges[0] && dayBadges[0].band && !spec.oneName && spec.metro && spec.metro.now_min != null && horizontal) {
+    // Today's panel first; late in the day, when today is a sliver, the wide
+    // panel of tomorrow beside it.
+    for (var nb = 0; nb < Math.min(2, dayBadges.length); nb++) {
+      if (dayBadges[nb] && dayBadges[nb].band && nowNext(dayBadges[nb], nb)) break;
+    }
+  }
+  // ...AND ON A BOARD OF DAYS, WHERE THE FORECAST TOOK THE ROW UNDER THE
+  // DATE, ONE LINE OF IT BESIDE THE DATE.
+  if (dayBadges[0] && dayBadges[0].band && !spec.oneName && spec.metro && spec.metro.now_min != null && horizontal
+      && !canvas.querySelector('.metro-nownext') && ((spec.metro.days || []).length > 1)) {
+    for (var nb2 = 0; nb2 < Math.min(2, dayBadges.length); nb2++) {
+      if (dayBadges[nb2] && dayBadges[nb2].band && nowNext(dayBadges[nb2], nb2, true)) break;
+    }
+  }
+  // ...AND THE MOON AFTER THEM, NOT BEFORE.
+  //
+  // Whatever is placed first takes its room and the rest give way, and the
+  // moon used to go first: it sat in the strip's right-hand end and the card
+  // beside it cut "Family Dinner 7pm" down to "Family Dinner\u2026". That is the
+  // wrong way round. What is on next is the question the board exists to
+  // answer; the moon is ambient, the one thing up there that is true whether
+  // anybody reads it or not. So it is placed last and takes what is left,
+  // which on a narrow panel is nothing -- `free()` already drops it, and a
+  // board with no moon on it has lost nothing a reader came for.
   // THE MOON IN THE HEADER, at the top right of each day's panel: "moonphase
   // in the top right of the header if there is any space". Left of that
   // day's forecast where it has one; left off where the panel has no room.
@@ -9344,21 +9369,6 @@ function draw(board, spec, ctx) {
       var mr2 = place(box, to, tb.band / 2 + 2, 'right');
       if (free(mr2)) taken.push(mr2); else box.remove();
     });
-  }
-  if (dayBadges[0] && dayBadges[0].band && !spec.oneName && spec.metro && spec.metro.now_min != null && horizontal) {
-    // Today's panel first; late in the day, when today is a sliver, the wide
-    // panel of tomorrow beside it.
-    for (var nb = 0; nb < Math.min(2, dayBadges.length); nb++) {
-      if (dayBadges[nb] && dayBadges[nb].band && nowNext(dayBadges[nb], nb)) break;
-    }
-  }
-  // ...AND ON A BOARD OF DAYS, WHERE THE FORECAST TOOK THE ROW UNDER THE
-  // DATE, ONE LINE OF IT BESIDE THE DATE.
-  if (dayBadges[0] && dayBadges[0].band && !spec.oneName && spec.metro && spec.metro.now_min != null && horizontal
-      && !canvas.querySelector('.metro-nownext') && ((spec.metro.days || []).length > 1)) {
-    for (var nb2 = 0; nb2 < Math.min(2, dayBadges.length); nb2++) {
-      if (dayBadges[nb2] && dayBadges[nb2].band && nowNext(dayBadges[nb2], nb2, true)) break;
-    }
   }
   function nowNext(tb, dayIx, oneRow) {
     var m = spec.metro, now = m.now_min, i18n = m.i18n || {};
@@ -9397,13 +9407,13 @@ function draw(board, spec, ctx) {
       ? m.days[1].start_min : 24 * 60;
     var later = evs.filter(function (ev) { return ev.start_min > now && ev.start_min < midnight; })
       .sort(function (p, q) { return p.start_min - q.start_min; });
-    function line(ev) {
-      return ev.title + ' ' + (ctx.clock ? ctx.clock(ev.start_min) : '');
-    }
+    function at(ev) { return ctx.clock ? ctx.clock(ev.start_min) : ''; }
     var rows = [];
-    if (on.length) rows.push([i18n.now || 'Now', on[0].title, badgesFor(on[0])]);
+    // What is ON has no time worth saying -- it is on -- so only the rows
+    // about something ahead carry one.
+    if (on.length) rows.push([i18n.now || 'Now', on[0].title, badgesFor(on[0]), '']);
     if (later.length) {
-      rows.push([i18n.next || 'Next', line(later[0]), badgesFor(later[0])]);
+      rows.push([i18n.next || 'Next', later[0].title, badgesFor(later[0]), at(later[0])]);
     } else if (!on.length) {
       // NOTHING ON AND NOTHING LEFT TODAY, so the next thing really is
       // tomorrow -- and it is labelled tomorrow, not "Next". "Next 08:30" on
@@ -9413,7 +9423,7 @@ function draw(board, spec, ctx) {
       var tom = evs.filter(function (ev) {
         return ev.start_min >= midnight && ev.start_min < midnight + 24 * 60;
       }).sort(function (p, q) { return p.start_min - q.start_min; });
-      if (tom.length) rows.push([i18n.tomorrow || 'Tomorrow', line(tom[0]), badgesFor(tom[0])]);
+      if (tom.length) rows.push([i18n.tomorrow || 'Tomorrow', tom[0].title, badgesFor(tom[0]), at(tom[0])]);
     }
     if (!rows.length) return true;
     // Between the date and whatever the strip set next to it in that panel.
@@ -9454,6 +9464,22 @@ function draw(board, spec, ctx) {
         body.className = 'text--bold';
         body.textContent = rw[1];
         line.appendChild(lead); line.appendChild(body);
+        // THE CLOCK QUIETER THAN THE NAME. Three things in a row, all the same
+        // weight, and the eye has to read all of it to find the one it wants,
+        // which is what the event is called. The label is already grey; the
+        // time joins it, so what is left in full black is the answer.
+        //
+        // (A caption on the MAP does the opposite -- rule: the time is bold
+        // and black there, because a quiet grey range was the part a reader in
+        // a hurry could not read. The difference is what is around it: on the
+        // map a caption stands alone on paper, and here it is one of three
+        // things on one line with a label in front of it.)
+        if (rw[3]) {
+          var when = doc.createElement('span');
+          when.className = 'metro-when text--bold text--muted';
+          when.textContent = '\u00a0' + rw[3];
+          line.appendChild(when);
+        }
         // ...and whose, after the words. `metro-pill` is the strip's own
         // badge -- the one the date and the clock wear -- so it inverts with
         // the band and costs the inline-style budget nothing, which is at its
