@@ -349,10 +349,35 @@ function msUntil(deadline) {
 
 // The whole render's network budget. Everything that fetches gets a slice
 // of what is left of it, never a fresh one of its own.
-// Three seconds, as TRMNL asks of a transform's own requests: the limit is
-// five for the whole run, and parsing every feed, building the board and
-// starting the runtime come out of the other two.
-var RENDER_BUDGET_MS = 3000;
+//
+// FOUR SECONDS OF FIVE, AND THE OTHER ONE IS MEASURED RATHER THAN GUESSED.
+//
+// Five seconds is what the runtime gives THIS FILE, not the whole render, so
+// all of it is ours to spend. It was three, on the reading that parsing every
+// feed and building the board would want the other two. That reading was
+// never measured and it is out by an order of magnitude: 932KB of calendar over four feeds -- a year of a Teams work
+// calendar and three more beside it, far past what a household actually has
+// -- parses and builds in 168ms, worst of five 225ms, in 26MB of the 128
+// available. A second is four times the worst of that.
+//
+// The second that was idle was being taken off the feeds, and the feeds are
+// what needs it: a published Outlook or Teams calendar regularly takes two to
+// five seconds to answer, and a feed that misses the deadline is a calendar
+// that silently is not on the board (see CALENDAR_DOWN_AFTER_S -- it is not
+// even NAMED for two hours). Two photographs of the same board six minutes
+// apart: in one the work calendar is missing, in the other it is back and two
+// others have gone. "It's dropped events like crazy."
+//
+// THE FEEDS CANNOT BE SOMEBODY ELSE'S PROBLEM. A TRMNL plugin can hand its
+// URLs to the platform's own polling instead of fetching them here, which
+// would take the whole question away -- except that if one of them fails the
+// whole render fails, and a household's board going blank because one
+// calendar was slow is very much worse than the same calendar being late.
+// Fetched here, one slow feed costs one feed.
+//
+// Re-measure before moving it again: no harness for it lives in the tree, the
+// one used is in the commit message.
+var RENDER_BUDGET_MS = 4000;
 
 var WEATHER_STALE_AFTER_S = 6 * 3600;  // older than this and the board says so rather than presenting it as today's forecast
 var CALENDAR_DOWN_AFTER_S = 2 * 3600;  // a feed that has been failing this long is named on the board instead of quietly missing
