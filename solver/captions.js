@@ -246,6 +246,9 @@ Want.prototype.wear = function (i) {
   var f = this.forms[Math.max(0, Math.min(this.forms.length - 1, i))];
   this.form = i;
   this.w = f.w; this.h = f.h; this.shown = f.text; this.rows = f.rows; this.size = f.size || 1;
+  // Which way up the words are set. A standing board offers both and the
+  // ladder picks (day.js); everywhere else this is false and stays false.
+  this.turned = !!f.turned;
   // The very element that was measured, so the drawing positions the box
   // the solve was about rather than a fresh one of another size.
   this.el = f.el || null;
@@ -265,7 +268,7 @@ Want.prototype.clone = function () {
                     forms: this.forms.map(function (f) {
                       return { w: f.w, h: f.h, text: f.text, rows: f.rows,
                                size: f.size, rung: f.rung, cls: f.cls, rowCls: f.rowCls,
-                               el: f.el };
+                               turned: f.turned, el: f.el };
                     }) });
 };
 
@@ -1197,7 +1200,7 @@ function apply(board, wants, sol) {
     var p = sol.cands[i][k];
     board.addCap({ id: w.id, pill: w.pill, text: w.shown || w.text, line: w._rail || w.line,
                    a: p.a, c: p.c, w: w.w, h: w.h, at: w.a0,
-                   rows: w.rows, size: w.size, rowCls: w.rowCls, el: w.el });
+                   rows: w.rows, size: w.size, rowCls: w.rowCls, turned: w.turned, el: w.el });
   });
   return board;
 }

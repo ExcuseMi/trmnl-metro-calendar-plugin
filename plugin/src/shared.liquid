@@ -368,6 +368,11 @@ function Caption(spec) {
   // The framework class each row is drawn in, so the drawing wears exactly
   // what the ruler measured.
   this.rowCls = spec.rowCls || null;
+  // Set on its side: the words read down the page instead of across it. Only
+  // a standing board ever offers it, and only to a caption no level form fits
+  // (day.js). The box is the same box either way -- it was measured level and
+  // the two extents swapped -- so nothing but the renderer needs to know.
+  this.turned = !!spec.turned;
   this.el = spec.el || null;
 }
 Caption.prototype.box = function () {
@@ -1490,6 +1495,9 @@ Want.prototype.wear = function (i) {
   var f = this.forms[Math.max(0, Math.min(this.forms.length - 1, i))];
   this.form = i;
   this.w = f.w; this.h = f.h; this.shown = f.text; this.rows = f.rows; this.size = f.size || 1;
+  // Which way up the words are set. A standing board offers both and the
+  // ladder picks (day.js); everywhere else this is false and stays false.
+  this.turned = !!f.turned;
   // The very element that was measured, so the drawing positions the box
   // the solve was about rather than a fresh one of another size.
   this.el = f.el || null;
@@ -1509,7 +1517,7 @@ Want.prototype.clone = function () {
                     forms: this.forms.map(function (f) {
                       return { w: f.w, h: f.h, text: f.text, rows: f.rows,
                                size: f.size, rung: f.rung, cls: f.cls, rowCls: f.rowCls,
-                               el: f.el };
+                               turned: f.turned, el: f.el };
                     }) });
 };
 
@@ -2441,7 +2449,7 @@ function apply(board, wants, sol) {
     var p = sol.cands[i][k];
     board.addCap({ id: w.id, pill: w.pill, text: w.shown || w.text, line: w._rail || w.line,
                    a: p.a, c: p.c, w: w.w, h: w.h, at: w.a0,
-                   rows: w.rows, size: w.size, rowCls: w.rowCls, el: w.el });
+                   rows: w.rows, size: w.size, rowCls: w.rowCls, turned: w.turned, el: w.el });
   });
   return board;
 }
@@ -5898,6 +5906,13 @@ function framed(metro, view, opts) {
   return out;
 }
 
+// WHAT IT COSTS TO TURN A CAPTION ON ITS SIDE, in rungs.
+//
+// Bigger than the whole level ladder (which reaches 3.2 on a large board), so
+// every level form is tried before any turned one; and far smaller than
+// shedding the caption, which is what the rung under this used to be.
+var TURN_RUNG = 4;
+
 function specFor(metro, view, opts) {
   opts = opts || {};
   metro = framed(edged(opened(metro)), view, opts);
@@ -5922,12 +5937,55 @@ function specFor(metro, view, opts) {
   // offers ("Shift" over "Handover" over its time, a narrow tall box) arrive
   // on a standing board as the NARROW-across ones, which is exactly what a
   // board with five bands in seven hundred pixels needs them to be.
+  //
+  // ...AND THE TURN IS THE LAST RUNG, NOT A DECISION ABOUT THE BOARD.
+  //
+  // Level costs width, and a standing board's width is the panel divided by
+  // the people on it. On the roomy boards that is fine; on a narrow slot with
+  // seven lines there is no width at all, and booking level boxes there shed a
+  // third of the captions and dropped thirteen more people than turning them
+  // did. The first answer to that was going to be a rule deciding level or
+  // turned for the WHOLE board, the way `levelNames` decides names -- but the
+  // two views it has to separate come out the same size in cells (a band is
+  // about twelve cells wide on both the X portrait and the OG half), so no
+  // such rule can tell them apart, and it would be the wrong shape anyway: it
+  // is not the board that does or does not have room, it is each caption.
+  //
+  // So both orientations are offered, and the ladder chooses per caption the
+  // way it already chooses between a name with its time and a name without.
+  // Turned forms sit under every level one, so a caption turns only when no
+  // level form fits -- and turning is the rung above being shed, which is the
+  // point: a name a reader has to tilt their head for beats a stop with no
+  // name at all.
   if (opts.standing) {
     var measured = measure;
     measure = function (ev, o) {
-      return measured(ev, o).map(function (f) {
-        return Object.assign({}, f, { w: f.h, h: f.w });
+      var forms = measured(ev, o), out = [];
+      forms.forEach(function (f) {
+        out.push(Object.assign({}, f, { w: f.h, h: f.w, turned: false }));
       });
+      // THREE TURNED FORMS, NOT A SECOND LADDER.
+      //
+      // Offering a turned twin of every rung doubled what the caption search
+      // has to price -- 230 forms a board against 120 -- and the search has a
+      // fixed budget to spend: it shed 178 captions where the level-only
+      // ladder shed 112, having spent its passes measuring twins of forms that
+      // were never going to be reached. The turn is an escape, and an escape
+      // wants one door, not twelve.
+      //
+      // The richest form, so a caption that has room to turn keeps its time;
+      // and the last two, which are the plainest and therefore the THINNEST
+      // across -- one row of words is what slips between two rails, and it is
+      // what the board did for every caption before this.
+      var keep = [], seen = {};
+      [forms[0], forms[forms.length - 2], forms[forms.length - 1]].forEach(function (f) {
+        if (!f || seen[f.rung]) return;
+        seen[f.rung] = 1; keep.push(f);
+      });
+      keep.forEach(function (f) {
+        out.push(Object.assign({}, f, { turned: true, rung: (f.rung || 0) + TURN_RUNG }));
+      });
+      return out;
     };
   }
   var cell = opts.cell || 7;
@@ -6506,6 +6564,12 @@ var TIERS = tiersAt('text--base').concat([SMALL_TIER]);
 function standingTiers(titleCls) {
   var title = 'metro-title-text ' + titleCls + ' text--bold';
   var small = 'metro-title-text text--small text--bold';
+  //
+  // FIVE, AND THEY WERE COUNTED. Cutting them to three -- on the theory that
+  // every rung is a move the caption search prices on every pass and its
+  // budget is fixed -- took the X portrait from 264 captions drawn to 187.
+  // The rungs are not the cost, they are the reason it fits: a board with no
+  // narrow form to fall to sheds the caption instead.
   return [
     // folded twice with no time: the fold at rung 0.35 keeps its time, which
     // is usually the widest row of the three and the reason it will not fit
@@ -6527,6 +6591,16 @@ var STANDING_TIERS = standingLadder('text--base');
 // first, with every base form still behind it, so a crowded full board gives
 // the size back before it gives a caption up; a half or a quadrant is not
 // offered them at all.
+// THE NARROW RUNGS AT BOTH SIZES, and it was measured twice to be sure.
+//
+// A large board's ladder is the large forms and then the whole base ladder a
+// rung worse, so hanging the standing rungs off both halves offers each of
+// them at two sizes -- which looks like duplication and is not. Offering them
+// only at the base size, on the argument that the base ones are the narrow
+// ones anyway, took the X portrait from 264 captions drawn to 185: what it
+// really changed was WHERE the narrow rungs sit in the order, pushing every
+// one of them below the whole base ladder instead of interleaving with it, so
+// a caption that wanted a narrow large form had to give up its size first.
 var LARGE_STANDING_TIERS = standingLadder('text--large').concat(STANDING_TIERS.map(function (t) {
   return Object.assign({}, t, { rung: t.rung + 0.8 });
 }));
@@ -9975,16 +10049,29 @@ function draw(board, spec, ctx) {
   board.caps.forEach(function (cp) {
     var el = cp.el;
     if (!el) return;
-    // LEVEL, WHICHEVER WAY THE BOARD RUNS. A caption used to be turned to read
-    // down the page on a standing board, because the solver books a caption's
-    // length ALONG the axis and its rows ACROSS it: written level, every name
-    // was as wide as its words across a column a rail-gap wide and ran over
-    // the next line. Turning it made the drawn box the booked box, at the
-    // price of a reader tilting their head.
+    // LEVEL UNLESS THE SOLVER TURNED IT.
     //
-    // The books are kept the other way round now (`specFor`, where a standing
-    // board's measured forms have their two extents swapped), so level IS the
-    // booked box and the turn is gone.
+    // Every caption on a standing board used to be turned to read down the
+    // page, because the solver books a caption's length ALONG the axis and its
+    // rows ACROSS it: written level, every name was as wide as its words
+    // across a column a rail-gap wide and ran over the next line. Turning them
+    // all made the drawn box the booked box, at the price of a reader tilting
+    // their head at every word on the board.
+    //
+    // A standing board is measured both ways round now (`specFor`) and the
+    // ladder picks per caption, turned rungs under every level one. So this
+    // reads the answer rather than making it, and a turned caption is one no
+    // level form would fit -- the rung above being shed.
+    //
+    // `vertical-lr` so the rows stack in the same order across the rail as
+    // they do lying down, and the label's inset turned with them (the
+    // stylesheet reads it from two custom properties, so the turn costs the
+    // inline-style lint nothing).
+    if (cp.turned) {
+      el.style.writingMode = 'vertical-lr';
+      el.style.setProperty('--metro-inset-along', '0');
+      el.style.setProperty('--metro-inset-across', '3px');
+    }
     var p = xy(cp.a, cp.c);
     el.style.left = p[0] + 'px';
     el.style.top = p[1] + 'px';

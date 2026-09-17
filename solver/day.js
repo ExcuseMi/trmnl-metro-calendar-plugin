@@ -920,6 +920,13 @@ function framed(metro, view, opts) {
   return out;
 }
 
+// WHAT IT COSTS TO TURN A CAPTION ON ITS SIDE, in rungs.
+//
+// Bigger than the whole level ladder (which reaches 3.2 on a large board), so
+// every level form is tried before any turned one; and far smaller than
+// shedding the caption, which is what the rung under this used to be.
+var TURN_RUNG = 4;
+
 function specFor(metro, view, opts) {
   opts = opts || {};
   metro = framed(edged(opened(metro)), view, opts);
@@ -944,12 +951,55 @@ function specFor(metro, view, opts) {
   // offers ("Shift" over "Handover" over its time, a narrow tall box) arrive
   // on a standing board as the NARROW-across ones, which is exactly what a
   // board with five bands in seven hundred pixels needs them to be.
+  //
+  // ...AND THE TURN IS THE LAST RUNG, NOT A DECISION ABOUT THE BOARD.
+  //
+  // Level costs width, and a standing board's width is the panel divided by
+  // the people on it. On the roomy boards that is fine; on a narrow slot with
+  // seven lines there is no width at all, and booking level boxes there shed a
+  // third of the captions and dropped thirteen more people than turning them
+  // did. The first answer to that was going to be a rule deciding level or
+  // turned for the WHOLE board, the way `levelNames` decides names -- but the
+  // two views it has to separate come out the same size in cells (a band is
+  // about twelve cells wide on both the X portrait and the OG half), so no
+  // such rule can tell them apart, and it would be the wrong shape anyway: it
+  // is not the board that does or does not have room, it is each caption.
+  //
+  // So both orientations are offered, and the ladder chooses per caption the
+  // way it already chooses between a name with its time and a name without.
+  // Turned forms sit under every level one, so a caption turns only when no
+  // level form fits -- and turning is the rung above being shed, which is the
+  // point: a name a reader has to tilt their head for beats a stop with no
+  // name at all.
   if (opts.standing) {
     var measured = measure;
     measure = function (ev, o) {
-      return measured(ev, o).map(function (f) {
-        return Object.assign({}, f, { w: f.h, h: f.w });
+      var forms = measured(ev, o), out = [];
+      forms.forEach(function (f) {
+        out.push(Object.assign({}, f, { w: f.h, h: f.w, turned: false }));
       });
+      // THREE TURNED FORMS, NOT A SECOND LADDER.
+      //
+      // Offering a turned twin of every rung doubled what the caption search
+      // has to price -- 230 forms a board against 120 -- and the search has a
+      // fixed budget to spend: it shed 178 captions where the level-only
+      // ladder shed 112, having spent its passes measuring twins of forms that
+      // were never going to be reached. The turn is an escape, and an escape
+      // wants one door, not twelve.
+      //
+      // The richest form, so a caption that has room to turn keeps its time;
+      // and the last two, which are the plainest and therefore the THINNEST
+      // across -- one row of words is what slips between two rails, and it is
+      // what the board did for every caption before this.
+      var keep = [], seen = {};
+      [forms[0], forms[forms.length - 2], forms[forms.length - 1]].forEach(function (f) {
+        if (!f || seen[f.rung]) return;
+        seen[f.rung] = 1; keep.push(f);
+      });
+      keep.forEach(function (f) {
+        out.push(Object.assign({}, f, { turned: true, rung: (f.rung || 0) + TURN_RUNG }));
+      });
+      return out;
     };
   }
   var cell = opts.cell || 7;

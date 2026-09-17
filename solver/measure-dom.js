@@ -123,6 +123,12 @@ var TIERS = tiersAt('text--base').concat([SMALL_TIER]);
 function standingTiers(titleCls) {
   var title = 'metro-title-text ' + titleCls + ' text--bold';
   var small = 'metro-title-text text--small text--bold';
+  //
+  // FIVE, AND THEY WERE COUNTED. Cutting them to three -- on the theory that
+  // every rung is a move the caption search prices on every pass and its
+  // budget is fixed -- took the X portrait from 264 captions drawn to 187.
+  // The rungs are not the cost, they are the reason it fits: a board with no
+  // narrow form to fall to sheds the caption instead.
   return [
     // folded twice with no time: the fold at rung 0.35 keeps its time, which
     // is usually the widest row of the three and the reason it will not fit
@@ -144,6 +150,16 @@ var STANDING_TIERS = standingLadder('text--base');
 // first, with every base form still behind it, so a crowded full board gives
 // the size back before it gives a caption up; a half or a quadrant is not
 // offered them at all.
+// THE NARROW RUNGS AT BOTH SIZES, and it was measured twice to be sure.
+//
+// A large board's ladder is the large forms and then the whole base ladder a
+// rung worse, so hanging the standing rungs off both halves offers each of
+// them at two sizes -- which looks like duplication and is not. Offering them
+// only at the base size, on the argument that the base ones are the narrow
+// ones anyway, took the X portrait from 264 captions drawn to 185: what it
+// really changed was WHERE the narrow rungs sit in the order, pushing every
+// one of them below the whole base ladder instead of interleaving with it, so
+// a caption that wanted a narrow large form had to give up its size first.
 var LARGE_STANDING_TIERS = standingLadder('text--large').concat(STANDING_TIERS.map(function (t) {
   return Object.assign({}, t, { rung: t.rung + 0.8 });
 }));

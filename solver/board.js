@@ -62,6 +62,11 @@ function Caption(spec) {
   // The framework class each row is drawn in, so the drawing wears exactly
   // what the ruler measured.
   this.rowCls = spec.rowCls || null;
+  // Set on its side: the words read down the page instead of across it. Only
+  // a standing board ever offers it, and only to a caption no level form fits
+  // (day.js). The box is the same box either way -- it was measured level and
+  // the two extents swapped -- so nothing but the renderer needs to know.
+  this.turned = !!spec.turned;
   this.el = spec.el || null;
 }
 Caption.prototype.box = function () {
