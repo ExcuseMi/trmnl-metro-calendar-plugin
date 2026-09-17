@@ -128,20 +128,21 @@ module.exports = function (test, h) {
   // "Rain from 16:00 until 20:00 (96%)" is one line doing three jobs:
   // what is coming, when, and how sure. At one weight a reader has to read all
   // of it to find the part they wanted.
-  test('the banner comes in pieces: the thing badged, the clock quiet', async () => {
+  test('the banner comes in pieces: the thing bold, the clock quiet', async () => {
     const { run } = runTransform(net(forecast()), NOW);
     const parts = (await run(input(ON))).data.service_alert.parts;
     assert(Array.isArray(parts) && parts.length, 'no parts: ' + JSON.stringify(parts));
     // the pieces put back together are exactly the sentence
     assertEqual(parts.map((p) => p.t).join(''), 'Rain from 17:00 until 18:00 (80%)',
       'the pieces do not spell the line');
-    const badge = parts.filter((p) => p.s === 'p').map((p) => p.t);
+    const bold = parts.filter((p) => p.s === 'b').map((p) => p.t);
     const lit = parts.filter((p) => p.s === '').map((p) => p.t).join(' ');
     const quiet = parts.filter((p) => p.s === 'q').map((p) => p.t).join(' ');
-    // what is coming, in the badge: the one word that decides whether the
-    // rest is worth reading, and the only thing on the banner that is not
-    // either a clock or a joining word
-    assertEqual(badge, ['Rain'], 'the thing itself is not the badged one');
+    // what is coming, in bold: the one word that decides whether the rest is
+    // worth reading. It was a badge for a while -- `.metro-pill`, the board's
+    // own, white with the word knocked out of it -- and read as a button in a
+    // line of running text.
+    assertEqual(bold, ['Rain'], 'the thing itself is not the bold one');
     // the clocks are what a reader scans a weather line for, so they stay lit
     assert(lit.indexOf('17:00') >= 0 && lit.indexOf('18:00') >= 0,
       'the clocks went quiet: ' + JSON.stringify(parts));
@@ -160,7 +161,37 @@ module.exports = function (test, h) {
     const { run } = runTransform(net(forecast({ hi: 1, lo: -6 })), NOW);
     const parts = (await run(input(Object.assign({ alert_temp_low: '-5' }, ON)))).data.service_alert.parts;
     const bold = parts.filter((p) => p.s === 'b').map((p) => p.t);
-    assertEqual(bold, ['-6\u00b0C'], 'wanted one bold piece: ' + JSON.stringify(parts));
+    // The word the sentence opens with is bold too -- it is the thing itself,
+    // the same as `Rain` in a spell -- so the degree is the second of two.
+    assertEqual(bold, ['Freezing', '-6\u00b0C'],
+      'wanted the thing and its degree, each in one piece: ' + JSON.stringify(parts));
+  });
+
+  // ------------------------------------------ the until, when it is not a clock
+  //
+  // "Rain from 7pm into the night (92%)", with "into the night" the same grey
+  // as "from". Asked directly: "that's the until so it should be white". Two
+  // of the five spell sentences end in words rather than in a time, and those
+  // words answer the question a reader scans the line for, so they are lit the
+  // way the clocks are. They are their own i18n key now, which is what lets
+  // them be a placeholder rather than part of the sentence.
+  test('a spell that ends in words lights the words, the way it lights a clock', async () => {
+    // Wet from 17:00 to the last hour there is, read before it starts.
+    const { run } = runTransform(net(forecast({ probs: PROBS.map((p, k) => (k >= 10 ? 90 : 5)) })), NOW);
+    const a = (await run(input(ON))).data.service_alert;
+    assertEqual(a.text, 'Rain from 17:00 into the night (90%)', 'the sentence');
+    const lit = a.parts.filter((p) => p.s === '').map((p) => p.t);
+    assertEqual(lit, ['17:00', 'into the night'],
+      'the until is not lit with the clock: ' + JSON.stringify(a.parts));
+  });
+
+  test('...and so does one that has already started and runs to the end', async () => {
+    const { run } = runTransform(net(forecast({ probs: PROBS.map(() => 90) })),
+      Date.parse('2026-09-09T15:30:00Z'));
+    const a = (await run(input(ON, null, undefined))).data.service_alert;
+    assertEqual(a.text, 'Rain for the rest of the day (90%)', 'the sentence');
+    assertEqual(a.parts.filter((p) => p.s === '').map((p) => p.t), ['for the rest of the day'],
+      'the until is not lit: ' + JSON.stringify(a.parts));
   });
 
   test('a day that stays under the threshold gets no banner', async () => {
@@ -793,8 +824,8 @@ module.exports = function (test, h) {
       { date: D0, hi: 36, lo: 24, fill: 24, degs: { 13: 36, 14: 36 } },
     ]), HOT);
     assertEqual(a.parts.map((q) => q.t).join(''), a.text, 'the pieces do not spell the line');
-    assertEqual(a.parts.filter((q) => q.s === 'p').map((q) => q.t), ['Hot'],
-      'the thing itself is not the badged one: ' + JSON.stringify(a.parts));
+    assertEqual(a.parts.filter((q) => q.s === 'b').map((q) => q.t), ['Hot', '36\u00b0C'],
+      'the thing and its degree are not the bold ones: ' + JSON.stringify(a.parts));
     const lit = a.parts.filter((q) => q.s === '').map((q) => q.t).join('');
     assert(lit.indexOf('13:00') >= 0 && lit.indexOf('15:00') >= 0,
       'the clocks went quiet: ' + JSON.stringify(a.parts));

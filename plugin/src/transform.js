@@ -133,8 +133,17 @@ var I18N = {
         alert_kind_ice: 'Freezing rain',
         alert_from_until: '{what} from {t} until {u} ({p}%)',
         alert_until: '{what} until {u} ({p}%)',
-        alert_from_on: '{what} from {t} into the night ({p}%)',
-        alert_rest_of_day: '{what} for the rest of the day ({p}%)',
+        // {u} is the until of these two, the way it is a clock in the other
+        // three: a language says where an open-ended spell runs to in its own
+        // words, and those words are read for the same reason a clock is, so
+        // they are lit the same. Held in their own key rather than written
+        // into the sentence -- a device still on an older table has the older
+        // sentence, which says the same thing with the phrase inside it and
+        // simply goes unlit.
+        alert_from_on: '{what} from {t} {u} ({p}%)',
+        alert_rest_of_day: '{what} {u} ({p}%)',
+        alert_night: 'into the night',
+        alert_all_day: 'for the rest of the day',
         alert_around: '{what} around {t} ({p}%)',
         alert_hot: 'Hot, up to {v}°{u}',
         alert_chilly: 'Cold, down to {v}°{u}',
@@ -1734,10 +1743,19 @@ function serviceAlert(snap, opts) {
   // is coming stays bold, because it is the one word that decides whether the
   // rest is worth reading at all.
   //
-  // In the spell sentences {t} and {u} are both clocks; in the temperature
-  // ones {u} is the unit and belongs with the number it qualifies.
-  var WHEN = { _: 'q', what: 'p', t: '', u: '', p: 'q' };
-  var DEG = { _: 'q', _0: 'p', v: 'b', u: 'b', r: '' };
+  // In the spell sentences {t} and {u} are both the clock -- {u} being either
+  // an end time or the words a language ends an open-ended spell with, "into
+  // the night", which is that sentence's until and is lit like one. In the
+  // temperature ones {u} is the unit and belongs with the number it
+  // qualifies.
+  //
+  // THE THING IS BOLD, NOT BADGED. It wore `.metro-pill` for a while, which
+  // is the board's own badge, white with the word knocked out of it: "Rain as
+  // a pill looks bad". On the hour strip a badge is a mark among numbers and
+  // reads as a different kind of thing; in a line of running text it reads as
+  // a button.
+  var WHEN = { _: 'q', what: 'b', t: '', u: '', p: 'q' };
+  var DEG = { _: 'q', _0: 'b', v: 'b', u: 'b', r: '' };
   function clock(min) { return timeLabel12(min, { hour12: opts.hour12 }); }
 
   var dayIx = (typeof opts.dayIx === 'number' && opts.dayIx > 0) ? opts.dayIx : 0;
@@ -1759,7 +1777,11 @@ function serviceAlert(snap, opts) {
     var key = run.toEnd ? (started ? 'alert_rest_of_day' : 'alert_from_on')
       : (started ? 'alert_until' : 'alert_from_until');
     return banner(kind, key, { what: tr(strings, 'alert_kind_' + kind), t: clock(run.start),
-                               u: clock(run.end), p: Math.round(run.pct) }, WHEN);
+                               // ...and where the spell runs off the end of the hours there is
+                               // no end to name, so {u} is the language's own words for that.
+                               u: run.toEnd ? tr(strings, started ? 'alert_all_day' : 'alert_night')
+                                            : clock(run.end),
+                               p: Math.round(run.pct) }, WHEN);
   }
   // A snapshot from a build that saved one wettest hour and no day behind
   // it. There is no spell to find, so it is that hour or nothing, still

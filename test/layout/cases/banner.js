@@ -148,50 +148,34 @@ module.exports = function (test, h) {
       + Math.round(long.banner.h) + 'px tall but the canvas gave up ' + Math.round(lost) + 'px');
   });
 
-  test('the weather\'s own name is badged, and stands out on every bit depth', () => {
+  test('the weather\'s own name is the loud one, on every bit depth', () => {
     // The band used to open with a label reading "Weather", which is the one
-    // thing about this banner nobody has to be told: there is no other kind
-    // of alert. The badge moved onto the word that is worth the ink -- Rain,
-    // Snow, Freezing rain -- and it has to be SEEN there: a box of its own
-    // that is not the band's colour, with a word that is not the box's, and
-    // no dither under it on the panels that would rather draw one.
+    // thing about a banner that can only ever be about the weather that
+    // nobody has to be told. The word that IS worth the ink -- Rain, Snow,
+    // Freezing rain -- carries the weight instead. It was a badge for a
+    // while, `.metro-pill`, white with the word knocked out of it: on the
+    // hour strip that reads as a different KIND of thing among the numbers,
+    // and in a line of running text it read as a button. "Rain as a pill
+    // looks bad."
+    //
+    // Bold is not a colour, so there is nothing here for a bit depth to map
+    // wrong -- which is why it is still asked on all of them: the word has to
+    // come out heavier than its neighbours and in the band's own paper rather
+    // than the grey, on the panel that dithers as well as the one that does
+    // not.
     for (const v of DEPTHS) {
       const rep = layout(busy, v, { service_alert: PARTS });
-      const l = rep.banner && rep.banner.badge;
-      assert(l, v.name + ': no badge on the banner');
-      assertEqual(l.text, 'Rain', v.name + ': the badge is not on the weather itself');
-      assert(l.bg !== rep.banner.ink, v.name + ': the badge is ' + l.bg + ' on a ' + rep.banner.ink
-        + ' band, so it has no box of its own');
-      assert(l.color !== l.bg, v.name + ': the badge reads ' + l.color + ' on ' + l.bg + ', which is invisible');
-      assert(l.bgImage === 'none' || !l.bgImage, v.name + ': the badge is dithered (' + l.bgImage
-        + '), which on this panel is a grey smear under the word');
+      const pieces = rep.banner.pieces || [];
+      const at = (t) => pieces.filter((p) => p.text.indexOf(t) >= 0)[0] || {};
+      assert(+at('Rain').weight > +at('from').weight, v.name + ': the thing itself is not heavier '
+        + 'than the words around it: ' + at('Rain').weight + ' vs ' + at('from').weight);
+      assertEqual(at('Rain').color, rep.banner.paper, v.name + ': the thing is '
+        + at('Rain').color + ' on a band whose paper is ' + rep.banner.paper);
+      assert(at('from').color !== rep.banner.paper, v.name + ': the words around it are the '
+        + 'same colour, so there is no hierarchy at all');
     }
   });
 
-  test('the badge is held to the line it is in and does not deepen the band', () => {
-    // A badge is a box with its own inset sitting in running text, so the
-    // two things it must not do are open the line it is in -- it is given
-    // the band's own line-height for that, where the hour strip's pill can
-    // afford a looser one -- and push a sentence that fitted onto a second
-    // line, because the band's depth comes off the map.
-    //
-    // The quadrant is the exception and is allowed one wrap: 400px has to
-    // carry an icon, a badge and a whole sentence, and at that width the
-    // English rain line lands within a few pixels of the edge with no badge
-    // at all. It is still the shallower band of the two -- what stood here
-    // before was a "Weather" label as its own flex item, seventy pixels of
-    // it, which wrapped the same sentence on the same panel and kept the
-    // badge as well.
-    for (const v of VIEWS) {
-      const withBadge = layout(busy, v, { service_alert: PARTS });
-      const plain = layout(busy, v, { service_alert: RAIN });
-      const room = (v.slot ? v.slot.w : v.w) >= 600 ? 1 : withBadge.banner.lineHeight + 1;
-      assert(withBadge.banner.h <= plain.banner.h + room, v.name + ': the badge deepened the band from '
-        + Math.round(plain.banner.h) + 'px to ' + Math.round(withBadge.banner.h) + 'px'
-        + ' (sentence box ' + Math.round(plain.banner.message.h) + ' -> '
-        + Math.round(withBadge.banner.message.h) + 'px, line ' + withBadge.banner.lineHeight + 'px)');
-    }
-  });
 
   test('the banner icon is drawn in the band\'s paper, a shade larger than the words', () => {
     // An adaptive icon is a mask painted in the text colour, so on the ink
@@ -240,7 +224,7 @@ module.exports = function (test, h) {
   const PARTS = {
     kind: 'rain', icon: ICONS + 'wi-rain.svg',
     text: 'Rain from 14:00 until 17:00 (80%)',
-    parts: [{ t: 'Rain', s: 'p' }, { t: ' from ', s: 'q' }, { t: '14:00', s: '' },
+    parts: [{ t: 'Rain', s: 'b' }, { t: ' from ', s: 'q' }, { t: '14:00', s: '' },
             { t: ' until ', s: 'q' }, { t: '17:00', s: '' }, { t: ' (80%)', s: 'q' }],
   };
   // A heat banner: the badge, a bold temperature and the stretch of the day
@@ -248,7 +232,7 @@ module.exports = function (test, h) {
   // banner ever carries.
   const HEAT = {
     kind: 'heat', icon: ICONS + 'wi-hot.svg', text: 'Hot, up to 36\u00b0C (13:00\u201317:00)',
-    parts: [{ t: 'Hot', s: 'p' }, { t: ', up to ', s: 'q' }, { t: '36\u00b0C', s: 'b' },
+    parts: [{ t: 'Hot', s: 'b' }, { t: ', up to ', s: 'q' }, { t: '36\u00b0C', s: 'b' },
             { t: ' (', s: 'q' }, { t: '13:00\u201317:00)', s: '' }],
   };
 
@@ -267,12 +251,11 @@ module.exports = function (test, h) {
       'the clock is the same colour as the words: ' + JSON.stringify([clock, body]));
   });
 
-  test('a heat banner badges the weather, bolds the degree and lights the stretch', () => {
+  test('a heat banner bolds the weather and its degree, and lights the stretch', () => {
     // The busiest line this banner draws: three kinds of emphasis, and the
     // clock range that says which part of the day it is about.
     const rep = layout(busy, VIEWS[2], { service_alert: HEAT });
     assertEqual(rep.banner.text, HEAT.text, 'the pieces must still read as the line');
-    assertEqual(rep.banner.badge && rep.banner.badge.text, 'Hot', 'the thing itself is not badged');
     const pieces = rep.banner.pieces || [];
     const at = (t) => pieces.filter((p) => p.text.indexOf(t) >= 0)[0] || {};
     assert(+at('36').weight > +at('up to').weight, 'the temperature is not bolder than the words around it: '
