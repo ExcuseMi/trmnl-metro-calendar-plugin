@@ -3,8 +3,14 @@
 // Temperature unit. Like locale, timeZone and timeFormat, this is a
 // property of the BOARD rather than of the account it hangs on, so the
 // config wins over the account setting and the account setting is only the
-// default. Auto reads the locale's region: en-US is Fahrenheit, everywhere
-// else (the rest of the English-speaking world included) is Celsius.
+// default.
+//
+// Auto is no longer on the menu (settings.yml) and is still answered, because
+// a board that chose it while it was there still has `auto` stored and should
+// keep what it picked: it reads the locale's region, so en-US is Fahrenheit
+// and everywhere else, the rest of the English-speaking world included, is
+// Celsius. A board that chose NOTHING takes the declared default instead of a
+// guess.
 
 module.exports = function (test, h) {
   const { runTransform, icsWithEvents, okText, baseInput, assert } = h;
@@ -47,15 +53,27 @@ module.exports = function (test, h) {
     return i;
   }
 
-  test('auto is Fahrenheit for en-US and Celsius everywhere else', async () => {
+  test('a board that still has auto stored keeps it: en-US Fahrenheit, elsewhere Celsius', async () => {
     const us = net();
-    await runTransform(us, NOW).run(input({ locale: 'en-US' }));
+    await runTransform(us, NOW).run(input({ locale: 'en-US' }, { temperature_unit: 'auto' }));
     assert(/temperature_unit=fahrenheit/.test(us.weatherUrl()), 'en-US should ask for Fahrenheit: ' + us.weatherUrl());
 
     const gb = net();
-    const r = await runTransform(gb, NOW).run(input({ locale: 'en-GB' }));
+    const r = await runTransform(gb, NOW).run(input({ locale: 'en-GB' }, { temperature_unit: 'auto' }));
     assert(/temperature_unit=celsius/.test(gb.weatherUrl()), 'en-GB should ask for Celsius: ' + gb.weatherUrl());
     assert(r.data.header_weather.unit === 'C', 'the payload should say which unit it is in');
+  });
+
+  // THE OPTION IS GONE, SO NOTHING CHOSEN IS NOT A CHOICE OF AUTO.
+  // `settings.yml` says the default is Celsius; this says the same, rather
+  // than guessing from the locale where nobody asked for a guess. An en-US
+  // board that never touched the field is the one this moves.
+  test('a board that chose nothing gets the declared default, not a guess', async () => {
+    const us = net();
+    const r = await runTransform(us, NOW).run(input({ locale: 'en-US' }));
+    assert(/temperature_unit=celsius/.test(us.weatherUrl()),
+      'an unset unit should be Celsius, not guessed: ' + us.weatherUrl());
+    assert(r.data.header_weather.unit === 'C', 'got unit ' + r.data.header_weather.unit);
   });
 
   test('the config wins over the account setting, the way timeFormat does', async () => {
@@ -73,10 +91,11 @@ module.exports = function (test, h) {
     assert(r.data.header_weather.unit === 'F', 'got unit ' + r.data.header_weather.unit);
   });
 
-  test('an unrecognised unit falls back to auto rather than guessing', async () => {
+  test('an unrecognised unit is the default, not a guess', async () => {
     const n = net();
     await runTransform(n, NOW).run(input({ locale: 'en-US', temperatureUnit: 'kelvin' }));
-    assert(/temperature_unit=fahrenheit/.test(n.weatherUrl()), 'auto should have decided: ' + n.weatherUrl());
+    assert(/temperature_unit=celsius/.test(n.weatherUrl()),
+      '"kelvin" should fall to the default: ' + n.weatherUrl());
   });
 
   test('weather replayed from state is converted, not shown in the old unit', async () => {
@@ -87,7 +106,9 @@ module.exports = function (test, h) {
       if (String(url).indexOf('api.open-meteo.com') >= 0) throw new Error('forecast down');
       return okText(ICS);
     }, NOW);
-    const i = input({ locale: 'en-US' });
+    // Fahrenheit ASKED FOR, not inferred: this case is about the conversion,
+    // and it used to get its F from an unset field guessing the locale.
+    const i = input({ locale: 'en-US' }, { temperature_unit: 'f' });
     i.trmnl.state = {
       weather: { hi: 21, lo: 13, condition: 'clear', icon: 'wi-day-sunny.svg', rain_chance: 10, unit: 'C', milestones: [], sun: [] },
       weatherFetchedAt: NOW_S - 600,

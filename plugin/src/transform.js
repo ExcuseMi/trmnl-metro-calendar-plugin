@@ -1203,15 +1203,29 @@ function materializeWeather(snap, strings, unit) {
 
 // Which unit the temperatures are in. The config wins over the account
 // setting, exactly as timeFormat and locale do: the board is configured
-// by whoever wrote the config, not by whose account it hangs on. Auto
-// reads the LOCALE's region rather than a country list, so en-US is
-// Fahrenheit and everywhere else, including the rest of the
-// English-speaking world, is Celsius.
+// by whoever wrote the config, not by whose account it hangs on.
+//
+// AUTO IS NO LONGER OFFERED, AND IS STILL ANSWERED.
+//
+// The setting used to have an Auto option, and to default to it: it read the
+// LOCALE's region rather than a country list, so en-US came out Fahrenheit
+// and everywhere else, the rest of the English-speaking world included, came
+// out Celsius. It was taken out of `settings.yml` because a board guessing
+// this wrong is a board a reader cannot use and there is no sign on it that a
+// guess was made.
+//
+// A board that CHOSE Auto while it was on the menu still has `auto` stored,
+// and still gets what it chose: taking the option away is not a reason to
+// overrule somebody who picked it. What changes is a board that never chose
+// anything at all -- it takes the declared default, Celsius, rather than a
+// guess nobody asked for, so `settings.yml` and this function have one
+// opinion about the default between them instead of two.
 function resolveTempUnit(configUnit, settingRaw, locale) {
-  var v = String(configUnit || settingRaw || 'auto').trim().toLowerCase();
+  var v = String(configUnit || settingRaw || '').trim().toLowerCase();
   if (v === 'c' || v === 'celsius') return 'C';
   if (v === 'f' || v === 'fahrenheit') return 'F';
-  return localeRegion(locale) === 'US' ? 'F' : 'C';
+  if (v === 'auto') return localeRegion(locale) === 'US' ? 'F' : 'C';
+  return 'C';
 }
 
 function localeRegion(locale) {

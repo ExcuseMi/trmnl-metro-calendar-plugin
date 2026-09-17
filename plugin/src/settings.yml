@@ -73,12 +73,11 @@ custom_fields:
   field_type: select
   name: Temperature Unit
   group: Weather
-  description: Auto uses Fahrenheit for US English and Celsius everywhere else.
+  description: Which unit the forecast is shown in.
   options:
-  - Auto: auto
   - Celsius: c
   - Fahrenheit: f
-  default: auto
+  default: c
   optional: true
 - keyname: show_moon
   field_type: boolean
