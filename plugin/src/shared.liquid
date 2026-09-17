@@ -6320,7 +6320,13 @@ function fixedFor(metro, scale, axis, cross, opts) {
   list.forEach(function (d, di) {
     var wx = d.weather;
     if (!wx || wx.hi == null) return;
-    var t = Math.round(wx.hi) + '\u00b0/' + Math.round(wx.lo) + '\u00b0';
+    // WHICH SCALE THE NUMBERS ARE ON, once. "18\u00b0 13\u00b0" is two numbers
+    // and no unit, which is fine on a board you set up yourself and useless to
+    // anybody else looking at it -- and the setting that decides it is two
+    // clicks away in a form nobody opens twice. Once per reading, at the end,
+    // where it covers both numbers.
+    var u = wx.unit || (metro.header_weather && metro.header_weather.unit) || '';
+    var t = Math.round(wx.hi) + '\u00b0/' + Math.round(wx.lo) + '\u00b0' + u;
     if (wx.rain_chance >= 30) {
       t += '  ' + (i18n.rain_pct || '{n}% rain').replace('{n}', wx.rain_chance);
     }
@@ -9130,7 +9136,11 @@ function draw(board, spec, ctx) {
         box.className = box.className.replace('gap--xsmall', 'gap--small');
         var hi = doc.createElement('span');
         hi.className = 'metro-wx-hi value value--small text--bold';
-        hi.textContent = Math.round(wx.hi) + '\u00b0';
+        // ON THE HIGH ONLY: it is the headline number and the low sits under
+        // it in the same reading, so the scale is said once. See day.js for
+        // the one-row form, which puts it after the low for the same reason.
+        hi.textContent = Math.round(wx.hi) + '\u00b0'
+          + (wx.unit || (spec.metro.header_weather && spec.metro.header_weather.unit) || '');
         box.appendChild(hi);
         // ONE BLOCK, READ FROM ITS LEFT EDGE: the low and the sky under it
         // start where the high ends, rather than each centred on the other
