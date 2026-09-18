@@ -236,12 +236,18 @@ module.exports = function (test, h) {
   // ---- all-day states at the head (rules 54-57) ---------------------------
   const oneDay = fixtures.filter((f) => (f.metro.all_day || []).length && !(f.metro.all_day || []).some((a) => a.days));
   for (const f of oneDay) {
-    test('an all-day state is written once, at a head, and nowhere on the axis: ' + f.name, () => {
+    // AT EACH OF ITS OWNERS' HEADS: a shared state is said by every line in
+    // it, rather than once with a dashed tie down to the rest -- which, with
+    // the names in the legend's column, stood beside the connector already
+    // joining the same people and read as a second meeting.
+    test('an all-day state is written at each owner\'s head, and nowhere on the axis: ' + f.name, () => {
       const rep = layout(f, 'x-landscape');
       const routes = rep.board.fixed.filter((x) => x.route).map((x) => x.route).join(' | ');
+      const drawn = new Set(rep.board.lines.filter((l) => !l.branchOf).map((l) => l.key));
       for (const a of f.metro.all_day) {
         const n = routes.split(a.title).length - 1;
-        assertEqual(n, 1, '"' + a.title + '" is at ' + n + ' heads');
+        const want = a.owners.filter((k) => drawn.has(k)).length;
+        assertEqual(n, want, '"' + a.title + '" is at ' + n + ' heads');
         assert(!rep.board.caps.some((c) => c.text.indexOf(a.title) >= 0), '"' + a.title + '" is also a caption on the axis');
       }
     });
@@ -262,9 +268,7 @@ module.exports = function (test, h) {
         + edgeRings.filter((c) => c.owner === k).length;
       for (const k of inIt) assertEqual(opensFor(k), 2, k + '\'s open ends');
       assert(open.every((p) => inIt.has(p.owner)), 'a line not in any all-day state ends open');
-      if (f.metro.all_day.some((a) => a.owners.length > 1)) {
-        assert(pathsWhere(rep, 'origin-tie').length > 0, 'a shared state names one head and ties nothing to the others');
-      }
+      assertEqual(pathsWhere(rep, 'origin-tie').length, 0, 'a shared state is tied between its heads again');
     });
   }
 

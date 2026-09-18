@@ -5905,7 +5905,14 @@ function routeRows(states, key, oneName) {
   states.forEach(function (st, si) {
     // an ambient block is drawn as its band on the rail (fixedFor), not as a
     // row under the name
-    if (st.owners[0] !== key || st.timed) return;
+    // EVERY OWNER'S HEAD SAYS IT. A shared state used to be named once, at
+    // its first owner, with a dashed tie hung down to the rest -- "one
+    // holiday, not three". With each line's name set in the legend's column
+    // that tie stood right beside the connector already joining the same
+    // people and read as a second meeting ("the vertical dotted lines? what
+    // do they mean now?"), and the line it was tied to said nothing about
+    // its own day. So each person's badge says what their day is.
+    if (st.owners.indexOf(key) < 0 || st.timed) return;
     var far = st.head != null ? st.head === 1 : (st.ends && !st.ends[0]);
     rows[!oneName && far ? 1 : 0].push({ text: st.text, day0: st.day0 || 0, si: si });
   });
@@ -9751,21 +9758,8 @@ function draw(board, spec, ctx) {
       if (st.timed) return;
       o[0] = o[0] || e[0]; o[1] = o[1] || e[1];
     });
-    // ONE HOLIDAY, NOT THREE (rule 56): named at the first head, with a
-    // dashed out-of-station tie down to the others.
-    var lead = !st.ends || st.ends[0];
-    var at = lead ? spec.axis.a0 - NODE_R : spec.axis.a1 + NODE_R;
-    var cs = st.owners.map(function (k) {
-      var l = board.lineByKey(k);
-      return l && l.pts.length ? l.pts[lead ? 0 : l.pts.length - 1][1] : null;
-    }).filter(function (c) { return c != null; });
-    if (cs.length < 2) return;
-    var o0 = xy(at, Math.min.apply(null, cs)), o1 = xy(at, Math.max.apply(null, cs));
-    var tie = svgEl(doc, 'path', { d: 'M ' + o0[0] + ' ' + o0[1] + ' L ' + o1[0] + ' ' + o1[1],
-      fill: 'none', 'stroke-width': 1.5 * S, 'stroke-dasharray': (3 * S) + ' ' + (4 * S),
-      'stroke-linecap': 'butt' });
-    tie.style.stroke = INK;
-    put(tie, 'origin-tie', st.owners[0]);
+    // (No tie between the owners of a shared state any more: each of their
+    // heads carries the badge itself -- see routeRows, day.js.)
   });
   board.lines.forEach(function (ln) {
     if (ln.pts.length < 2) return;

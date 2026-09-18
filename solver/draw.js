@@ -1902,21 +1902,8 @@ function draw(board, spec, ctx) {
       if (st.timed) return;
       o[0] = o[0] || e[0]; o[1] = o[1] || e[1];
     });
-    // ONE HOLIDAY, NOT THREE (rule 56): named at the first head, with a
-    // dashed out-of-station tie down to the others.
-    var lead = !st.ends || st.ends[0];
-    var at = lead ? spec.axis.a0 - NODE_R : spec.axis.a1 + NODE_R;
-    var cs = st.owners.map(function (k) {
-      var l = board.lineByKey(k);
-      return l && l.pts.length ? l.pts[lead ? 0 : l.pts.length - 1][1] : null;
-    }).filter(function (c) { return c != null; });
-    if (cs.length < 2) return;
-    var o0 = xy(at, Math.min.apply(null, cs)), o1 = xy(at, Math.max.apply(null, cs));
-    var tie = svgEl(doc, 'path', { d: 'M ' + o0[0] + ' ' + o0[1] + ' L ' + o1[0] + ' ' + o1[1],
-      fill: 'none', 'stroke-width': 1.5 * S, 'stroke-dasharray': (3 * S) + ' ' + (4 * S),
-      'stroke-linecap': 'butt' });
-    tie.style.stroke = INK;
-    put(tie, 'origin-tie', st.owners[0]);
+    // (No tie between the owners of a shared state any more: each of their
+    // heads carries the badge itself -- see routeRows, day.js.)
   });
   board.lines.forEach(function (ln) {
     if (ln.pts.length < 2) return;

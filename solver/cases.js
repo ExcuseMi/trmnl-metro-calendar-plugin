@@ -877,7 +877,9 @@ test('an all-day state is at its first owner\'s head, for the days drawn, saying
     'kids head says ' + JSON.stringify(head('k')));
   assert(!head('k', true), 'a line was named at both ends: ' + JSON.stringify(head('k', true)));
   assert(head('a') === 'Leave', 'a state on every drawn day owes no qualifier: ' + JSON.stringify(head('a')));
-  assert(head('s') === 'Night Shift \u00b7 Sat', 'a shared state is named once, at its first head: '
+  // ...and a shared state at each of its owners' heads, in the order the
+  // days run: the kids' half term is Sam's too.
+  assert(head('s') === 'Night Shift \u00b7 Sat, Half Term \u00b7 Sun', 'a shared state is at every owner\'s head: '
     + JSON.stringify(head('s')));
   assert(!spec.fixed.some(function (x) { return x.kind === 'terminus' && x.at !== spec.axis.a0; }),
     'a terminus name was declared anywhere but the leading edge');
@@ -887,9 +889,9 @@ test('an all-day state is at its first owner\'s head, for the days drawn, saying
   var one = Day.specFor(Object.assign({}, metro, { day_end_min: 1440 }), { w: 1020, h: 700 }, {});
   var said = one.states.map(function (st) { return st.text; });
   assert(said.join('|') === 'Leave|Night Shift', 'a one-day board states ' + JSON.stringify(said));
-  // A shared state whose first owner is left off goes to the next head --
-  // and with a line named once, BOTH of Sam's states are said there, in the
-  // order the days run. The day each is on is in its own words.
+  // A shared state whose first owner is left off is still at the others'
+  // heads -- it always was at every owner's now -- and with a line named
+  // once, BOTH of Sam's states are said there, in the order the days run.
   var less = Fit.withoutLines(spec, ['k']);
   var sHead = null, sTail = null;
   less.fixed.forEach(function (x) { if (x.id === 'name0:s') sHead = x.route; if (x.id === 'name:s') sTail = x.route; });

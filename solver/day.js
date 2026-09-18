@@ -575,7 +575,14 @@ function routeRows(states, key, oneName) {
   states.forEach(function (st, si) {
     // an ambient block is drawn as its band on the rail (fixedFor), not as a
     // row under the name
-    if (st.owners[0] !== key || st.timed) return;
+    // EVERY OWNER'S HEAD SAYS IT. A shared state used to be named once, at
+    // its first owner, with a dashed tie hung down to the rest -- "one
+    // holiday, not three". With each line's name set in the legend's column
+    // that tie stood right beside the connector already joining the same
+    // people and read as a second meeting ("the vertical dotted lines? what
+    // do they mean now?"), and the line it was tied to said nothing about
+    // its own day. So each person's badge says what their day is.
+    if (st.owners.indexOf(key) < 0 || st.timed) return;
     var far = st.head != null ? st.head === 1 : (st.ends && !st.ends[0]);
     rows[!oneName && far ? 1 : 0].push({ text: st.text, day0: st.day0 || 0, si: si });
   });
