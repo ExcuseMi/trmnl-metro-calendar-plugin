@@ -8255,6 +8255,8 @@ function draw(board, spec, ctx) {
   // A RAIL'S OWN INK AND OUTER WEIGHT, as the rail is drawn below, so a tick
   // on it wears exactly that: a tie's spur is plain ink whatever its line's
   // shade, and a textured rail is wider than its core.
+  // (a tie's hollow spur is ink already and gets no edge)
+  function tube_(ln) { return !!(ln && ln.branchOf && ln.ink); }
   function railStroke(ln, key) {
     if (!ln) return { ink: inkOf(key), width: RAIL_W };
     var w = ln.branchOf ? RAIL_W * 0.8 : RAIL_W;
@@ -8277,6 +8279,21 @@ function draw(board, spec, ctx) {
   function markLine(q0, q1, ln, key, role, open, weight) {
     var rs = railStroke(ln, key);
     if (weight) rs = { ink: rs.ink, width: weight };
+    // A MARK ON A SHADED RAIL WEARS THE RAIL'S EDGE. The tick and the slash
+    // are the rail's own ink at the rail's own weight, and drawn in the shade
+    // alone they were the one place the outline stopped ("the outline
+    // doesn't continue here"): ink under, a pixel proud at both ends, and
+    // the shade inset inside it, so the mark is outlined all round.
+    var mLen = Math.hypot(q1[0] - q0[0], q1[1] - q0[1]);
+    if (!tube_(ln) && !ONE_BIT && rs.ink !== INK && mLen > 0) {
+      var mux = (q1[0] - q0[0]) / mLen, muy = (q1[1] - q0[1]) / mLen;
+      var under = svgEl(doc, 'line', { x1: q0[0] - mux * EDGE_W, y1: q0[1] - muy * EDGE_W,
+        x2: q1[0] + mux * EDGE_W, y2: q1[1] + muy * EDGE_W,
+        'stroke-width': rs.width, 'stroke-linecap': 'butt' });
+      under.style.stroke = INK;
+      put(under, role + '-edge', key);
+      rs = { ink: rs.ink, width: rs.width - 2 * EDGE_W };
+    }
     var m = svgEl(doc, 'line', { x1: q0[0], y1: q0[1], x2: q1[0], y2: q1[1],
       'stroke-width': rs.width, 'stroke-linecap': 'butt' });
     m.style.stroke = rs.ink;
@@ -8473,6 +8490,12 @@ function draw(board, spec, ctx) {
       // is a grey the framework does not know the words are standing on, and
       // a paper outline there drew a white halo round every hour.
       if (!home.inverse) {
+        // THE HOURS ARE THE RULER, NOT THE MESSAGE: on a grey panel with real
+        // greys they are set regular, so the clock's pill and the date are the
+        // bold things on the strip. Measured and placed bold (wider), so a
+        // lighter label never touches its neighbour; on the ink panel and on
+        // 1-bit they stay bold, where thin letters break up.
+        if (!ONE_BIT && /\bmetro-hour\b/.test(n.className) && !/metro-wx/.test(n.className)) n.classList.remove('text--bold');
         [n].concat(Array.prototype.slice.call(n.querySelectorAll('.text-stroke'))).forEach(function (el) {
           if (el.classList.contains('text-stroke')) el.classList.add('text-stroke--gray-75');
         });
