@@ -67,6 +67,17 @@ module.exports = function (test, h) {
     assert(!got.some((x) => x[0] === 'Christmas Day' && x[1] === 0), 'Christmas was announced a day early');
   });
 
+  // Google's address says what the feed is, so the word is not needed for
+  // it. An explicit `holiday: false` still wins.
+  test('a Google holiday link is a holiday feed without the word', async () => {
+    const now = Date.parse('2026-11-11T08:00:00Z');
+    const r = await runTransform(google([]), now).run(brussels(now, 'Belgium ' + GOOD));
+    assertEqual((r.data.holidays || []).map((x) => x.title), ['Armistice Day'], 'the Google feed was not read as holidays');
+    assertEqual(r.data.legend, [], 'a Google holiday feed drew a line');
+    const asLine = await runTransform(google([]), now).run(brussels(now, JSON.stringify({ calendars: [{ url: GOOD, holiday: false, line: 'BE' }] })));
+    assertEqual(asLine.data.legend.map((t) => t.name), ['BE'], 'holiday: false did not win');
+  });
+
   test('a day with no holiday in the feed has none, and nothing is down', async () => {
     const now = Date.parse('2026-09-15T08:00:00Z');
     const r = await runTransform(google([]), now).run(brussels(now, GOOD + ' holiday'));

@@ -42,9 +42,9 @@ custom_fields:
 - keyname: setup_mode
   field_type: select
   name: Set Up With
-  description: A list of links is enough for most households. The setup helper is for naming lines, routing a shared feed by rules, and the rest.
+  description: A list of calendars is enough for most households. The setup helper is for routing one shared feed to several people by rules, and the rest.
   options:
-  - A list of calendar links: links
+  - A list of calendars: links
   - A configuration from the setup helper: config
   default: links
   optional: true
@@ -57,18 +57,18 @@ custom_fields:
     - calendar_list
 - keyname: calendar_list
   field_type: text
-  name: Calendar Links
+  name: Calendars
   placeholder: |-
     Alex  https://calendar.google.com/calendar/ical/.../basic.ics
     Sam   https://outlook.live.com/owa/calendar/.../calendar.ics
     Sam   webcal://p12-caldav.icloud.com/published/2/...
           https://calendar.example.com/family.ics
     https://calendar.google.com/calendar/ical/en.be%23holiday%40group.v.calendar.google.com/public/basic.ics holiday
-  description: 'One calendar per line: a name, a space, the link. The same name twice puts two calendars on one line. A link with no name is the whole household''s. Put <code>holiday</code> after a public-holiday feed. Leave it empty to see an example day.'
+  description: 'One calendar per row: a name, then its link. The name is the line it goes on; the same name on two rows puts both calendars on one line. A link with no name is the whole household''s. Google''s public-holiday calendars are known on sight; for another provider''s, add <code>holiday</code> after the link. Leave it empty to see an example day.'
   optional: true
 - keyname: config_json
   field_type: text
-  name: Calendars
+  name: Configuration
   placeholder: |-
     {
       "version": 1,

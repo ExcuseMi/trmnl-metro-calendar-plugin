@@ -743,7 +743,7 @@ module.exports = function (test, h) {
     assertEqual(copies.length, 1, 'there is more than one copy button on the last screen');
     // and where to put it, step by step
     const t = body(document);
-    ['Calendars', 'Location', 'Save'].forEach((phrase) => {
+    ['Set Up With', 'Configuration', 'Location', 'Save'].forEach((phrase) => {
       assert(t.indexOf(phrase) >= 0, 'the instructions never mention ' + JSON.stringify(phrase));
     });
     // the text itself is available and NOT on screen

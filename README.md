@@ -48,8 +48,8 @@ No server of your own.
 2. The plugin starts on an example day while **Calendars** is empty.
    **Example Day** picks which one; see [the demo folder](demo/) for what
    each shows.
-3. To show your own calendars, paste their ICS links into **Calendar
-   Links**, one per line, with a name in front of each:
+3. To show your own calendars, paste their ICS links into **Calendars**,
+   one per row, with a name in front of each:
 
    ```
    Alex  https://calendar.google.com/calendar/ical/…/basic.ics
@@ -61,13 +61,14 @@ No server of your own.
 
    Each name is a line on the board; the same name twice puts two calendars
    on one line; a link with no name is the whole household's and shows on
-   every line; `holiday` after a link marks a public-holiday feed. A link
+   every line. Google's public-holiday calendars are recognised by their
+   address; for another provider's, put `holiday` after the link. A link
    with no name at all, in a list with no names, is a line named as its
    service names the calendar.
 
    To route one shared feed to several people by rules (a school calendar
    with each child's class in the title), switch **Set Up With** to the
-   setup helper and paste a JSON configuration into **Calendars**. Build it with the
+   setup helper and paste a JSON configuration into **Configuration**. Build it with the
    [Configuration editor](https://excusemi.github.io/trmnl-metro-calendar-plugin/tools/config-editor.html),
    which also previews the map at every device size, or write it by hand
    (see [CONFIG.md](CONFIG.md)). The editor opens as a step-by-step setup:

@@ -683,7 +683,7 @@
       </div>
       <p class="hint" id="outEmpty" hidden>There is nothing to paste yet: add at least one calendar with an ICS link, or go back to <a href="#station-demo" data-goto-stage="demo">the examples</a> and load one.</p>
       <ol class="steps hint">
-        <li>In TRMNL open the plugin's settings, set <strong>Set Up With</strong> to <em>A configuration from the setup helper</em>, and paste the JSON into <strong>Calendars</strong>. Leave the box empty and the board shows an example day instead.</li>
+        <li>In TRMNL open the plugin's settings, set <strong>Set Up With</strong> to <em>A configuration from the setup helper</em>, and paste the JSON into <strong>Configuration</strong>. Leave the box empty and the board shows an example day instead.</li>
         <li>Set your <strong>Location</strong> for weather and rain markers, then save.</li>
       </ol>
     </div>
@@ -5341,8 +5341,8 @@
   WZ_SCREENS.reopen = function (body, back) {
     document.getElementById("wzQ").textContent = "Paste what you already have";
     document.getElementById("wzLede").textContent = "In TRMNL, open this plugin's settings and copy everything out of the "
-      + "box called Calendars. Paste it below. Nothing is changed until you press the button.";
-    var ta = el("textarea", { id: "wzPaste", rows: "7", "aria-label": "What is in the Calendars box in TRMNL now" });
+      + "box called Configuration. Paste it below. Nothing is changed until you press the button.";
+    var ta = el("textarea", { id: "wzPaste", rows: "7", "aria-label": "What is in the Configuration box in TRMNL now" });
     body.appendChild(el("div", { class: "wz-field" }, [ta]));
     body.appendChild(wzBigButton("Read it and fill in my answers", function () {
       var raw = ta.value;
@@ -6645,7 +6645,8 @@
       "Open trmnl.com in a browser and sign in.",
       "Go to Plugins, then this plugin, then Edit.",
       "If “Show The Example Anyway” is switched on, switch it off.",
-      "Find the big box called “Calendars”. Delete anything in it and paste what you just copied.",
+      "Set “Set Up With” to “A configuration from the setup helper”.",
+      "Find the big box called “Configuration”. Delete anything in it and paste what you just copied.",
       "Fill in “Location” with your town, so the board can show the weather.",
       "Press Save. The display picks it up the next time it wakes, within about half an hour.",
     ].forEach(function (s) { ol.appendChild(el("li", { text: s })); });
@@ -6671,7 +6672,7 @@
   function wzCopyJson() {
     var text = document.getElementById("jsonOut").value;
     function ok() {
-      wzSay("Copied. Now set Set Up With to the setup helper in TRMNL and paste it into the box called Calendars, following the steps below.", "ok");
+      wzSay("Copied. Now set Set Up With to the setup helper in TRMNL and paste it into the box called Configuration, following the steps below.", "ok");
     }
     function fallback() {
       var det = document.getElementById("wzJsonWrap");

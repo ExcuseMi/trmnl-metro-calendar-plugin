@@ -106,7 +106,8 @@ var I18N = {
         rain_starts: 'Rain starts', rain_stops: 'Rain stops',
         feed_down: '{n} unavailable', weather_stale: 'Forecast may be out of date',
         // When the board has nothing to draw, it says why (see boardNotice).
-        notice_config_invalid: 'The Calendars setting could not be read. Copy it again from the setup helper.',
+        notice_config_invalid: 'The Configuration setting could not be read. Copy it again from the setup helper.',
+        notice_list_invalid: 'The Calendars setting could not be read. One calendar per row: a name, then its link.',
         notice_feeds_failed: 'None of the calendars could be read: {n}',
         notice_nothing: 'Nothing on the calendars today or tomorrow.',
         notice_demo_failed: 'The example day could not be loaded. Add your calendars in the plugin settings.',
@@ -1509,6 +1510,15 @@ function moonFor(civil) {
 // which Google answers with a 500. The config editor's wizard wrote the
 // second for a while, so a board set up with it is read from the first.
 function feedKey(url, headers) { return url + (headers ? ' ' + JSON.stringify(headers) : ''); }
+
+// A HOLIDAY FEED ON SIGHT. Every public holiday calendar Google serves
+// lives at `<lang>.<country>#holiday@group.v.calendar.google.com`, so a
+// link of that shape needs no word after it to say what it is. Any other
+// provider still needs the word (or `holiday: true`); an explicit `false`
+// wins over the guess.
+function looksLikeHolidayFeed(url) {
+  return /calendar\.google\.com\/calendar\/ical\/[^/]*(?:%23|#)holiday(?:%40|@)group\.v\.calendar\.google\.com/i.test(String(url || ''));
+}
 
 function feedUrl(url) {
   var u = String(url || '').trim();
@@ -3018,17 +3028,20 @@ function plainListEntry(raw) {
   var entry = { url: words[at] };
   var name = words.slice(0, at).join(' ');
   if (name) entry.line = name;
-  if (words[at + 1] && words[at + 1].toLowerCase() === 'holiday') entry.holiday = true;
+  if ((words[at + 1] && words[at + 1].toLowerCase() === 'holiday') || looksLikeHolidayFeed(entry.url)) entry.holiday = true;
   return entry;
 }
 
 // The list as a configuration: the names, in the order they were first
 // written, are the lines, so the board is the same one the JSON would draw.
+// A holiday feed is nobody's, so a name written before one ("Belgium") is
+// a label, not a line.
 function parseLinkList(raw) {
   var entries = String(raw == null ? '' : raw).split(/\r?\n/).map(plainListEntry).filter(Boolean);
   if (!entries.length) return null;
   var names = [];
   entries.forEach(function (e) {
+    if (e.holiday) { if (e.line) { e.name = e.line; delete e.line; } return; }
     if (e.line && names.indexOf(e.line) < 0) names.push(e.line);
   });
   var data = { calendars: entries };
@@ -3288,7 +3301,7 @@ function parseConfig(raw) {
     // on one spot.
     calendars.push({ name: name, fallbackName: fallbackName, owner: owner, url: item.url.trim(), rules: rules, headers: headers,
       includeDescription: includeDescription, keepEmpty: item.keepLine === true,
-      holiday: item.holiday === true, ignoreTimezone: item.ignoreTimezone === true,
+      holiday: item.holiday === true || (item.holiday !== false && looksLikeHolidayFeed(item.url)), ignoreTimezone: item.ignoreTimezone === true,
       mergeSameTime: item.mergeSameTime === true });
   });
 
@@ -4262,8 +4275,9 @@ function boardNotice(metro, why, strings) {
   // Every feed failing is said even over the lines `lines` keeps drawn:
   // empty rails with names on them look like a quiet day.
   var allFailed = why && why.failed && why.failed.length && !why.read;
-  if (!empty && !allFailed && why !== 'config_invalid') return null;
+  if (!empty && !allFailed && why !== 'config_invalid' && why !== 'list_invalid') return null;
   if (why === 'config_invalid') return tr(strings, 'notice_config_invalid');
+  if (why === 'list_invalid') return tr(strings, 'notice_list_invalid');
   if (why === 'demo_failed') return tr(strings, 'notice_demo_failed');
   if (allFailed) return tr(strings, 'notice_feeds_failed', why.failed.join(', '));
   return tr(strings, 'notice_nothing');
@@ -4289,9 +4303,9 @@ async function run(input) {
   // it always read, with the other as a fallback. Either box still takes
   // either shape, because parseConfig reads whatever is in it.
   var setupMode = cf(input, 'setup_mode').trim().toLowerCase();
-  var configRaw = setupMode === 'links' ? cf(input, 'calendar_list').trim()
-    : setupMode === 'config' ? cf(input, 'config_json').trim()
-    : (cf(input, 'config_json').trim() || cf(input, 'calendar_list').trim());
+  var readBox = setupMode === 'links' ? 'list' : setupMode === 'config' ? 'config'
+    : (cf(input, 'config_json').trim() ? 'config' : 'list');
+  var configRaw = (readBox === 'list' ? cf(input, 'calendar_list') : cf(input, 'config_json')).trim();
   // Which demo board to show. Unknown or unset falls back to Springfield.
   var demoSet = cf(input, 'demo_set');
   var latLonRaw = cf(input, 'lat_lon').trim();
@@ -4315,8 +4329,8 @@ async function run(input) {
   // day over it would hide the fault.
   var typedCfg = configRaw ? parseConfig(configRaw) : null;
   var noUsableConfig = !typedCfg || !typedCfg.calendars.length;
-  var configProblem = !useDemo && typedCfg && typedCfg.unreadable ? 'config_invalid' : null;
-  if (configProblem) warn('the Calendars box could not be read as JSON; the board shows the example day and says so');
+  var configProblem = !useDemo && typedCfg && typedCfg.unreadable ? (readBox === 'list' ? 'list_invalid' : 'config_invalid') : null;
+  if (configProblem) warn('the ' + (readBox === 'list' ? 'Calendars' : 'Configuration') + ' box could not be read; the board shows the example day and says so');
 
   // Read before anything else needs it, and written back on every exit
   // below: what the weather was last time the API answered, which feeds

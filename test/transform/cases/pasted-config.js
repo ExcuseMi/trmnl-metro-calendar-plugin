@@ -118,6 +118,17 @@ module.exports = function (test, h) {
     assertEqual(onlyList.data.legend.map((t) => t.name), ['Fry'], 'an older device did not fall back to the list');
   });
 
+  // Unreadable text says which box it was in, because the advice differs:
+  // a list wants a name and a link per row, a configuration wants copying
+  // again from the setup helper.
+  test('unreadable text is reported for the box it was read from', async () => {
+    const { run } = runTransform(serve, NOW);
+    const list = await run(baseInput(NOW, { use_demo_data: 'false', setup_mode: 'links', calendar_list: 'just some words' }));
+    assert(/^The Calendars setting/.test(list.data.board_notice || ''), 'the list box was not named: ' + list.data.board_notice);
+    const cfg = await run(baseInput(NOW, { use_demo_data: 'false', setup_mode: 'config', config_json: '{ "calendars": [ oops' }));
+    assert(/^The Configuration setting/.test(cfg.data.board_notice || ''), 'the configuration box was not named: ' + cfg.data.board_notice);
+  });
+
   // Text that opens with a brace meant to be a configuration. Reading its
   // lines as URLs finds no URLs and draws a board of nothing, which looks
   // like the plugin is broken rather than like the config is. Nothing

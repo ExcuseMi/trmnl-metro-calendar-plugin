@@ -1,6 +1,6 @@
 # Calendar Config reference
 
-The **Calendars** field takes a JSON object with this shape. The
+The **Configuration** field takes a JSON object with this shape. The
 [configuration editor](https://excusemi.github.io/trmnl-metro-calendar-plugin/tools/config-editor.html)
 lists anything in a pasted configuration that nothing reads, such as a
 misspelt key or a line a rule names that is not in `lines`.
