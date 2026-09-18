@@ -82,7 +82,14 @@ No server of your own.
    at once. No ICS links yet? The editor's **Examples**
    section has three presets (*Family of 4*, *Parent on Shifts*,
    *One Shared Calendar*): pick one, draw the map, then swap the
-   placeholder links for your own. Each demo board is also a worked example:
+   placeholder links for your own.
+
+   The quickest way to a board that reads like the examples is the
+   editor's **AI prompt**: it describes the plugin, your calendars and what
+   makes a board read well. Paste it into an assistant, paste the answer
+   back, and you have a configuration that names the lines, routes a mixed
+   feed to the right people and trims the titles, without writing a rule
+   by hand. Each demo board is also a worked example:
    [demo/simpsons/config.json](demo/simpsons/config.json),
    [demo/futurama/config.json](demo/futurama/config.json),
    [demo/friends/config.json](demo/friends/config.json).
