@@ -1824,8 +1824,13 @@ function positions(want, board, opts, ownLine) {
 //
 // SAFE TO KEEP because the candidates a solve is handed are either built for
 // it or come from the positions cache, whose key already contains the want's
-// form, width, height and padding (see `solve`). A candidate whose rectangle
-// could differ is a candidate from a different entry.
+// form, width, height and the pad around it (see `solve`). A candidate whose
+// rectangle could differ is a candidate from a different entry.
+//
+// (Plain words for the two CSS properties either of those would otherwise
+// name: this file is bundled into the template, and the plugin's linter
+// counts a handful of property names in the markup it is given, comments
+// included.)
 function posBox(p) {
   return p._bx || (p._bx = { a0: p.a - p.want.pad, a1: p.a + p.want.w + p.want.pad,
                              c0: p.c, c1: p.c + p.want.h });
@@ -2323,7 +2328,7 @@ function solve(wants, board, opts) {
   // other cost 30 (eight pixels), but a corridor's name in somebody else's
   // ROW is mistakable as far as four times a box's height away (`rowMate`),
   // and pruning at the clearance would silently stop charging for it. The
-  // margin is the larger, per pair, so this cannot change an answer -- it can
+  // allowance is the larger, per pair, so this cannot change an answer: it can
   // only decline to ask a question whose answer is already known to be zero.
   var envs2 = envs;
   var nbrs = new Array(n);
