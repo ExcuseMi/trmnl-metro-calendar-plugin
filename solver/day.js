@@ -1022,12 +1022,20 @@ function specFor(metro, view, opts) {
   // a ring, out of a branch, or by dropping its badge. If one did, the spec
   // is rebuilt with the gutter (`regut`) and that is the board. Measured over
   // the fixture matrix, 18 boards of 76 need it.
+  // THE WIDEST A NAME MAY BE, on one line: "clamp the track to certain width
+  // and only allow 1 line". A share of the panel's own length, so the column
+  // a long name would ask for never outgrows the cap below and costs the
+  // board its legend; the word that does not fit is cut with an ellipsis
+  // rather than wrapped or allowed to push the day along. Never less than a
+  // few letters, or a narrow panel names nobody.
+  var nameMax = Math.max(Math.round(cell * 5), Math.round((view.w - pad * 2) * NAME_SHARE));
   var nameRoom = opts.nameRoom != null ? opts.nameRoom : Math.round(cell);
   var tookGutter = false, headLead = 0;
   if (opts.nameRoom == null && opts.nameGutter) {
     var wName = 0;
     (metro.legend || []).forEach(function (p) {
-      wName = Math.max(wName, (opts.nameW && opts.nameW[p.key]) || String(p.name || p.key).length * cell);
+      wName = Math.max(wName, Math.min(nameMax,
+        (opts.nameW && opts.nameW[p.key]) || String(p.name || p.key).length * cell));
     });
     // THE WIDEST WORD AND A HAIR, and nothing for the mark the rail opens
     // with. A ring at the first minute is centred ON the axis and reaches
@@ -1190,7 +1198,7 @@ function specFor(metro, view, opts) {
                          segments: opts.evenTime ? null : segmentsFor(metro) });
   var got = wantsFrom(metro, scale, measure, opts);
   var states = statesFor(metro);
-  opts = Object.assign({}, opts, { states: states, gutter: tookGutter, headLead: headLead });
+  opts = Object.assign({}, opts, { states: states, gutter: tookGutter, headLead: headLead, nameMax: nameMax });
   got.wants.sort(function (p, q) { return p.a0 - q.a0; });
   var lines = linesFrom(metro);
   // WHERE ONE DAY ENDS AND THE NEXT BEGINS, on the axis: a name may not
@@ -1280,6 +1288,52 @@ function ringRoom(metro, opts) {
 // gutter is cut to hold it (see nameRoom), so the widest name plus this is
 // what a line's name is given, and the first ring stands clear of the word.
 var NAME_CLEAR = 4;
+// The share of a panel's length a line's name may take before it is cut.
+var NAME_SHARE = 0.12;
+
+// A BADGE'S WORDS ON AT MOST TWO LINES of `maxW`, broken at a space and
+// never leaving the separator stranded: "Ship Inspection · Wed" becomes
+// "Ship Inspection" over "Wed", not "Ship Inspection ·" over "Wed". What
+// does not fit on the second line is cut with an ellipsis. Widths are
+// counted in characters, the same estimate the badge was always booked by.
+function wrapTwo(text, maxW, widthOf) {
+  // Two states are two lines, each whole, where each fits: "Night Shift ·
+  // Sat" over "Half Term · Sun" rather than a break in the middle of one.
+  // ...AND ONE STATE ON ONE DAY IS WHAT IT IS OVER WHEN: "Ship Inspection"
+  // over "Wed". The break the words already have is the one a reader
+  // expects, and it keeps each line to the width of its own part rather
+  // than whatever a greedy wrap happened to leave behind.
+  var states = String(text).split(', ');
+  var parts = states.length === 2 ? states
+    : (states.length === 1 && String(text).indexOf(' \u00b7 ') > 0 ? String(text).split(' \u00b7 ') : null);
+  if (parts && parts.length === 2) {
+    return parts.map(function (l) {
+      if (widthOf(l) <= maxW) return l;
+      var cut = l;
+      while (cut.length > 1 && widthOf(cut + '\u2026') > maxW) cut = cut.slice(0, -1);
+      return cut.replace(/\s+$/, '') + '\u2026';
+    });
+  }
+  var words = String(text).split(' ').filter(Boolean);
+  var lines = [''];
+  words.forEach(function (w) {
+    var cur = lines[lines.length - 1];
+    var next = cur ? cur + ' ' + w : w;
+    if (widthOf(next) <= maxW || !cur || lines.length === 2) lines[lines.length - 1] = next;
+    else lines.push(w);
+  });
+  lines = lines.map(function (l, i) {
+    return i === 0 ? l.replace(/\s*[·,]$/, '') : l.replace(/^[·,]\s*/, '');
+  }).filter(Boolean);
+  // ...and a line still too long is cut, a letter at a time, with an ellipsis
+  lines = lines.map(function (l) {
+    if (widthOf(l) <= maxW) return l;
+    var cut = l;
+    while (cut.length > 1 && widthOf(cut + '\u2026') > maxW) cut = cut.slice(0, -1);
+    return cut.replace(/\s+$/, '') + '\u2026';
+  });
+  return lines.slice(0, 2);
+}
 function fixedFor(metro, scale, axis, cross, opts) {
   // Whether the legend has a column of its own, which decides where in it a
   // name sits (see the head names below).
@@ -1344,7 +1398,8 @@ function fixedFor(metro, scale, axis, cross, opts) {
   var nameH1 = (opts && opts.nameH) || (rowH + 6);
   var deepEnough = (cross.c1 - cross.c0) / Math.max(1, (metro.legend || []).length) >= nameH1 * 2 + 6;
   (metro.legend || []).forEach(function (p) {
-    var t = p.name || p.key, w = wide[p.key] || t.length * cell;
+    var nameMax = (opts && opts.nameMax) || Infinity;
+    var t = p.name || p.key, w = Math.min(nameMax, wide[p.key] || t.length * cell);
     // INSIDE THE MAP AND ABOVE THE RAIL, reading INWARD from each edge, so
     // the words are over the line they name and the last minute of the day is
     // still on the board. `at` says which end of the rail to take the level
@@ -1384,7 +1439,46 @@ function fixedFor(metro, scale, axis, cross, opts) {
                route: routes[1], rows: routes[1] ? 2 : 1, nameW: w + NAME_CLEAR,
                align: 'right', at: axis.a1, a0: e1 - Math.max(w, rw1) - NAME_CLEAR, a1: e1,
                c0: 0, c1: 0 });   // c is filled in once the bands are solved
-    var rw = routes[0] ? routes[0].length * cell * 0.85 + rowH : 0;
+    // THE BADGE ON TWO LINES AT MOST, as narrow as the name above it: "all
+    // day events should split onto 2 lines". On one line "Ship Inspection ·
+    // Wed" ran a hundred and fifty pixels out of the column into the
+    // morning; wrapped to the width a name is allowed, it stays over its own
+    // line. The break is chosen here, once, and the drawing sets exactly
+    // these lines, so what is booked is what is drawn.
+    // MEASURED, where the caller can measure: counted in characters the
+    // badge's small type came out nearly twice as wide as it is drawn, and
+    // "Ship Inspection · Wed" was cut to "Ship Inspecti…" in a column with
+    // room for all of it. The character count is what a caller with no
+    // ruler still gets.
+    // (the badge's ring is twelve units and a small gap, not a row)
+    var charW = cell * 0.85, iconW = Math.round(cell * 1.5);
+    var routeWidth = (opts && typeof opts.routeW === 'function') ? opts.routeW
+      : function (x) { return String(x).length * charW; };
+    // TWO LINES WHERE ONE WOULD LEAVE THE COLUMN. A second line is a second
+    // row on that line's head, and a row is paper the bands need: split on
+    // every board, the households lost two people to it. So a badge that
+    // fits in the legend's column stays one line, and one that would run out
+    // of it past the first minute is split at its own break and kept there.
+    var headAt = e0 + ((opts && opts.headLead) || 0);
+    var wrapW = isFinite(nameMax) ? nameMax : routeWidth(routes[0] || '');
+    // ...and only where there IS a column to leave. On a board with none the
+    // badge is in the map above its rail like every other word, where one
+    // line is what it always was.
+    var colW = (opts && opts.gutter) ? axis.a0 - NAME_CLEAR - headAt : Infinity;
+    var routeLines = null;
+    if (routes[0]) {
+      routeLines = routeWidth(routes[0]) + iconW <= Math.max(colW, charW * 4) ? [routes[0]]
+        : wrapTwo(routes[0], Math.max(charW * 4, wrapW - iconW), routeWidth);
+      // ...AND ONLY IF THE TWO LINES SAY IT. On a small panel the column is
+      // narrow enough that each half was cut to a few letters -- "Verj…" over
+      // "Thui…" -- and the extra row put two names on top of each other. A
+      // split that has to cut is a split that lost the words, so there the
+      // badge keeps its one line, as it always had.
+      if (routeLines.length > 1 && routeLines.some(function (l) { return /\u2026$/.test(l); })) {
+        routeLines = [routes[0]];
+      }
+    }
+    var rw = routeLines ? Math.max.apply(null, routeLines.map(routeWidth)) + iconW : 0;
     // ALL FROM THE PAPER'S EDGE: "align all the track names to the left".
     //
     // Flush against the first minute was tried -- the words hugging their own
@@ -1395,9 +1489,10 @@ function fixedFor(metro, scale, axis, cross, opts) {
     // which is a thing worth drawing rather than a gap worth closing.
     // Past the connector that opens the column, where the column was cut
     // wide enough to hold both. Otherwise at the paper's edge, as always.
-    var head = e0 + ((opts && opts.headLead) || 0);
+    var head = headAt;
     out.push({ id: 'name0:' + p.key, kind: 'terminus', line: p.key, text: t, level: lv,
-               route: routes[0], rows: routes[0] ? 2 : 1, nameW: w + NAME_CLEAR, routeW: rw,
+               route: routes[0], routeLines: routeLines, nameMax: isFinite(nameMax) ? nameMax : null,
+               rows: routeLines ? 1 + routeLines.length : 1, nameW: w + NAME_CLEAR, routeW: rw,
                at: axis.a0, a0: head, a1: head + Math.max(w, rw) + NAME_CLEAR,
                c0: 0, c1: 0 });
   });

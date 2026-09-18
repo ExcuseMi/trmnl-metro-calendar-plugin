@@ -204,6 +204,43 @@ module.exports = function (test, h) {
     assert(allBad.length === 0, allBad.join(' | '));
   });
 
+  // ---- A LINE'S BADGE STANDS BEYOND ITS NAME --------------------------------
+  //
+  // "Leela's day event above the label ... always further out from the
+  // track." The name is what says whose rail this is, so it sits against the
+  // rail; what that person is doing today stands beyond it. Asked of the real
+  // page, where the two rows are measured by the face that draws them.
+  test('a line\'s badge is further from its rail than its name', () => {
+    const f = fixtures.find((x) => x.name === 'all-day-every-track');
+    const rep = layout(f, ROOMY);
+    const names = textLabels(rep).filter((l) => (' ' + l.cls + ' ').indexOf(' metro-terminus ') >= 0);
+    const badges = rep.labels.filter((l) => (' ' + l.cls + ' ').indexOf(' metro-route ') >= 0);
+    assert(badges.length > 0, 'no badge drawn on a board with all-day states');
+    const tracks = pathsWhere(rep, 'track');
+    const bad = [];
+    for (const b of badges) {
+      const bc = b.y + b.h / 2;
+      // its name: the one starting where it starts, nearest across
+      const n = names.filter((m) => Math.abs(m.x - b.x) < 6)
+        .sort((p, q) => Math.abs(p.y + p.h / 2 - bc) - Math.abs(q.y + q.h / 2 - bc))[0];
+      if (!n) { bad.push('"' + b.text + '" has no name beside it'); continue; }
+      const nc = n.y + n.h / 2;
+      // its rail: the track nearest the name, at the name's own end
+      let rail = null, best = Infinity;
+      for (const t of tracks) {
+        const p0 = t.pts[0];
+        const d = Math.abs(p0[1] - nc);
+        if (d < best) { best = d; rail = p0[1]; }
+      }
+      if (rail == null) continue;
+      if (Math.abs(bc - rail) <= Math.abs(nc - rail)) {
+        bad.push('"' + b.text + '" at ' + Math.round(bc) + ' is nearer the rail at ' + Math.round(rail)
+          + ' than "' + n.text + '" at ' + Math.round(nc));
+      }
+    }
+    assert(!bad.length, bad.join('; '));
+  });
+
   // ---- THE NAME, ONCE, IN THE GUTTER --------------------------------------
   //
   // A transit map letters both termini, and this board did too: the head and

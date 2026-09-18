@@ -2378,6 +2378,13 @@ function draw(board, spec, ctx) {
       // in the smallest type on the board is the one thing on it a reader
       // looks for from across the room.
       var tn = turn(html('metro-terminus label label--base text--bold text--black text-stroke', fx.text));
+      // ONE LINE, NO WIDER THAN THE SOLVER BOOKED IT: a name longer than a
+      // share of the panel is cut with an ellipsis (the stylesheet) rather
+      // than pushing the legend's column out over the day (day.js nameMax).
+      if (fx.nameMax != null) {
+        if (horizontal) tn.style.maxWidth = fx.nameMax + 'px';
+        else tn.style.maxHeight = fx.nameMax + 'px';
+      }
       // ...AND HOW MANY OF THIS LINE'S STOPS IT COULD NOT NAME.
       //
       // A shed caption is an honest decision and a silent one: the mark is
@@ -2430,21 +2437,35 @@ function draw(board, spec, ctx) {
           stroke: 'currentColor', 'stroke-width': 1.5 }));
       });
       rt.appendChild(rs);
+      // ON THE LINES day.js BROKE IT INTO, no more than two, each whole.
       var rw = doc.createElement('span');
-      rw.textContent = fx.route;
+      (fx.routeLines || [fx.route]).forEach(function (ln1, li1) {
+        if (li1) rw.appendChild(doc.createElement('br'));
+        rw.appendChild(doc.createTextNode(ln1));
+      });
       rt.appendChild(rw);
       turn(rt);
       var nThick = horizontal ? tn.offsetHeight : tn.offsetWidth;
       var rThick = horizontal ? rt.offsetHeight : rt.offsetWidth;
-      // Below its rail it grows down, away from the rail; above, it grows up.
+      // THE BADGE IS ALWAYS THE FURTHER OF THE TWO FROM THE TRACK: "Leela's
+      // day event above the label ... always further out from the track".
+      // The name is what says whose rail this is, so it sits against the
+      // rail; what that person is doing today stands beyond it. Below the
+      // rail the stack grows down from the name, above it grows up.
       var own = board.lineByKey(fx.line), railC = own ? own.cAt(fx.at == null ? spec.axis.a1 : fx.at) : null;
-      var top0 = railC != null && fx.c0 >= railC ? fx.c0 : Math.min(fx.c0, fx.c1 - nThick - rThick);
+      var below = railC != null && fx.c0 >= railC;
       var far = fx.align === 'right';
       // A name carrying a route row is placed here rather than above, and
       // both rows take the box the solver booked -- ring, branch and all.
       var rA = far ? fx.a1 : fx.a0;
-      place(tn, rA, top0 + nThick / 2, far ? 'right' : 'left');
-      place(rt, rA, top0 + nThick + rThick / 2, far ? 'right' : 'left');
+      if (below) {
+        place(tn, rA, fx.c0 + nThick / 2, far ? 'right' : 'left');
+        place(rt, rA, fx.c0 + nThick + rThick / 2, far ? 'right' : 'left');
+      } else {
+        var bot0 = Math.max(fx.c1, fx.c0 + nThick + rThick);
+        place(tn, rA, bot0 - nThick / 2, far ? 'right' : 'left');
+        place(rt, rA, bot0 - nThick - rThick / 2, far ? 'right' : 'left');
+      }
       if (far && horizontal) {
         [tn, rt].forEach(function (n) { n.style.left = 'auto'; n.style.right = Math.max(0, W - fx.a1) + 'px'; });
       }

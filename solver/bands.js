@@ -736,8 +736,10 @@ function boardFor(spec, st) {
     b.shelfClash = (b.shelfClash || 0) + 1;
   });
   // A HEAD WITH A ROUTE ROW is the name and a smaller row under it.
+  // A name and the lines of its badge, each a small row under or over it.
   function headH(fx) {
-    return spec.nameH + (fx.route ? Math.round(spec.nameH * 0.85) : 0);
+    var badge = fx.route ? Math.max(1, (fx.rows || 2) - 1) : 0;
+    return spec.nameH + badge * Math.round(spec.nameH * 0.85);
   }
   // THE BOARD'S FIXED INK. A terminus name has no cross position until its
   // line has one, so it is finished here rather than declared with a guess.
@@ -795,6 +797,7 @@ function boardFor(spec, st) {
               // that asks where the NAME is -- the drawing, the checker, the
               // suites -- was reading the row's width for the word's.
               route: fx.route, rows: fx.rows, nameW: fx.nameW,
+              routeLines: fx.routeLines || null, nameMax: fx.nameMax == null ? null : fx.nameMax,
               a0: fx.a0, a1: fx.a1, c0: fx.c0, c1: fx.c1 };
     if (fx.kind === 'bandname') {
       // Just outside the band, above its rail where the rail above leaves
@@ -1035,9 +1038,14 @@ function boardFor(spec, st) {
       }
 
       if (cutters.length && f.route && fx.nameW != null) {
+        // THE NAME'S OWN ROW, which is the one nearest the rail: the badge is
+        // always the further out of the two (draw.js), so above the rail the
+        // name is the block's bottom row and below it the top one.
+        var nameAbove = f.c1 <= c + 0.5;
+        var n0 = nameAbove ? f.c1 - spec.nameH : f.c0;
         var thin = f.align === 'right'
-          ? { a0: f.a1 - fx.nameW, a1: f.a1, c0: f.c0, c1: f.c0 + spec.nameH }
-          : { a0: f.a0, a1: f.a0 + fx.nameW, c0: f.c0, c1: f.c0 + spec.nameH };
+          ? { a0: f.a1 - fx.nameW, a1: f.a1, c0: n0, c1: n0 + spec.nameH }
+          : { a0: f.a0, a1: f.a0 + fx.nameW, c0: n0, c1: n0 + spec.nameH };
         // Another line's NAME at this same end is not a reason to drag this
         // one out of the gutter: two names at one level stack, a few lines
         // down, which is what a transit map does at a shared terminus.
@@ -1047,8 +1055,8 @@ function boardFor(spec, st) {
             return B.capsOverlap(g.box(), thin);
           });
         if (!thinCut) {
-          f.a0 = thin.a0; f.a1 = thin.a1; f.c1 = thin.c1;
-          f.route = null; f.rows = 1;
+          f.a0 = thin.a0; f.a1 = thin.a1; f.c0 = thin.c0; f.c1 = thin.c1;
+          f.route = null; f.rows = 1; f.routeLines = null;
           cutters = [];
         }
       }

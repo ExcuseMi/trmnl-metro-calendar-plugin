@@ -264,6 +264,11 @@ function Furniture(spec) {
   // so anything asking where the name itself is needs the word's own width.
   this.route = spec.route || null;
   this.nameW = spec.nameW == null ? null : spec.nameW;
+  // ...the badge as the lines it is set on, and the widest the name may be
+  // drawn before it is cut: decided once, in day.js, and drawn as decided.
+  this.routeLines = spec.routeLines || null;
+  this.nameMax = spec.nameMax == null ? null : spec.nameMax;
+  this.rows = spec.rows || 1;
 }
 Furniture.prototype.box = function () {
   return { a0: this.a0, a1: this.a1, c0: this.c0, c1: this.c1 };

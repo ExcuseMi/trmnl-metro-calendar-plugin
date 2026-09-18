@@ -145,6 +145,8 @@ function specOf(metro, v, o, extra) {
     edgeRing: Draw.edgeRing(o.S).reach, edgeRingR: Draw.edgeRing(o.S).r,
     pad: Math.round(4 * o.S), rowH: o.rowH, cell: Math.round(o.base * 0.55),
     alert: null, measure: measure, oneName: !!v.slot,
+    // a badge's words in the small bold type it is drawn in
+    routeW: function (t) { return metrics.widthOf(metrics.TABLE[o.dev].small, t); },
   }, extra || {}));
 }
 
@@ -232,7 +234,16 @@ function report(built) {
     // of the badge, "Sam" measured two hundred pixels wide and every rule
     // about where the name is was asking about paper the word is not on --
     // and the badge, added BELOW the booking, was reported over its own rail.
-    var nc1 = f.route ? f.c0 + (f.c1 - f.c0) / 1.85 : f.c1;
+    // ...AND THE BADGE IS THE ROW FURTHER FROM THE RAIL, one line of it or
+    // two: the name sits against its rail, so above the rail it is the
+    // booking's bottom row and below the rail its top one.
+    var nb = f.route ? Math.max(1, (f.rows || 2) - 1) : 0;
+    var nameShare = (f.c1 - f.c0) / (1 + 0.85 * nb);
+    var ownL = built.board.lineByKey(f.line);
+    var railAt = ownL ? ownL.cAt(f.at == null ? built.spec.axis.a1 : f.at) : null;
+    var below = railAt != null && f.c0 >= railAt;
+    var nc0 = f.route && !below ? f.c1 - nameShare : f.c0;
+    var nc1 = f.route && below ? f.c0 + nameShare : f.c1;
     var na0 = f.a0, na1 = f.a1;
     // THE WORD, WHATEVER ELSE THE BOOKING HOLDS. A head's box is the widest
     // of its two rows plus the clearance the legend's column keeps between
@@ -242,10 +253,12 @@ function report(built) {
     if (f.nameW != null) {
       if (f.align === 'right') na0 = f.a1 - f.nameW; else na1 = f.a0 + f.nameW;
     }
-    labels.push(Object.assign(box(na0, na1, f.c0, nc1), { cls: cls, text: f.text, line: f.line, id: f.id }));
+    labels.push(Object.assign(box(na0, na1, nc0, nc1), { cls: cls, text: f.text, line: f.line, id: f.id }));
     if (f.route) {
-      labels.push(Object.assign(box(f.a0, f.a1, nc1, f.c1),
-                                { cls: 'metro-route', text: f.route, line: f.line, id: f.id + ':route' }));
+      var rc0 = below ? nc1 : f.c0, rc1 = below ? f.c1 : nc0;
+      labels.push(Object.assign(box(f.a0, f.a1, rc0, rc1),
+                                { cls: 'metro-route', text: f.route, line: f.line, id: f.id + ':route',
+                                  lines: f.routeLines || [f.route] }));
     }
   });
   var b = built.board, spec = built.spec;
