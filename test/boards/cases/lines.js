@@ -57,12 +57,21 @@ module.exports = function (test, h) {
     });
   }
 
-  test('every line is named at both ends', () => {
+  // ONCE, AT THE END THE READER COMES TO FIRST. Both ends was for a board
+  // read from either side of a room and it cost a column of the day at each
+  // edge to say the same word twice; the left-hand one is where the day
+  // starts and where the eye lands, and giving the right-hand one back is
+  // what pays for the gutter the names sit in now.
+  test('every line is named once', () => {
     for (const f of fixtures) {
       const rep = layout(f, 'x-landscape');
       for (const l of rep.spec.lines) {
-        const n = rep.board.fixed.filter((x) => x.kind === 'terminus' && x.line === l.key).length;
-        assertEqual(n, 2, f.name + ': ' + l.key + ' is named ' + n + ' time(s)');
+        const named = rep.board.fixed.filter((x) => x.kind === 'terminus' && x.line === l.key);
+        assertEqual(named.length, 1, f.name + ': ' + l.key + ' is named ' + named.length + ' time(s)');
+        if (named.length === 1) {
+          assert(named[0].a0 < rep.spec.axis.a0, f.name + ': ' + l.key + ' is named at '
+            + Math.round(named[0].a0) + ', past the gutter that ends at ' + Math.round(rep.spec.axis.a0));
+        }
       }
     }
   });
@@ -96,8 +105,12 @@ module.exports = function (test, h) {
     for (const ln of rep.board.lines.filter((l) => !l.branchOf)) {
       const marks = rep.rects.filter((r) => (r.role === 'terminal' || r.role === 'terminal-open') && r.owner === ln.key);
       const dots = rep.circles.filter((c) => c.role === 'terminal-more' && c.owner === ln.key);
+      // AT THE FIRST MINUTE, wherever that now is: the names took a gutter
+      // back (see nameRoom, day.js), so the day no longer starts at the
+      // paper's edge and a mark measured against the edge was measured
+      // against the wrong thing.
       const x0 = Math.min(...rep.rects.filter((r) => r.owner === ln.key && r.role === 'terminal').map((r) => r.x), Infinity);
-      if (!dots.length && !(marks.length >= 2 && x0 < 60)) bad.push(ln.key);
+      if (!dots.length && !(marks.length >= 2 && x0 <= rep.spec.axis.a0 + 12)) bad.push(ln.key);
     }
     assert(!bad.length, 'no start mark on ' + bad.join(', '));
   });

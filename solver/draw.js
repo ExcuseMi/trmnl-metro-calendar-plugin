@@ -1122,6 +1122,12 @@ function draw(board, spec, ctx) {
   // line -> [head?, tail?].
   var uncapped = {};
   var axisA0 = spec.axis.a0, axisA1 = spec.axis.a1;
+  // Whose name is set LEVEL with its rail rather than in the row beside it:
+  // there the gutter is the name's own lane and nothing else may use it.
+  var nameLevel = {};
+  ((spec.fixed || [])).forEach(function (fx) {
+    if (fx.kind === 'terminus' && fx.level && fx.line) nameLevel[fx.line] = true;
+  });
   function cut(pl, end) {
     (pl.lines || []).forEach(function (k) { (uncapped[k] = uncapped[k] || [])[end] = true; });
   }
@@ -1166,7 +1172,12 @@ function draw(board, spec, ctx) {
       }
       if (!pick) pick = low.charAt(1);
       used[f + pick] = true;
-      initials[p.key] = f + pick;
+      // BOTH LETTERS ARE CAPITALS, because the badge is a badge and not a
+      // word. "Mr" and "Mg" beside a rail whose own name now reads MARGE and
+      // MAGGIE read as an abbreviation of something -- Mr, a title -- rather
+      // than as the same mark in a smaller place. "Letter badges should have
+      // the same style."
+      initials[p.key] = (f + pick).toUpperCase();
     });
   })();
   var ringFace = null;
@@ -1214,6 +1225,9 @@ function draw(board, spec, ctx) {
     t.setAttribute('dominant-baseline', 'central');
     t.style.fontSize = (NODE_R * (two ? 1.2 : 1.55) * scale) + 'px';
     t.style.fontWeight = '700';
+    // ...tracked like the name it stands for, and the two letters need it
+    // more than most: a pair of capitals set tight is one wide glyph.
+    if (two) t.style.letterSpacing = (NODE_R * 0.08 * scale) + 'px';
     t.textContent = txt;
     t.style.fill = INK;
     // in the face the board's words are in: an SVG text is set in the
@@ -1801,6 +1815,15 @@ function draw(board, spec, ctx) {
       if ((unfinished[ln.key] || [])[end] && !open) {
         // THE DAY GOES ON PAST THE PAPER: "..." where the slash would be.
         var dir = end ? 1 : -1, gapD = Math.max(RAIL_W * 1.3, 2.6 * S), dr = Math.max(1.2 * S, RAIL_W * 0.42);
+        // ...AND AT THE LEADING END THEY RUN THE WHOLE GUTTER: "have the dots
+        // extend across the gutter". The legend took a column off the day for
+        // the names (nameRoom, day.js) and at the rail's own row that column
+        // is empty paper, so three dots pressed against the first minute are
+        // three dots with a hole beside them. Spread to the paper's edge they
+        // read as the line arriving from before the board -- and they say it
+        // in the gutter instead of in the day.
+        var lane = axisA0 - (spec.axis.edge0 == null ? axisA0 : spec.axis.edge0);
+        if (!end && lane > gapD * 3 && !nameLevel[ln.key]) gapD = (lane - dr) / 3;
         for (var di2 = 1; di2 <= 3; di2++) {
           var q = xy(p[0] + dir * gapD * di2, p[1]);
           var dot = svgEl(doc, 'circle', { cx: q[0], cy: q[1], r: dr, stroke: 'none' });
@@ -3023,6 +3046,29 @@ function draw(board, spec, ctx) {
     // scanning even faster". The name is what a reader looks for first.
     if (startA != null) el.style.textAlign = (cp.a + cp.w) <= startA + 1 ? 'right' : 'left';
     if (!el.parentNode) canvas.appendChild(el);
+    // ...AND A CAPTION AT THE FAR EDGE IS HELD BY THAT EDGE, the way a name
+    // there is. While the legend took a column at each end there was always
+    // something between the last caption and the paper; the column has gone
+    // back to the day, so the last caption of the evening now ends ON the
+    // edge -- and it is booked at the width the RULER measured while the
+    // real face settles a few pixels wider after the board is laid out.
+    // Measured here and pulled back, it is measured too early ("Dentist
+    // 13:00" was still 87px wide when the box said 81); anchored to the far
+    // edge it grows inward whatever the face does, and the words the reader
+    // loses are the ones nearest the middle of a board that has room.
+    // ...OR ANYWHERE NEAR IT. Measured here the overhang cannot be seen --
+    // the element is still the width the ruler booked and settles wider
+    // afterwards -- so what is asked is where the caption ENDS: within a row
+    // of the paper's own edge there is nothing for the extra pixels to fall
+    // on but the floor, and inward is the only way for them to grow.
+    var lip = 16 * S;
+    var far = cp.a + cp.w >= spec.axis.a1 - 1
+      || (horizontal ? cp.a + cp.w > W - lip : cp.a + cp.w > H - lip);
+    if (far) {
+      var gapEnd = Math.max(0, (horizontal ? W : H) - (cp.a + cp.w));
+      if (horizontal) { el.style.left = 'auto'; el.style.right = gapEnd + 'px'; }
+      else { el.style.top = 'auto'; el.style.bottom = gapEnd + 'px'; }
+    }
   });
 
   // WHY THE BOARD IS EMPTY, WHEN IT IS: a broken setting, every feed down, or

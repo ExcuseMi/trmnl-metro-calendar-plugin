@@ -20,7 +20,8 @@ module.exports = function (test, h) {
       const off = textLabels(rep).filter((l) =>
         l.x < -2 || l.y < -2 || l.x + l.w > rep.canvas.w + 2 || l.y + l.h > rep.canvas.h + 2);
       assert(off.length === 0, off.length + ' label(s) off-canvas: '
-        + off.slice(0, 5).map((l) => '"' + l.text + '"').join(', '));
+        + off.slice(0, 5).map((l) => '"' + l.text + '" ' + [l.x, l.y, l.w, l.h].map(Math.round).join(',')
+            + ' in ' + rep.canvas.w + 'x' + rep.canvas.h).join(', '));
       const tracks = pathsWhere(rep, 'track');
       for (const t of tracks) {
         const ys = t.pts.map((p) => p[1]);

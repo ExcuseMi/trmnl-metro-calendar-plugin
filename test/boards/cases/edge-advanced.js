@@ -79,6 +79,12 @@ module.exports = function (test, h) {
   // names were drawn on paper the solver had not booked, one of them across
   // a caption ("Bender" over "Hedonism Lounge", futurama 21:30 x-portrait) on
   // a board `check()` called clean. Both are zero now.
+  //
+  // WHICH SIDE the word is on stopped being the point when the names moved
+  // into a gutter of their own: it used to start past the ring because it
+  // stood on the rail, and now it ends before the ring because it stands off
+  // the paper's edge. Either is fine and the map says which. What is asked is
+  // the thing that was ever wrong -- the word and the ring on the same ink.
   for (const f of withEdge) {
     for (const v of VIEWS) {
       test('a name at an edge ring is booked clear of it: ' + f.name + '/' + v, () => {
@@ -88,14 +94,15 @@ module.exports = function (test, h) {
         if (!rings.length) return;
         const bad = [];
         for (const r of rings) {
-          // Past the ring's own ink, which is where the drawing starts the name.
-          const past = horiz ? r.x + r.w : r.y + r.h;
+          // The ring's own ink, which the word has to be on one side of.
+          const i0 = horiz ? r.x : r.y, i1 = horiz ? r.x + r.w : r.y + r.h;
           const names = rep.labels.filter((l) => l.cls === 'metro-terminus'
             && l.line === r.owner && /^name0:/.test(l.id || ''));
           for (const n of names) {
-            const a0 = horiz ? n.x : n.y;
-            if (a0 < past) bad.push(r.owner + ': "' + n.text + '" is booked from '
-              + Math.round(a0) + ', inside its own ring, which reaches ' + Math.round(past));
+            const a0 = horiz ? n.x : n.y, a1 = horiz ? n.x + n.w : n.y + n.h;
+            if (a1 > i0 && a0 < i1) bad.push(r.owner + ': "' + n.text + '" is booked '
+              + Math.round(a0) + '-' + Math.round(a1) + ', over its own ring at '
+              + Math.round(i0) + '-' + Math.round(i1));
           }
         }
         assert(!bad.length, bad.slice(0, 4).join('; '));

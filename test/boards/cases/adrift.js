@@ -26,29 +26,21 @@ module.exports = function (test, h) {
   // Each of these stood clear of its own event before the pass and over it
   // after, on a board with the same number of names on it.
   //
-  // TWO OF THEM CAME BACK, AND WERE LET. Fixing a line's NAME landing in the
-  // middle of the board ("Bart end label is in the middle of the page",
+  // TWO OF THEM CAME BACK, AND WENT AGAIN. Fixing a line's NAME landing in
+  // the middle of the board ("Bart end label is in the middle of the page",
   // test/layout/cases/names.js) meant taking the all-day badge off a head
   // whose escape from a branch would otherwise have carried it a quarter of
   // the way across, and a board with one fewer badge on it is a board the
-  // caption search solves differently. School Run comes to rest 15px past its
-  // own stop against a 12px bar, Team Standup 31px.
+  // caption search solves differently: School Run came to rest 15px past its
+  // own stop against a 12px bar, Team Standup 31px. They were kept here as
+  // failures rather than re-baselined, because they WERE failures.
   //
-  // Kept as a failure rather than re-baselined, because it IS one -- the bar
-  // is right and that board is worse for it. What bought it is on the
-  // households corpus, which is the closest thing here to real days: 216
-  // boards, and three people who were being left off one are now on it
-  // (dropped 30 -> 27) with shed, muddle and faults level or better.
-  //
-  // The window ladder took Team Standup back off this list for an afternoon,
-  // by giving that board a shorter day to draw. It is here again: the ladder
-  // wants six seconds of search and the panel has three (see fit.js).
-  var KNOWN = {
-    'all-day-every-track/og-half/School Run':
-      'the badge-drop that keeps a name at its own end (bands.js) reflows this board',
-    'three-day-holiday/og-half/Team Standup':
-      'the badge-drop that keeps a name at its own end (bands.js) reflows this board',
-  };
+  // What mended them was the gutter: a name set once, off the paper's edge,
+  // in a column cut for it, has somewhere to be that is not the day, so the
+  // badge is only dropped when the block cannot step aside (bands.js) and
+  // these two boards keep theirs. The window ladder had taken Team Standup
+  // off this list for an afternoon by giving that board a shorter day to
+  // draw; this is not that -- the day is the same day.
   [['double-booked', 'og-landscape', 'Design Review'],
    ['double-booked', 'og-half', '1:1 with Priya'],
    ['all-day-every-track', 'og-half', 'School Run'],
@@ -61,6 +53,6 @@ module.exports = function (test, h) {
       const cp = rep.board.caps.find((c) => c.text === row[2] || (c.rows || []).indexOf(row[2]) >= 0);
       const room = Math.max(12, (cp ? cp.h : 20) / 2);
       assert(along <= room, Math.round(along) + 'px from its event, over ' + Math.round(room));
-    }, { known: KNOWN[row[0] + '/' + row[1] + '/' + row[2]] });
+    });
   });
 };

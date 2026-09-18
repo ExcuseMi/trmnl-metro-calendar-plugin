@@ -654,8 +654,11 @@ function Furniture(spec) {
   // line's unnamed stops beside it, and a name that does not know whose it is
   // cannot be told how many.
   this.line = spec.line || null;
-  // What the line IS today, written under its name at the head (rule 54).
+  // What the line IS today, written under its name at the head (rule 54),
+  // and how wide the WORD above it is: the booking is as wide as the badge,
+  // so anything asking where the name itself is needs the word's own width.
   this.route = spec.route || null;
+  this.nameW = spec.nameW == null ? null : spec.nameW;
 }
 Furniture.prototype.box = function () {
   return { a0: this.a0, a1: this.a1, c0: this.c0, c1: this.c1 };
@@ -3751,7 +3754,11 @@ function boardFor(spec, st) {
               // board says, and the renderer should not be reading the
               // payload a second time to find them.
               icon: fx.icon, at: fx.at, min: fx.min, line: fx.line,
-              route: fx.route, rows: fx.rows,
+              // The word's own width, kept beside the block's: a head
+              // carrying a route row is as wide as the ROW, and everything
+              // that asks where the NAME is -- the drawing, the checker, the
+              // suites -- was reading the row's width for the word's.
+              route: fx.route, rows: fx.rows, nameW: fx.nameW,
               a0: fx.a0, a1: fx.a1, c0: fx.c0, c1: fx.c1 };
     if (fx.kind === 'bandname') {
       // Just outside the band, above its rail where the rail above leaves
@@ -3812,8 +3819,16 @@ function boardFor(spec, st) {
         // Only a name the ring is really under. At the far end there is no
         // ring, and on a panel whose first minute is a gutter in from the
         // paper's edge the name sits out there with nothing to clear.
+        // THE WORD, NOT ITS BADGE. A head carrying a route row is as wide as
+        // the row -- "Sam" over "School Holiday" is two hundred pixels of
+        // block for a three-letter name -- and measured whole, a name sitting
+        // safely in the gutter was shoved a ring's width into the map because
+        // the row under it reached that far. The badge hangs clear of the
+        // ring anyway: it is the row between the word and the rail, and the
+        // block stands a rail gap and a half off the rail to begin with.
+        var wordA1 = fx.nameW != null ? f.a0 + fx.nameW : f.a1;
         if (ringA != null && f.align !== 'right'
-            && f.a0 < ringA + spec.edgeRing && f.a1 > ringA) {
+            && f.a0 < ringA + spec.edgeRing && wordA1 > ringA) {
           var over = ringA + spec.edgeRing - f.a0;
           f.a0 += over; f.a1 += over;
         }
@@ -3935,12 +3950,29 @@ function boardFor(spec, st) {
       // end of its own rail. A line that loses its badge has lost a thing the
       // day also says elsewhere; a line whose name is adrift has lost the one
       // thing the name is for.
+      // ...AND THE BADGE IS ONLY WORTH DROPPING IF THE BLOCK CANNOT SIMPLY
+      // STEP ASIDE. A line named once says what it is today ONCE, at that one
+      // name: the far end used to carry the row when the morning was busy and
+      // there is no far end any more, so a dropped badge is a state the board
+      // never mentions. The cheap escape is tried with the row still on.
+      if (cutters.length && f.route && aside(cutters)) {
+        cutters = b.lines.filter(function (o) {
+          return o.branchOf && B.lineTouches(o, { a0: f.a0, a1: f.a1, c0: f.c0, c1: f.c1 });
+        });
+      }
+
       if (cutters.length && f.route && fx.nameW != null) {
         var thin = f.align === 'right'
           ? { a0: f.a1 - fx.nameW, a1: f.a1, c0: f.c0, c1: f.c0 + spec.nameH }
           : { a0: f.a0, a1: f.a0 + fx.nameW, c0: f.c0, c1: f.c0 + spec.nameH };
+        // Another line's NAME at this same end is not a reason to drag this
+        // one out of the gutter: two names at one level stack, a few lines
+        // down, which is what a transit map does at a shared terminus.
         var thinCut = b.lines.some(function (o) { return o.branchOf && B.lineTouches(o, thin); })
-          || b.fixed.some(function (g) { return B.capsOverlap(g.box(), thin); });
+          || b.fixed.some(function (g) {
+            if (g.kind === 'terminus' && Math.abs((g.at == null ? spec.axis.a1 : g.at) - (fx.at == null ? spec.axis.a1 : fx.at)) < 1) return false;
+            return B.capsOverlap(g.box(), thin);
+          });
         if (!thinCut) {
           f.a0 = thin.a0; f.a1 = thin.a1; f.c1 = thin.c1;
           f.route = null; f.rows = 1;
@@ -3986,33 +4018,36 @@ function boardFor(spec, st) {
       // away from the rail, by no more than the name's own height: Field Trip
       // ran off the right edge a rail's width over the school day, through
       // "Bart".
-      if (cutters.length) {
-        var above = f.c1 <= c, edge = null;
-        cutters.forEach(function (o) {
-          for (var qj = 1; qj < o.pts.length; qj++) {
-            var r0 = o.pts[qj - 1], r1 = o.pts[qj];
-            if (Math.max(r0[0], r1[0]) < f.a0 - 2 || Math.min(r0[0], r1[0]) > f.a1 + 2) continue;
-            var clo = Math.min(r0[1], r1[1]), chi = Math.max(r0[1], r1[1]);
-            if (chi < f.c0 - 2 || clo > f.c1 + 2) continue;
-            edge = edge == null ? (above ? clo : chi) : (above ? Math.min(edge, clo) : Math.max(edge, chi));
-          }
-        });
-        if (edge != null) {
-          var nc0 = above ? edge - spec.railGap - nh : edge + spec.railGap;
-          var out = { a0: f.a0, a1: f.a1, c0: nc0, c1: nc0 + nh };
-          // TWO ROWS OF ITS OWN and a little: "Homer" sat a row under the
-          // strip with the spur's flat leg across the letters, and the row
-          // above was free. At a row and a half the reach fell fifteen pixels
-          // short of the clear row on a two-line board, and the name was left
-          // with the branch through it; the name still reads as its rail's
-          // from two rows away, and a cut one reads as nothing.
-          if (Math.abs(nc0 - f.c0) <= nh * 2.2 && out.c0 >= b.cross.c0 && out.c1 <= b.cross.c1
-              && !b.lines.some(function (o) { return o.key !== fx.line && B.lineTouches(o, out); })
-              && !b.fixed.some(function (g) { return B.capsOverlap(g.box(), out); })) {
-            f.c0 = out.c0; f.c1 = out.c1;
-          }
+      if (cutters.length) aside(cutters);
+    }
+
+    // OUT OF THE BRANCH'S WAY WITHOUT LEAVING THE END OF THE RAIL: the whole
+    // block steps across to the first clear row beyond whatever crosses it.
+    function aside(cut) {
+      var nh2 = f.c1 - f.c0, above = f.c1 <= c, edge = null;
+      cut.forEach(function (o) {
+        for (var qj = 1; qj < o.pts.length; qj++) {
+          var r0 = o.pts[qj - 1], r1 = o.pts[qj];
+          if (Math.max(r0[0], r1[0]) < f.a0 - 2 || Math.min(r0[0], r1[0]) > f.a1 + 2) continue;
+          var clo = Math.min(r0[1], r1[1]), chi = Math.max(r0[1], r1[1]);
+          if (chi < f.c0 - 2 || clo > f.c1 + 2) continue;
+          edge = edge == null ? (above ? clo : chi) : (above ? Math.min(edge, clo) : Math.max(edge, chi));
         }
-      }
+      });
+      if (edge == null) return false;
+      var nc0 = above ? edge - spec.railGap - nh2 : edge + spec.railGap;
+      var out = { a0: f.a0, a1: f.a1, c0: nc0, c1: nc0 + nh2 };
+      // TWO ROWS OF ITS OWN and a little: "Homer" sat a row under the
+      // strip with the spur's flat leg across the letters, and the row
+      // above was free. At a row and a half the reach fell fifteen pixels
+      // short of the clear row on a two-line board, and the name was left
+      // with the branch through it; the name still reads as its rail's
+      // from two rows away, and a cut one reads as nothing.
+      if (!(Math.abs(nc0 - f.c0) <= nh2 * 2.2 && out.c0 >= b.cross.c0 && out.c1 <= b.cross.c1
+            && !b.lines.some(function (o) { return o.key !== fx.line && B.lineTouches(o, out); })
+            && !b.fixed.some(function (g) { return B.capsOverlap(g.box(), out); }))) return false;
+      f.c0 = out.c0; f.c1 = out.c1;
+      return true;
     }
     b.addFixed(f);
   });
@@ -5810,14 +5845,20 @@ function wantsFrom(metro, scale, measure, opts) {
 // off the leading edge.
 function routeRows(states, key, oneName) {
   var rows = [[], []];
-  states.forEach(function (st) {
+  states.forEach(function (st, si) {
     // an ambient block is drawn as its band on the rail (fixedFor), not as a
     // row under the name
     if (st.owners[0] !== key || st.timed) return;
     var far = st.head != null ? st.head === 1 : (st.ends && !st.ends[0]);
-    rows[!oneName && far ? 1 : 0].push(st.text);
+    rows[!oneName && far ? 1 : 0].push({ text: st.text, day0: st.day0 || 0, si: si });
   });
-  return rows.map(function (r) { return r.length ? r.join(', ') : null; });
+  return rows.map(function (r) {
+    if (!r.length) return null;
+    // IN THE ORDER THE DAYS RUN. One head says everything that line is for
+    // the days drawn, and a reader takes a list of two as a sequence.
+    r.sort(function (x, y) { return x.day0 - y.day0 || x.si - y.si; });
+    return r.map(function (x) { return x.text; }).join(', ');
+  });
 }
 
 function statesFor(metro) {
@@ -5844,7 +5885,11 @@ function statesFor(metro) {
     // Which edges of the paper the state runs off: leave that is tomorrow's
     // did not begin before the board's first hour, so that end is a slash.
     var ends = drawn.length ? [on.indexOf(drawn[0]) >= 0, on.indexOf(drawn[drawn.length - 1]) >= 0] : [true, true];
-    out.push({ title: ad.title, text: text, owners: owners, ends: ends });
+    // WHICH DAY IT STARTS ON, so that a head carrying two of them says them
+    // in the order they happen: "Night Shift . Sat, Half Term . Sun", not in
+    // the order the calendar handed them over.
+    out.push({ title: ad.title, text: text, owners: owners, ends: ends,
+               day0: drawn.length ? drawn.indexOf(on[0]) : 0 });
   });
   // ...AND THE AMBIENT BLOCKS, with their hours ("Desk booking 8am-7pm"), at
   // the head of the day they are on and with no chevron: they begin and end.
@@ -5864,7 +5909,7 @@ function statesFor(metro) {
     var text = ev.title + ' ' + hm(ev.start_min) + '\u2013' + hm(ev.end_min)
       + (later ? ' \u00b7 ' + (day.weekday_short || day.date_label || '') : '');
     out.push({ title: ev.title, text: text, owners: [ev.owner], ends: [false, false], head: later ? 1 : 0, timed: true,
-               from: ev.start_min, to: ev.end_min });
+               day0: later ? 1 : 0, from: ev.start_min, to: ev.end_min });
   });
   return out;
 }
@@ -6220,7 +6265,43 @@ function specFor(metro, view, opts) {
   // takes paper a caption might have wanted -- but it takes it where there is
   // most of it (the ends of the day are the quiet part) instead of taking the
   // day's whole width.
+  // ...AND IT COSTS ONE, AT ONE END, BECAUSE THE NAMES HAVE NOWHERE ELSE.
+  //
+  // Set above its rail with no column at all, a name is inside the map, and
+  // the map is where the rail's own furniture is: the first minute of a busy
+  // line has a ring on it, or a branch climbing out of it, and the name had
+  // to dodge. On a real board HOMER sat at the edge, BART forty pixels in and
+  // a row up to clear his own Skate Park, MAGGIE somewhere between -- "Bart
+  // looks squished here on the left", "we really need to allocate some space
+  // to show the labels at the edges properly". A legend that is ragged is a
+  // legend the eye has to hunt along.
+  //
+  // So there is a gutter again, and it is paid for twice over by naming each
+  // line ONCE (see `NAMED_ONCE`): the far end kept its own column for a
+  // second copy of the same word, and giving that back buys more of the day
+  // than this spends. Tight, because the names are set small now -- the
+  // widest of them and a hair, not the old name-and-a-half.
   var nameRoom = opts.nameRoom != null ? opts.nameRoom : Math.round(cell);
+  if (opts.nameRoom == null) {
+    var wName = 0;
+    (metro.legend || []).forEach(function (p) {
+      wName = Math.max(wName, (opts.nameW && opts.nameW[p.key]) || String(p.name || p.key).length * cell);
+    });
+    // The widest word, a hair, and the radius of the mark the rail opens
+    // with: a ring at the first minute is centred ON the axis and so reaches
+    // back into the gutter, and a name cut to the word alone was written
+    // across it ("Kids" over its own ring, busy-day x-landscape).
+    // ...ON EVERY PANEL, AND IT IS PAID FOR IN CAPTIONS. Measured over the
+    // 216 boards of the households corpus, a gutter everywhere costs three
+    // shed captions and thirteen muddled ones, and buys four whole lines
+    // that were being left off small panels altogether -- the row each name
+    // used to take above its rail is a row the bands get back. A person
+    // missing from the board is the worse of the two, so the cap that was
+    // tried here (a tenth of the day, names above the rails below that) is
+    // not: dropped 24 against 28, and no faults either way.
+    if (wName > 0) nameRoom = Math.ceil(wName + Math.max(cell * 0.5, NAME_CLEAR)
+                                        + (opts.markR || 8));
+  }
   // ...EXCEPT WHERE THERE IS NO ROW ABOVE A RAIL TO SET IT IN. A flat slot
   // five lines deep in two hundred pixels has forty per line, and a name
   // over each rail was written over the next line's name and through its
@@ -6244,7 +6325,7 @@ function specFor(metro, view, opts) {
   // half or a quadrant is read up close, and the second name was paper the
   // captions needed. The template says which view it is (`oneName`).
   var oneName = !!opts.oneName;
-  var axis = { a0: pad + nameRoom, a1: view.w - pad - (oneName ? 0 : nameRoom),
+  var axis = { a0: pad + nameRoom, a1: view.w - pad,
                // where the paper ends, for the names that sit at its edge
                edge0: pad, edge1: view.w - pad };
   // A SERVICE ALERT PUSHES THE WHOLE BOARD DOWN.
@@ -6404,6 +6485,11 @@ function specFor(metro, view, opts) {
 // cannot be placed there -- in the engine this replaces they were placed
 // last, against a board that was already full, and a line's own name was
 // regularly the thing that had nowhere to go.
+// A few pixels clear of the caption that ends against it: measured flush,
+// "Moe's Tavern" standing up ran six pixels into "Homer" on the panel. The
+// gutter is cut to hold it (see nameRoom), so the widest name plus this is
+// what a line's name is given, and the first ring stands clear of the word.
+var NAME_CLEAR = 4;
 function fixedFor(metro, scale, axis, cross, opts) {
   var out = [];
   var rowH = (opts && opts.rowH) || 12;
@@ -6464,9 +6550,6 @@ function fixedFor(metro, scale, axis, cross, opts) {
   // Room for a name and a row under it, on every line the board carries.
   var nameH1 = (opts && opts.nameH) || (rowH + 6);
   var deepEnough = (cross.c1 - cross.c0) / Math.max(1, (metro.legend || []).length) >= nameH1 * 2 + 6;
-  // A few pixels clear of the caption that ends against it: measured flush,
-  // "Moe's Tavern" standing up ran six pixels into "Homer" on the panel.
-  var NAME_CLEAR = 4;
   (metro.legend || []).forEach(function (p) {
     var t = p.name || p.key, w = wide[p.key] || t.length * cell;
     // INSIDE THE MAP AND ABOVE THE RAIL, reading INWARD from each edge, so
@@ -6482,7 +6565,19 @@ function fixedFor(metro, scale, axis, cross, opts) {
     // THE ROUTE ROW: what this line IS today, under what it is called. A
     // state that only starts on a later day is named at the far end, where
     // that day is: "Away in Leeds · Tue" at the left was read as tonight's.
-    var one = !!(opts && opts.oneName);
+    // ONCE PER LINE, AT THE END A READER COMES TO FIRST.
+    //
+    // Both ends was for a board read from across a room from either side, and
+    // it cost a column at each edge to say the same word twice. The left one
+    // is the one that is read: it is where the day starts, where the eye
+    // lands, and where the legend belongs. The right-hand column goes back to
+    // the day -- which is what pays for the gutter the left-hand names now
+    // sit in (see nameRoom), with change.
+    //
+    // Not `oneName`, which is a statement about a SLOT being small and also
+    // turns off the ring letters and the now-and-next card. This is about
+    // where a legend goes.
+    var one = true;
     // ...AND NOT AT ALL ON A PANEL WITH NO ROOM FOR TWO ROWS. A name with a
     // route row under it is twice as deep, and a flat slot five lines deep in
     // a hundred and sixty pixels has thirty for each of them: the second row
@@ -7157,13 +7252,19 @@ function withoutLines(spec, drop) {
   // at THEIR head: the route rows are recomputed from the states kept.
   out.states = (spec.states || []).map(function (st) {
     var owners = st.owners.filter(function (k) { return keep[k]; });
-    return owners.length ? { title: st.title, text: st.text, owners: owners, ends: st.ends, head: st.head, timed: st.timed } : null;
+    return owners.length ? { title: st.title, text: st.text, owners: owners, ends: st.ends,
+                             head: st.head, timed: st.timed, day0: st.day0,
+                             from: st.from, to: st.to } : null;
   }).filter(Boolean);
   out.fixed = (spec.fixed || []).filter(function (f) {
     return f.kind !== 'terminus' || keep[f.line];
   }).map(function (f) {
     if (f.kind !== 'terminus') return f;
-    var route = Day.routeRows(out.states, f.line, spec.oneName)[f.at === spec.axis.a0 ? 0 : 1];
+    // A LINE IS NAMED ONCE, so every state it is in is said at that one
+    // head: asked with the old both-ends rule, a state whose day begins
+    // after the board opens was filed under a far name that no longer
+    // exists, and Sam lost her half term when the kids came off the board.
+    var route = Day.routeRows(out.states, f.line, true)[0];
     if ((f.route || null) === route) return f;
     return Object.assign({}, f, { route: route, rows: route ? 2 : 1 });
   });
@@ -8551,6 +8652,12 @@ function draw(board, spec, ctx) {
   // line -> [head?, tail?].
   var uncapped = {};
   var axisA0 = spec.axis.a0, axisA1 = spec.axis.a1;
+  // Whose name is set LEVEL with its rail rather than in the row beside it:
+  // there the gutter is the name's own lane and nothing else may use it.
+  var nameLevel = {};
+  ((spec.fixed || [])).forEach(function (fx) {
+    if (fx.kind === 'terminus' && fx.level && fx.line) nameLevel[fx.line] = true;
+  });
   function cut(pl, end) {
     (pl.lines || []).forEach(function (k) { (uncapped[k] = uncapped[k] || [])[end] = true; });
   }
@@ -8595,7 +8702,12 @@ function draw(board, spec, ctx) {
       }
       if (!pick) pick = low.charAt(1);
       used[f + pick] = true;
-      initials[p.key] = f + pick;
+      // BOTH LETTERS ARE CAPITALS, because the badge is a badge and not a
+      // word. "Mr" and "Mg" beside a rail whose own name now reads MARGE and
+      // MAGGIE read as an abbreviation of something -- Mr, a title -- rather
+      // than as the same mark in a smaller place. "Letter badges should have
+      // the same style."
+      initials[p.key] = (f + pick).toUpperCase();
     });
   })();
   var ringFace = null;
@@ -8643,6 +8755,9 @@ function draw(board, spec, ctx) {
     t.setAttribute('dominant-baseline', 'central');
     t.style.fontSize = (NODE_R * (two ? 1.2 : 1.55) * scale) + 'px';
     t.style.fontWeight = '700';
+    // ...tracked like the name it stands for, and the two letters need it
+    // more than most: a pair of capitals set tight is one wide glyph.
+    if (two) t.style.letterSpacing = (NODE_R * 0.08 * scale) + 'px';
     t.textContent = txt;
     t.style.fill = INK;
     // in the face the board's words are in: an SVG text is set in the
@@ -9230,6 +9345,15 @@ function draw(board, spec, ctx) {
       if ((unfinished[ln.key] || [])[end] && !open) {
         // THE DAY GOES ON PAST THE PAPER: "..." where the slash would be.
         var dir = end ? 1 : -1, gapD = Math.max(RAIL_W * 1.3, 2.6 * S), dr = Math.max(1.2 * S, RAIL_W * 0.42);
+        // ...AND AT THE LEADING END THEY RUN THE WHOLE GUTTER: "have the dots
+        // extend across the gutter". The legend took a column off the day for
+        // the names (nameRoom, day.js) and at the rail's own row that column
+        // is empty paper, so three dots pressed against the first minute are
+        // three dots with a hole beside them. Spread to the paper's edge they
+        // read as the line arriving from before the board -- and they say it
+        // in the gutter instead of in the day.
+        var lane = axisA0 - (spec.axis.edge0 == null ? axisA0 : spec.axis.edge0);
+        if (!end && lane > gapD * 3 && !nameLevel[ln.key]) gapD = (lane - dr) / 3;
         for (var di2 = 1; di2 <= 3; di2++) {
           var q = xy(p[0] + dir * gapD * di2, p[1]);
           var dot = svgEl(doc, 'circle', { cx: q[0], cy: q[1], r: dr, stroke: 'none' });
@@ -10452,6 +10576,29 @@ function draw(board, spec, ctx) {
     // scanning even faster". The name is what a reader looks for first.
     if (startA != null) el.style.textAlign = (cp.a + cp.w) <= startA + 1 ? 'right' : 'left';
     if (!el.parentNode) canvas.appendChild(el);
+    // ...AND A CAPTION AT THE FAR EDGE IS HELD BY THAT EDGE, the way a name
+    // there is. While the legend took a column at each end there was always
+    // something between the last caption and the paper; the column has gone
+    // back to the day, so the last caption of the evening now ends ON the
+    // edge -- and it is booked at the width the RULER measured while the
+    // real face settles a few pixels wider after the board is laid out.
+    // Measured here and pulled back, it is measured too early ("Dentist
+    // 13:00" was still 87px wide when the box said 81); anchored to the far
+    // edge it grows inward whatever the face does, and the words the reader
+    // loses are the ones nearest the middle of a board that has room.
+    // ...OR ANYWHERE NEAR IT. Measured here the overhang cannot be seen --
+    // the element is still the width the ruler booked and settles wider
+    // afterwards -- so what is asked is where the caption ENDS: within a row
+    // of the paper's own edge there is nothing for the extra pixels to fall
+    // on but the floor, and inward is the only way for them to grow.
+    var lip = 16 * S;
+    var far = cp.a + cp.w >= spec.axis.a1 - 1
+      || (horizontal ? cp.a + cp.w > W - lip : cp.a + cp.w > H - lip);
+    if (far) {
+      var gapEnd = Math.max(0, (horizontal ? W : H) - (cp.a + cp.w));
+      if (horizontal) { el.style.left = 'auto'; el.style.right = gapEnd + 'px'; }
+      else { el.style.top = 'auto'; el.style.bottom = gapEnd + 'px'; }
+    }
   });
 
   // WHY THE BOARD IS EMPTY, WHEN IT IS: a broken setting, every feed down, or

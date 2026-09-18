@@ -204,34 +204,36 @@ module.exports = function (test, h) {
     assert(allBad.length === 0, allBad.join(' | '));
   });
 
-  // ---- THE NAME AT BOTH ENDS ---------------------------------------------
+  // ---- THE NAME, ONCE, IN THE GUTTER --------------------------------------
   //
-  // A transit map letters both termini. This board only lettered the head,
-  // so on a wide panel the right-hand end of a line is a couple of feet of
-  // paper from the only thing saying whose line it is.
+  // A transit map letters both termini, and this board did too: the head and
+  // the tail, so the right-hand end of a line was not a couple of feet of
+  // paper from the only thing saying whose it is.
   //
-  // The tail is drawn into the gap that happens to be there rather than
-  // into a reserved column, so a busy line does not get one -- which is why
-  // this asks for "most of them on a roomy board" rather than all. What it
-  // is really guarding is the case where a clearance test is too strict and
-  // silently suppresses every one: the same shape of failure as the caption
-  // tick, which shipped drawing nothing and looked correct doing it.
-  //
-  // Nothing here checks that a tail name is CLEAR of things. It does not
-  // need to: a tail is a .metro-terminus like the head, so "no two text
-  // labels overlap" and "a line name keeps clear of its own terminal bar"
-  // already cover it -- and both of them caught this when it was wrong.
-  test('a line is named at the far end as well, where there is room', () => {
+  // It is one now, at the leading end, in a column cut for it -- "remove the
+  // label on the right". The word at the far end was paid for out of the
+  // day: a name-wide gutter at each edge on a panel that was already
+  // dropping the time off its captions to find room. One name, one gutter,
+  // and the afternoon back. What is asked here is what the old case asked in
+  // its own way -- that a clearance test somewhere has not silently
+  // suppressed the lot -- plus the thing that makes the gutter a gutter:
+  // every name starts at the same edge, so the legend is a column and not a
+  // ragged hunt along the paper.
+  test('every line is named once, in a column at the leading edge', () => {
     const rep = layout(busy, ROOMY);
     const names = textLabels(rep).filter((l) =>
       (' ' + l.cls + ' ').indexOf(' metro-terminus ') >= 0);
     const lines = (busy.metro.legend || []).length - ((rep.debug.dropped || []).length);
-    assert(names.length > lines, 'no line is named at its far end: '
-      + names.length + ' name(s) for ' + lines + ' line(s)');
-    // and the far ones really are at the far end
+    assert(names.length === lines, names.length + ' name(s) for ' + lines + ' line(s)');
     const mid = rep.canvas.w / 2;
-    const tail = names.filter((l) => l.x > mid);
-    assert(tail.length >= Math.ceil(lines / 2),
-      'only ' + tail.length + ' of ' + lines + ' lines are named past halfway');
+    const late = names.filter((l) => l.x > mid);
+    assert(!late.length, late.length + ' name(s) past halfway: '
+      + late.map((l) => '"' + l.text + '" at ' + Math.round(l.x)).join(', '));
+    // ...AND ALL FROM ONE EDGE. A gutter's worth of ragged is the whole
+    // complaint it answers: "Bart looks squished here on the left".
+    const x0 = Math.min(...names.map((l) => l.x));
+    const ragged = names.filter((l) => l.x > x0 + 4);
+    assert(!ragged.length, ragged.length + ' name(s) not at the gutter edge ' + Math.round(x0)
+      + ': ' + ragged.map((l) => '"' + l.text + '" at ' + Math.round(l.x)).join(', '));
   });
 };

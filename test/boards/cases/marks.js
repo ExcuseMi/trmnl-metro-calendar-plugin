@@ -88,6 +88,14 @@ module.exports = function (test, h) {
         const rs = rails(rep);
         const EDGE = 20, NEAR = 10;
         const caps = rep.circles.concat(rep.rects);
+        // ...OR THE DOTS THAT SAY IT ARRIVES FROM BEFORE THE BOARD. At the
+        // leading end those are spread across the legend's gutter now, from
+        // the first minute out to the paper's edge, so the nearest one is a
+        // third of that column away rather than a rail's width: the mark is
+        // the three of them together and its reach is the column.
+        const lane = rep.spec.axis.a0 - (rep.spec.axis.edge0 == null ? rep.spec.axis.a0 : rep.spec.axis.edge0);
+        const DOT_NEAR = Math.max(NEAR, lane / 3 + 4);
+        const dots = rep.circles.filter((c) => c.role === 'terminal-more');
         const ends = pathsWhere(rep, 'terminal-open').concat(pathsWhere(rep, 'stop-from'),
           pathsWhere(rep, 'merge-from'), pathsWhere(rep, 'merge'));
         const bad = [];
@@ -98,6 +106,7 @@ module.exports = function (test, h) {
             if (end[1] <= EDGE || end[1] >= rep.canvas.h - EDGE) continue;
             if (rs.some((q) => q !== p && q.pts.some((pt) => dist(pt, end) <= NEAR))) continue;
             if (caps.some((m) => pointIn(end, inflate(m, NEAR)))) continue;
+            if (dots.some((m) => m.owner === p.owner && pointIn(end, inflate(m, DOT_NEAR)))) continue;
             if (ends.some((c) => c.pts.some((pt) => dist(pt, end) <= NEAR))) continue;
             bad.push(p.role + '/' + p.owner + ' ends at ' + Math.round(end[0]) + ',' + Math.round(end[1]));
           }

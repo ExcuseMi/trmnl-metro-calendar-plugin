@@ -259,8 +259,11 @@ function Furniture(spec) {
   // line's unnamed stops beside it, and a name that does not know whose it is
   // cannot be told how many.
   this.line = spec.line || null;
-  // What the line IS today, written under its name at the head (rule 54).
+  // What the line IS today, written under its name at the head (rule 54),
+  // and how wide the WORD above it is: the booking is as wide as the badge,
+  // so anything asking where the name itself is needs the word's own width.
   this.route = spec.route || null;
+  this.nameW = spec.nameW == null ? null : spec.nameW;
 }
 Furniture.prototype.box = function () {
   return { a0: this.a0, a1: this.a1, c0: this.c0, c1: this.c1 };

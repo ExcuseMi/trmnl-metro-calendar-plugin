@@ -209,9 +209,20 @@ function report(built) {
     var cls = { terminus: 'metro-terminus', note: 'metro-axis-note', sky: 'metro-sky',
                 weather: 'metro-sky', date: 'metro-date' }[f.kind];
     if (!cls) return;
-    labels.push(Object.assign(box(f.a0, f.a1, f.c0, f.c1), { cls: cls, text: f.text, line: f.line, id: f.id }));
+    // A HEAD CARRYING A ROUTE ROW IS TWO ROWS INSIDE ONE BOOKING, and the
+    // two are reported the way they are drawn: the word on top in its own
+    // width, the badge under it in the row's. Reported as one box the width
+    // of the badge, "Sam" measured two hundred pixels wide and every rule
+    // about where the name is was asking about paper the word is not on --
+    // and the badge, added BELOW the booking, was reported over its own rail.
+    var nc1 = f.route ? f.c0 + (f.c1 - f.c0) / 1.85 : f.c1;
+    var na0 = f.a0, na1 = f.a1;
+    if (f.route && f.nameW != null) {
+      if (f.align === 'right') na0 = f.a1 - f.nameW; else na1 = f.a0 + f.nameW;
+    }
+    labels.push(Object.assign(box(na0, na1, f.c0, nc1), { cls: cls, text: f.text, line: f.line, id: f.id }));
     if (f.route) {
-      labels.push(Object.assign(box(f.a0, f.a1, f.c1, f.c1 + (f.c1 - f.c0) * 0.85),
+      labels.push(Object.assign(box(f.a0, f.a1, nc1, f.c1),
                                 { cls: 'metro-route', text: f.route, line: f.line, id: f.id + ':route' }));
     }
   });

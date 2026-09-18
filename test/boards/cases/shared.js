@@ -37,7 +37,16 @@ module.exports = function (test, h) {
       const rep = layout(f, v);
       const early = rep.board.pills.filter((p) => p.tie && p.a < rep.spec.scale.at(10 * 60));
       assert(early.length === 1, v + ': ' + early.length + ' bars for Good News Everyone and Delivery Run');
-      const capOf = (t) => rep.board.caps.filter((c) => (c.rows || [c.text]).join(' ').indexOf(t) >= 0)[0];
+      // AN ELIDED CAPTION STILL NAMES ITS EVENT. The legend sits in a gutter
+      // now, which costs this 780px board a tenth of its day, and "Good News
+      // Everyone" is written "Good News Every…" -- shed nothing, muddled
+      // nothing, spelled shorter.
+      const capOf = (t) => rep.board.caps.filter((c) => {
+        const said = (c.rows || [c.text]).join(' ');
+        if (said.indexOf(t) >= 0) return true;
+        const cut = said.indexOf('…');
+        return cut > 4 && t.indexOf(said.slice(0, cut)) === 0;
+      })[0];
       const gn = capOf('Good News Everyone'), dr = capOf('Delivery Run');
       assert(gn && dr, v + ': one of the two is not named');
       assert(gn !== dr, v + ': the two are named in one caption');
@@ -122,7 +131,11 @@ module.exports = function (test, h) {
     const f = fixtures.find((x) => x.name === 'five-lines');
     const built = h.build(f.metro, 'x-landscape');
     const txt = [...built.svg.querySelectorAll('text[data-metro-role="ring-initial"]')].map((t) => t.textContent);
-    assert(txt.includes('Mg') && txt.includes('Mr'), 'rings read ' + [...new Set(txt)].join(', '));
+    // BOTH LETTERS CAPITAL. The badge stands for the name on the rail, which
+    // is set in capitals now, and "Mr" beside a rail reading MARGE read as a
+    // title rather than as the same mark in a smaller place.
+    assert(txt.includes('MG') && txt.includes('MR'), 'rings read ' + [...new Set(txt)].join(', '));
+    assert(!txt.some((t) => /[a-z]/.test(t)), 'a ring letter is not a capital: ' + txt.join(', '));
   });
 
   // A MARK IN THE RAIL'S OWN STYLE: a hollow branch ends in a hollow tick.

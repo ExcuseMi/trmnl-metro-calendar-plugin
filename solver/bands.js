@@ -790,7 +790,11 @@ function boardFor(spec, st) {
               // board says, and the renderer should not be reading the
               // payload a second time to find them.
               icon: fx.icon, at: fx.at, min: fx.min, line: fx.line,
-              route: fx.route, rows: fx.rows,
+              // The word's own width, kept beside the block's: a head
+              // carrying a route row is as wide as the ROW, and everything
+              // that asks where the NAME is -- the drawing, the checker, the
+              // suites -- was reading the row's width for the word's.
+              route: fx.route, rows: fx.rows, nameW: fx.nameW,
               a0: fx.a0, a1: fx.a1, c0: fx.c0, c1: fx.c1 };
     if (fx.kind === 'bandname') {
       // Just outside the band, above its rail where the rail above leaves
@@ -851,8 +855,16 @@ function boardFor(spec, st) {
         // Only a name the ring is really under. At the far end there is no
         // ring, and on a panel whose first minute is a gutter in from the
         // paper's edge the name sits out there with nothing to clear.
+        // THE WORD, NOT ITS BADGE. A head carrying a route row is as wide as
+        // the row -- "Sam" over "School Holiday" is two hundred pixels of
+        // block for a three-letter name -- and measured whole, a name sitting
+        // safely in the gutter was shoved a ring's width into the map because
+        // the row under it reached that far. The badge hangs clear of the
+        // ring anyway: it is the row between the word and the rail, and the
+        // block stands a rail gap and a half off the rail to begin with.
+        var wordA1 = fx.nameW != null ? f.a0 + fx.nameW : f.a1;
         if (ringA != null && f.align !== 'right'
-            && f.a0 < ringA + spec.edgeRing && f.a1 > ringA) {
+            && f.a0 < ringA + spec.edgeRing && wordA1 > ringA) {
           var over = ringA + spec.edgeRing - f.a0;
           f.a0 += over; f.a1 += over;
         }
@@ -974,12 +986,29 @@ function boardFor(spec, st) {
       // end of its own rail. A line that loses its badge has lost a thing the
       // day also says elsewhere; a line whose name is adrift has lost the one
       // thing the name is for.
+      // ...AND THE BADGE IS ONLY WORTH DROPPING IF THE BLOCK CANNOT SIMPLY
+      // STEP ASIDE. A line named once says what it is today ONCE, at that one
+      // name: the far end used to carry the row when the morning was busy and
+      // there is no far end any more, so a dropped badge is a state the board
+      // never mentions. The cheap escape is tried with the row still on.
+      if (cutters.length && f.route && aside(cutters)) {
+        cutters = b.lines.filter(function (o) {
+          return o.branchOf && B.lineTouches(o, { a0: f.a0, a1: f.a1, c0: f.c0, c1: f.c1 });
+        });
+      }
+
       if (cutters.length && f.route && fx.nameW != null) {
         var thin = f.align === 'right'
           ? { a0: f.a1 - fx.nameW, a1: f.a1, c0: f.c0, c1: f.c0 + spec.nameH }
           : { a0: f.a0, a1: f.a0 + fx.nameW, c0: f.c0, c1: f.c0 + spec.nameH };
+        // Another line's NAME at this same end is not a reason to drag this
+        // one out of the gutter: two names at one level stack, a few lines
+        // down, which is what a transit map does at a shared terminus.
         var thinCut = b.lines.some(function (o) { return o.branchOf && B.lineTouches(o, thin); })
-          || b.fixed.some(function (g) { return B.capsOverlap(g.box(), thin); });
+          || b.fixed.some(function (g) {
+            if (g.kind === 'terminus' && Math.abs((g.at == null ? spec.axis.a1 : g.at) - (fx.at == null ? spec.axis.a1 : fx.at)) < 1) return false;
+            return B.capsOverlap(g.box(), thin);
+          });
         if (!thinCut) {
           f.a0 = thin.a0; f.a1 = thin.a1; f.c1 = thin.c1;
           f.route = null; f.rows = 1;
@@ -1025,33 +1054,36 @@ function boardFor(spec, st) {
       // away from the rail, by no more than the name's own height: Field Trip
       // ran off the right edge a rail's width over the school day, through
       // "Bart".
-      if (cutters.length) {
-        var above = f.c1 <= c, edge = null;
-        cutters.forEach(function (o) {
-          for (var qj = 1; qj < o.pts.length; qj++) {
-            var r0 = o.pts[qj - 1], r1 = o.pts[qj];
-            if (Math.max(r0[0], r1[0]) < f.a0 - 2 || Math.min(r0[0], r1[0]) > f.a1 + 2) continue;
-            var clo = Math.min(r0[1], r1[1]), chi = Math.max(r0[1], r1[1]);
-            if (chi < f.c0 - 2 || clo > f.c1 + 2) continue;
-            edge = edge == null ? (above ? clo : chi) : (above ? Math.min(edge, clo) : Math.max(edge, chi));
-          }
-        });
-        if (edge != null) {
-          var nc0 = above ? edge - spec.railGap - nh : edge + spec.railGap;
-          var out = { a0: f.a0, a1: f.a1, c0: nc0, c1: nc0 + nh };
-          // TWO ROWS OF ITS OWN and a little: "Homer" sat a row under the
-          // strip with the spur's flat leg across the letters, and the row
-          // above was free. At a row and a half the reach fell fifteen pixels
-          // short of the clear row on a two-line board, and the name was left
-          // with the branch through it; the name still reads as its rail's
-          // from two rows away, and a cut one reads as nothing.
-          if (Math.abs(nc0 - f.c0) <= nh * 2.2 && out.c0 >= b.cross.c0 && out.c1 <= b.cross.c1
-              && !b.lines.some(function (o) { return o.key !== fx.line && B.lineTouches(o, out); })
-              && !b.fixed.some(function (g) { return B.capsOverlap(g.box(), out); })) {
-            f.c0 = out.c0; f.c1 = out.c1;
-          }
+      if (cutters.length) aside(cutters);
+    }
+
+    // OUT OF THE BRANCH'S WAY WITHOUT LEAVING THE END OF THE RAIL: the whole
+    // block steps across to the first clear row beyond whatever crosses it.
+    function aside(cut) {
+      var nh2 = f.c1 - f.c0, above = f.c1 <= c, edge = null;
+      cut.forEach(function (o) {
+        for (var qj = 1; qj < o.pts.length; qj++) {
+          var r0 = o.pts[qj - 1], r1 = o.pts[qj];
+          if (Math.max(r0[0], r1[0]) < f.a0 - 2 || Math.min(r0[0], r1[0]) > f.a1 + 2) continue;
+          var clo = Math.min(r0[1], r1[1]), chi = Math.max(r0[1], r1[1]);
+          if (chi < f.c0 - 2 || clo > f.c1 + 2) continue;
+          edge = edge == null ? (above ? clo : chi) : (above ? Math.min(edge, clo) : Math.max(edge, chi));
         }
-      }
+      });
+      if (edge == null) return false;
+      var nc0 = above ? edge - spec.railGap - nh2 : edge + spec.railGap;
+      var out = { a0: f.a0, a1: f.a1, c0: nc0, c1: nc0 + nh2 };
+      // TWO ROWS OF ITS OWN and a little: "Homer" sat a row under the
+      // strip with the spur's flat leg across the letters, and the row
+      // above was free. At a row and a half the reach fell fifteen pixels
+      // short of the clear row on a two-line board, and the name was left
+      // with the branch through it; the name still reads as its rail's
+      // from two rows away, and a cut one reads as nothing.
+      if (!(Math.abs(nc0 - f.c0) <= nh2 * 2.2 && out.c0 >= b.cross.c0 && out.c1 <= b.cross.c1
+            && !b.lines.some(function (o) { return o.key !== fx.line && B.lineTouches(o, out); })
+            && !b.fixed.some(function (g) { return B.capsOverlap(g.box(), out); }))) return false;
+      f.c0 = out.c0; f.c1 = out.c1;
+      return true;
     }
     b.addFixed(f);
   });

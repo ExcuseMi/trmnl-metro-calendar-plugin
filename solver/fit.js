@@ -117,13 +117,19 @@ function withoutLines(spec, drop) {
   // at THEIR head: the route rows are recomputed from the states kept.
   out.states = (spec.states || []).map(function (st) {
     var owners = st.owners.filter(function (k) { return keep[k]; });
-    return owners.length ? { title: st.title, text: st.text, owners: owners, ends: st.ends, head: st.head, timed: st.timed } : null;
+    return owners.length ? { title: st.title, text: st.text, owners: owners, ends: st.ends,
+                             head: st.head, timed: st.timed, day0: st.day0,
+                             from: st.from, to: st.to } : null;
   }).filter(Boolean);
   out.fixed = (spec.fixed || []).filter(function (f) {
     return f.kind !== 'terminus' || keep[f.line];
   }).map(function (f) {
     if (f.kind !== 'terminus') return f;
-    var route = Day.routeRows(out.states, f.line, spec.oneName)[f.at === spec.axis.a0 ? 0 : 1];
+    // A LINE IS NAMED ONCE, so every state it is in is said at that one
+    // head: asked with the old both-ends rule, a state whose day begins
+    // after the board opens was filed under a far name that no longer
+    // exists, and Sam lost her half term when the kids came off the board.
+    var route = Day.routeRows(out.states, f.line, true)[0];
     if ((f.route || null) === route) return f;
     return Object.assign({}, f, { route: route, rows: route ? 2 : 1 });
   });

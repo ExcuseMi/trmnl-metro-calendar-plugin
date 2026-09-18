@@ -863,25 +863,37 @@ test('an all-day state is at its first owner\'s head, for the days drawn, saying
     spec.fixed.forEach(function (x) { if (x.id === (far ? 'name:' : 'name0:') + k) f = x; });
     return f && f.route;
   }
-  // Sunday's only, so named at the far end, where Sunday is.
-  assert(head('k', true) === 'Half Term \u00b7 Sun', 'kids far head says ' + JSON.stringify(head('k', true)));
-  assert(!head('k'), 'a state that starts tomorrow was named at the leading head: ' + JSON.stringify(head('k')));
+  // A LINE IS NAMED ONCE, SO EVERY STATE IS SAID AT THAT ONE HEAD.
+  //
+  // Sunday's half term used to be named at the FAR end, because that is
+  // where Sunday is, and a state put at the left was read as tonight's. The
+  // far name is gone (a line is named once now, at the leading end, and the
+  // column it used to cost went back to the day), so the position can no
+  // longer say which day -- and it does not need to, because the words
+  // already do: a state that does not cover every drawn day carries the day
+  // it is on, "Half Term . Sun", which is the same sentence read from
+  // anywhere on the board.
+  assert(head('k') === 'Half Term \u00b7 Sun',
+    'kids head says ' + JSON.stringify(head('k')));
+  assert(!head('k', true), 'a line was named at both ends: ' + JSON.stringify(head('k', true)));
   assert(head('a') === 'Leave', 'a state on every drawn day owes no qualifier: ' + JSON.stringify(head('a')));
   assert(head('s') === 'Night Shift \u00b7 Sat', 'a shared state is named once, at its first head: '
     + JSON.stringify(head('s')));
-  assert(!spec.fixed.some(function (x) { return x.kind === 'terminus' && x.at !== spec.axis.a0 && x.route
-    && !/\u00b7 Sun$/.test(x.route); }), 'a route row that runs off the leading edge was written at the tail');
+  assert(!spec.fixed.some(function (x) { return x.kind === 'terminus' && x.at !== spec.axis.a0; }),
+    'a terminus name was declared anywhere but the leading edge');
   assert(!spec.wants.some(function (w) { return /Half Term|Leave|Camp/.test(w.text); }),
     'an all-day state was put on the axis as a caption');
   // ...and on a board that draws one day, a state on another is not there.
   var one = Day.specFor(Object.assign({}, metro, { day_end_min: 1440 }), { w: 1020, h: 700 }, {});
   var said = one.states.map(function (st) { return st.text; });
   assert(said.join('|') === 'Leave|Night Shift', 'a one-day board states ' + JSON.stringify(said));
-  // A shared state whose first owner is left off goes to the next head.
+  // A shared state whose first owner is left off goes to the next head --
+  // and with a line named once, BOTH of Sam's states are said there, in the
+  // order the days run. The day each is on is in its own words.
   var less = Fit.withoutLines(spec, ['k']);
   var sHead = null, sTail = null;
   less.fixed.forEach(function (x) { if (x.id === 'name0:s') sHead = x.route; if (x.id === 'name:s') sTail = x.route; });
-  assert(sHead === 'Night Shift \u00b7 Sat' && sTail === 'Half Term \u00b7 Sun',
+  assert(sHead === 'Night Shift \u00b7 Sat, Half Term \u00b7 Sun' && sTail == null,
     'with the kids left off, Sam\'s heads say ' + JSON.stringify([sHead, sTail]));
 });
 

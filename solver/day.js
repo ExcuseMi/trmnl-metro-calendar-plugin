@@ -572,14 +572,20 @@ function wantsFrom(metro, scale, measure, opts) {
 // off the leading edge.
 function routeRows(states, key, oneName) {
   var rows = [[], []];
-  states.forEach(function (st) {
+  states.forEach(function (st, si) {
     // an ambient block is drawn as its band on the rail (fixedFor), not as a
     // row under the name
     if (st.owners[0] !== key || st.timed) return;
     var far = st.head != null ? st.head === 1 : (st.ends && !st.ends[0]);
-    rows[!oneName && far ? 1 : 0].push(st.text);
+    rows[!oneName && far ? 1 : 0].push({ text: st.text, day0: st.day0 || 0, si: si });
   });
-  return rows.map(function (r) { return r.length ? r.join(', ') : null; });
+  return rows.map(function (r) {
+    if (!r.length) return null;
+    // IN THE ORDER THE DAYS RUN. One head says everything that line is for
+    // the days drawn, and a reader takes a list of two as a sequence.
+    r.sort(function (x, y) { return x.day0 - y.day0 || x.si - y.si; });
+    return r.map(function (x) { return x.text; }).join(', ');
+  });
 }
 
 function statesFor(metro) {
@@ -606,7 +612,11 @@ function statesFor(metro) {
     // Which edges of the paper the state runs off: leave that is tomorrow's
     // did not begin before the board's first hour, so that end is a slash.
     var ends = drawn.length ? [on.indexOf(drawn[0]) >= 0, on.indexOf(drawn[drawn.length - 1]) >= 0] : [true, true];
-    out.push({ title: ad.title, text: text, owners: owners, ends: ends });
+    // WHICH DAY IT STARTS ON, so that a head carrying two of them says them
+    // in the order they happen: "Night Shift . Sat, Half Term . Sun", not in
+    // the order the calendar handed them over.
+    out.push({ title: ad.title, text: text, owners: owners, ends: ends,
+               day0: drawn.length ? drawn.indexOf(on[0]) : 0 });
   });
   // ...AND THE AMBIENT BLOCKS, with their hours ("Desk booking 8am-7pm"), at
   // the head of the day they are on and with no chevron: they begin and end.
@@ -626,7 +636,7 @@ function statesFor(metro) {
     var text = ev.title + ' ' + hm(ev.start_min) + '\u2013' + hm(ev.end_min)
       + (later ? ' \u00b7 ' + (day.weekday_short || day.date_label || '') : '');
     out.push({ title: ev.title, text: text, owners: [ev.owner], ends: [false, false], head: later ? 1 : 0, timed: true,
-               from: ev.start_min, to: ev.end_min });
+               day0: later ? 1 : 0, from: ev.start_min, to: ev.end_min });
   });
   return out;
 }
@@ -982,7 +992,43 @@ function specFor(metro, view, opts) {
   // takes paper a caption might have wanted -- but it takes it where there is
   // most of it (the ends of the day are the quiet part) instead of taking the
   // day's whole width.
+  // ...AND IT COSTS ONE, AT ONE END, BECAUSE THE NAMES HAVE NOWHERE ELSE.
+  //
+  // Set above its rail with no column at all, a name is inside the map, and
+  // the map is where the rail's own furniture is: the first minute of a busy
+  // line has a ring on it, or a branch climbing out of it, and the name had
+  // to dodge. On a real board HOMER sat at the edge, BART forty pixels in and
+  // a row up to clear his own Skate Park, MAGGIE somewhere between -- "Bart
+  // looks squished here on the left", "we really need to allocate some space
+  // to show the labels at the edges properly". A legend that is ragged is a
+  // legend the eye has to hunt along.
+  //
+  // So there is a gutter again, and it is paid for twice over by naming each
+  // line ONCE (see `NAMED_ONCE`): the far end kept its own column for a
+  // second copy of the same word, and giving that back buys more of the day
+  // than this spends. Tight, because the names are set small now -- the
+  // widest of them and a hair, not the old name-and-a-half.
   var nameRoom = opts.nameRoom != null ? opts.nameRoom : Math.round(cell);
+  if (opts.nameRoom == null) {
+    var wName = 0;
+    (metro.legend || []).forEach(function (p) {
+      wName = Math.max(wName, (opts.nameW && opts.nameW[p.key]) || String(p.name || p.key).length * cell);
+    });
+    // The widest word, a hair, and the radius of the mark the rail opens
+    // with: a ring at the first minute is centred ON the axis and so reaches
+    // back into the gutter, and a name cut to the word alone was written
+    // across it ("Kids" over its own ring, busy-day x-landscape).
+    // ...ON EVERY PANEL, AND IT IS PAID FOR IN CAPTIONS. Measured over the
+    // 216 boards of the households corpus, a gutter everywhere costs three
+    // shed captions and thirteen muddled ones, and buys four whole lines
+    // that were being left off small panels altogether -- the row each name
+    // used to take above its rail is a row the bands get back. A person
+    // missing from the board is the worse of the two, so the cap that was
+    // tried here (a tenth of the day, names above the rails below that) is
+    // not: dropped 24 against 28, and no faults either way.
+    if (wName > 0) nameRoom = Math.ceil(wName + Math.max(cell * 0.5, NAME_CLEAR)
+                                        + (opts.markR || 8));
+  }
   // ...EXCEPT WHERE THERE IS NO ROW ABOVE A RAIL TO SET IT IN. A flat slot
   // five lines deep in two hundred pixels has forty per line, and a name
   // over each rail was written over the next line's name and through its
@@ -1006,7 +1052,7 @@ function specFor(metro, view, opts) {
   // half or a quadrant is read up close, and the second name was paper the
   // captions needed. The template says which view it is (`oneName`).
   var oneName = !!opts.oneName;
-  var axis = { a0: pad + nameRoom, a1: view.w - pad - (oneName ? 0 : nameRoom),
+  var axis = { a0: pad + nameRoom, a1: view.w - pad,
                // where the paper ends, for the names that sit at its edge
                edge0: pad, edge1: view.w - pad };
   // A SERVICE ALERT PUSHES THE WHOLE BOARD DOWN.
@@ -1166,6 +1212,11 @@ function specFor(metro, view, opts) {
 // cannot be placed there -- in the engine this replaces they were placed
 // last, against a board that was already full, and a line's own name was
 // regularly the thing that had nowhere to go.
+// A few pixels clear of the caption that ends against it: measured flush,
+// "Moe's Tavern" standing up ran six pixels into "Homer" on the panel. The
+// gutter is cut to hold it (see nameRoom), so the widest name plus this is
+// what a line's name is given, and the first ring stands clear of the word.
+var NAME_CLEAR = 4;
 function fixedFor(metro, scale, axis, cross, opts) {
   var out = [];
   var rowH = (opts && opts.rowH) || 12;
@@ -1226,9 +1277,6 @@ function fixedFor(metro, scale, axis, cross, opts) {
   // Room for a name and a row under it, on every line the board carries.
   var nameH1 = (opts && opts.nameH) || (rowH + 6);
   var deepEnough = (cross.c1 - cross.c0) / Math.max(1, (metro.legend || []).length) >= nameH1 * 2 + 6;
-  // A few pixels clear of the caption that ends against it: measured flush,
-  // "Moe's Tavern" standing up ran six pixels into "Homer" on the panel.
-  var NAME_CLEAR = 4;
   (metro.legend || []).forEach(function (p) {
     var t = p.name || p.key, w = wide[p.key] || t.length * cell;
     // INSIDE THE MAP AND ABOVE THE RAIL, reading INWARD from each edge, so
@@ -1244,7 +1292,19 @@ function fixedFor(metro, scale, axis, cross, opts) {
     // THE ROUTE ROW: what this line IS today, under what it is called. A
     // state that only starts on a later day is named at the far end, where
     // that day is: "Away in Leeds · Tue" at the left was read as tonight's.
-    var one = !!(opts && opts.oneName);
+    // ONCE PER LINE, AT THE END A READER COMES TO FIRST.
+    //
+    // Both ends was for a board read from across a room from either side, and
+    // it cost a column at each edge to say the same word twice. The left one
+    // is the one that is read: it is where the day starts, where the eye
+    // lands, and where the legend belongs. The right-hand column goes back to
+    // the day -- which is what pays for the gutter the left-hand names now
+    // sit in (see nameRoom), with change.
+    //
+    // Not `oneName`, which is a statement about a SLOT being small and also
+    // turns off the ring letters and the now-and-next card. This is about
+    // where a legend goes.
+    var one = true;
     // ...AND NOT AT ALL ON A PANEL WITH NO ROOM FOR TWO ROWS. A name with a
     // route row under it is twice as deep, and a flat slot five lines deep in
     // a hundred and sixty pixels has thirty for each of them: the second row
