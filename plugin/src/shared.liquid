@@ -8975,6 +8975,66 @@ function draw(board, spec, ctx) {
   var edgesG = svgEl(doc, 'g', { 'data-metro-role': 'edges' });
   svg.appendChild(edgesG);
 
+  // A LINE THAT IS NOT FINISHED AT AN EDGE: something of this person's that
+  // day ends before the board opens, or starts after it closes. Its end is
+  // "...", not the slash that says the line stops here: "you need '...'
+  // continuation lines meaning lines that are unfinished if the day isn't
+  // finished".
+  var unfinished = {};
+  if (spec.metro) {
+    var lo0 = spec.metro.day_start_min, hi0 = spec.metro.day_end_min;
+    var dayLo = Math.floor(lo0 / 1440) * 1440, dayHi = Math.ceil(hi0 / 1440) * 1440;
+    (spec.metro.events || []).forEach(function (ev) {
+      if (ev.type && ev.type !== 'event') return;
+      var who = [ev.owner].concat(ev.co_owners || []);
+      var e = ev.end_min != null ? ev.end_min : ev.start_min;
+      who.forEach(function (k) {
+        if (!k) return;
+        var u = unfinished[k] = unfinished[k] || [];
+        if (e <= lo0 && ev.start_min >= dayLo) u[0] = true;
+        if (ev.start_min >= hi0 && ev.start_min < dayHi) u[1] = true;
+      });
+    });
+  }
+  // WHAT A RAIL'S FAR SLASH REACHES PAST ITS END, and how far that end has
+  // to come in for the slash to sit whole on the paper: the axis ends a pad
+  // from the paper's edge and the slash reaches further than the pad, so it
+  // was drawn half off the page ("the end of the track isn't on the page
+  // properly"). The rail is trimmed by the same amount where it is drawn
+  // and the slash is drawn at the trimmed end, so nothing peeks past it.
+  function farTrim(ln) {
+    if (!horizontal || !ln.pts.length || ln.branchOf) return 0;
+    var last = ln.pts[ln.pts.length - 1];
+    if (Math.abs(last[0] - spec.axis.a1) > 1) return 0;
+    var sw = railStroke(ln, ln.key).width, rr = Math.max(4 * S, sw * 0.7);
+    return Math.max(0, spec.axis.a1 + rr + sw * 0.4 - W);
+  }
+  // A RAIL THAT WAS RUNNING BEFORE THE BOARD OPENED RUNS IN OFF THE PAPER'S
+  // EDGE, on a lying board with nothing standing at its head: a line cut by
+  // the page is the oldest way a map says "this continues", and the three
+  // dots that used to say it were half off the paper themselves ("maybe the
+  // early dots don't need to be there").
+  var openEnded = {};
+  (spec.states || []).forEach(function (st) {
+    st.owners.forEach(function (k) {
+      var o = openEnded[k] = openEnded[k] || [false, false], e = st.ends || [true, true];
+      if (st.timed) return;
+      o[0] = o[0] || e[0]; o[1] = o[1] || e[1];
+    });
+    // (No tie between the owners of a shared state any more: each of their
+    // heads carries the badge itself -- see routeRows, day.js.)
+  });
+  var ranOff = {};
+  function headRun(ln, lpts) {
+    if (!horizontal || ln.branchOf || lpts.length < 2) return null;
+    if (!(unfinished[ln.key] || [])[0] || edgeTieAt[ln.key] != null || levelHead[ln.key]) return null;
+    // (a day that is a slice of something longer keeps its open chevron)
+    if ((openEnded[ln.key] || [])[0]) return null;
+    if (lpts[0][0] > spec.axis.a0 + 1 || Math.abs(lpts[0][1] - lpts[1][1]) > 0.5) return null;
+    ranOff[ln.key] = true;
+    return [(spec.axis.edge0 == null ? spec.axis.a0 : spec.axis.edge0) - 12 * S, lpts[0][1]];
+  }
+
   board.lines.forEach(function (ln, li) {
     var lpts = ln.pts;
     if (ln.branchOf && lpts.length) {
@@ -9004,6 +9064,13 @@ function draw(board, spec, ctx) {
         if (Math.abs(dropC) > 1) pre.push([tA + Math.min(Math.abs(dropC), Math.max(1, lpts[0][0] - tA)), lpts[0][1]]);
         lpts = pre.concat(lpts);
       }
+    }
+    var hr = headRun(ln, lpts);
+    if (hr) lpts = [hr].concat(lpts.slice(1));
+    var ft = farTrim(ln);
+    if (ft > 0 && lpts.length > 1 && Math.abs(lpts[lpts.length - 1][1] - lpts[lpts.length - 2][1]) < 0.5) {
+      lpts = lpts.slice();
+      lpts[lpts.length - 1] = [lpts[lpts.length - 1][0] - ft, lpts[lpts.length - 1][1]];
     }
     var pts = lpts.map(function (p) { return xy(p[0], p[1], p[2]); });
     // A SPUR ROUNDS TIGHTER. An upright departure is two corners a mark's
@@ -9914,37 +9981,6 @@ function draw(board, spec, ctx) {
   //
   // Butt caps: a round one puts half a stroke past each end and turns a crisp
   // tick into a lozenge.
-  // A LINE THAT IS NOT FINISHED AT AN EDGE: something of this person's that
-  // day ends before the board opens, or starts after it closes. Its end is
-  // "...", not the slash that says the line stops here: "you need '...'
-  // continuation lines meaning lines that are unfinished if the day isn't
-  // finished".
-  var unfinished = {};
-  if (spec.metro) {
-    var lo0 = spec.metro.day_start_min, hi0 = spec.metro.day_end_min;
-    var dayLo = Math.floor(lo0 / 1440) * 1440, dayHi = Math.ceil(hi0 / 1440) * 1440;
-    (spec.metro.events || []).forEach(function (ev) {
-      if (ev.type && ev.type !== 'event') return;
-      var who = [ev.owner].concat(ev.co_owners || []);
-      var e = ev.end_min != null ? ev.end_min : ev.start_min;
-      who.forEach(function (k) {
-        if (!k) return;
-        var u = unfinished[k] = unfinished[k] || [];
-        if (e <= lo0 && ev.start_min >= dayLo) u[0] = true;
-        if (ev.start_min >= hi0 && ev.start_min < dayHi) u[1] = true;
-      });
-    });
-  }
-  var openEnded = {};
-  (spec.states || []).forEach(function (st) {
-    st.owners.forEach(function (k) {
-      var o = openEnded[k] = openEnded[k] || [false, false], e = st.ends || [true, true];
-      if (st.timed) return;
-      o[0] = o[0] || e[0]; o[1] = o[1] || e[1];
-    });
-    // (No tie between the owners of a shared state any more: each of their
-    // heads carries the badge itself -- see routeRows, day.js.)
-  });
   board.lines.forEach(function (ln) {
     if (ln.pts.length < 2) return;
     // A BRANCH CUT BY THE PAPER SAYS SO THE WAY A RAIL DOES.
@@ -9993,6 +10029,8 @@ function draw(board, spec, ctx) {
     }
     var r = 4 * S, w = Math.max(2 * S, (ln.width || 3) * S);
     [ln.pts[0], ln.pts[ln.pts.length - 1]].forEach(function (p, end) {
+      if (!end && ranOff[ln.key]) return;
+      if (end) { var ftE = farTrim(ln); if (ftE > 0) p = [p[0] - ftE, p[1]]; }
       // THE EDGE RING IS THIS END'S MARK, AND THE ONLY ONE. A shared event
       // already running when the board opened puts a ring on the rail's first
       // point with the line's own initial in it, and the three dots beside it
