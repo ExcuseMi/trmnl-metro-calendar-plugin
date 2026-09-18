@@ -633,7 +633,7 @@ function boardFor(spec, st) {
       if (ringAt != null && dep < ringAt + spec.markR * 1.7) floor = Math.max(floor || 0, ringAt + spec.markR * 1.7);
     }
     var br = R.branch(key, ln._trunk, w.a0, w.a1, dist, m > 0 ? 1 : -1,
-                      spec.axis, level ? dist : 0, pre, floor, 0);
+                      spec.axis, level ? dist : 0, pre, floor, 0, spec.markR * 0.9);
     if (!br) return;
     var added = b.addLine({ key: br.key, pts: br.pts, width: ln.width, branchOf: w.line,
                             style: ln.style });

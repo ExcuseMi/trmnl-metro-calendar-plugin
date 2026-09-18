@@ -69,8 +69,10 @@ module.exports = function (test, h) {
         const named = rep.board.fixed.filter((x) => x.kind === 'terminus' && x.line === l.key);
         assertEqual(named.length, 1, f.name + ': ' + l.key + ' is named ' + named.length + ' time(s)');
         if (named.length === 1) {
-          // (past an edge ring's reach where the board opens on a connector)
-          assert(named[0].a0 <= rep.spec.axis.a0 + (rep.spec.edgeRing || 0) + 1, f.name + ': ' + l.key + ' is named at '
+          // (past an edge ring's reach where the board opens on a connector,
+          // or stepped clear of a ring and the branch leaving it at the first
+          // minute: still the head, a few marks in)
+          assert(named[0].a0 <= rep.spec.axis.a0 + Math.max(rep.spec.edgeRing || 0, (rep.spec.markR || 8) * 6) + 1, f.name + ': ' + l.key + ' is named at '
             + Math.round(named[0].a0) + ', past the gutter that ends at ' + Math.round(rep.spec.axis.a0));
         }
       }
