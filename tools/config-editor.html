@@ -683,7 +683,7 @@
       </div>
       <p class="hint" id="outEmpty" hidden>There is nothing to paste yet: add at least one calendar with an ICS link, or go back to <a href="#station-demo" data-goto-stage="demo">the examples</a> and load one.</p>
       <ol class="steps hint">
-        <li>In TRMNL open the plugin's settings and paste the JSON into <strong>Calendars</strong>. Leave the box empty and the board shows an example day instead.</li>
+        <li>In TRMNL open the plugin's settings, set <strong>Set Up With</strong> to <em>A configuration from the setup helper</em>, and paste the JSON into <strong>Calendars</strong>. Leave the box empty and the board shows an example day instead.</li>
         <li>Set your <strong>Location</strong> for weather and rain markers, then save.</li>
       </ol>
     </div>
@@ -4575,6 +4575,7 @@
       system: { timestamp_utc: nowTimestamp(tz) },
       plugin_settings: { instance_name: "Preview", custom_fields_values: {
         use_demo_data: urls.length ? "false" : "true",
+        setup_mode: "config",
         config_json: JSON.stringify(cfg),
         time_format: document.getElementById("pTime").value,
         lat_lon: document.getElementById("pLatLon").value.trim(),
@@ -6670,7 +6671,7 @@
   function wzCopyJson() {
     var text = document.getElementById("jsonOut").value;
     function ok() {
-      wzSay("Copied. Now paste it into the box called Calendars in TRMNL, following the steps below.", "ok");
+      wzSay("Copied. Now set Set Up With to the setup helper in TRMNL and paste it into the box called Calendars, following the steps below.", "ok");
     }
     function fallback() {
       var det = document.getElementById("wzJsonWrap");

@@ -39,6 +39,33 @@ custom_fields:
   learn_more_url: https://excusemi.github.io/trmnl-metro-calendar-plugin/tools/config-editor.html
   category: calendar
   help_text: TRMNL X Ready · English, français, español, Deutsch, Nederlands, italiano, português, polski
+- keyname: setup_mode
+  field_type: select
+  name: Set Up With
+  description: A list of links is enough for most households. The setup helper is for naming lines, routing a shared feed by rules, and the rest.
+  options:
+  - A list of calendar links: links
+  - A configuration from the setup helper: config
+  default: links
+  optional: true
+  conditional_validation:
+  - when: links
+    hidden:
+    - config_json
+  - when: config
+    hidden:
+    - calendar_list
+- keyname: calendar_list
+  field_type: text
+  name: Calendar Links
+  placeholder: |-
+    Alex  https://calendar.google.com/calendar/ical/.../basic.ics
+    Sam   https://outlook.live.com/owa/calendar/.../calendar.ics
+    Sam   webcal://p12-caldav.icloud.com/published/2/...
+          https://calendar.example.com/family.ics
+    https://calendar.google.com/calendar/ical/en.be%23holiday%40group.v.calendar.google.com/public/basic.ics holiday
+  description: 'One calendar per line: a name, a space, the link. The same name twice puts two calendars on one line. A link with no name is the whole household''s. Put <code>holiday</code> after a public-holiday feed. Leave it empty to see an example day.'
+  optional: true
 - keyname: config_json
   field_type: text
   name: Calendars

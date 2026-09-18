@@ -2974,31 +2974,66 @@ function looksLikeConfigJson(raw) {
   return t.charAt(0) === '{' || t.charAt(0) === '[' || t.indexOf('```') === 0;
 }
 
-// ONE LINK PER LINE, AND ONE WORD IF IT IS A HOLIDAY FEED.
+// ONE LINK PER LINE, A NAME IN FRONT OF IT, AND ONE WORD IF IT IS A
+// HOLIDAY FEED.
 //
 // The plain list is the low-friction path: paste links, get a line each.
-// That is exactly wrong for a subscribed holiday calendar, which is not a
-// person -- pasted into the list it became a rail named "Holidays in
-// Belgium" with chevrons at both ends, and there was no JSON in which to
-// say otherwise. The whole point of the plain list is not having to write
-// JSON, so "go and write JSON" is not an answer.
+// Named as the service names the feed, which is "Home" on iCloud and your
+// email address on Google, so the second thing anybody wants is to say
+// whose it is. A name before the link does that:
 //
-// A trailing word. A URL cannot contain a bare space, so a space and a word
-// after one is unambiguous, needs no punctuation anybody has to look up,
-// and reads as what it is:
-//
-//   https://example.com/work.ics
+//   Alex  https://example.com/alex.ics
+//   Sam   https://example.com/work.ics
+//   Sam   https://example.com/sam.ics
+//         https://example.com/family.ics
 //   https://calendar.google.com/.../holidays.ics holiday
 //
-// Only this one word, and only at the end: the list is meant to stay a
-// list, and a second syntax with options in it is the JSON config wearing
-// a disguise.
+// A URL cannot contain a bare space, so the words before the first link
+// are the name and the word after it is the option; nothing has to be
+// quoted or looked up. The same name twice puts two feeds on one line. A
+// link with no name beside named ones is the household's, on every line,
+// which is what a calendar with no `line` already means in the JSON; with
+// no names anywhere, the list is what it always was, one line per feed.
+//
+// Only the one trailing word, and only `holiday`: a subscribed holiday
+// calendar is not a person, and pasted bare it became a rail named
+// "Holidays in Belgium" with chevrons at both ends. The list is meant to
+// stay a list; a second syntax with options in it is the JSON config
+// wearing a disguise.
 function plainListEntry(raw) {
   var line = String(raw == null ? '' : raw).trim();
-  if (!line) return null;
-  var m = /^(\S+)\s+holiday$/i.exec(line);
-  if (m) return { url: m[1], holiday: true };
-  return line;
+  if (!line || line.charAt(0) === '#') return null;
+  var words = line.split(/\s+/);
+  // The link is the first word with a scheme, or with a dot and a slash in
+  // it; a name has neither. A lone dotted word is still a link, as it
+  // always was.
+  var at = -1;
+  for (var i = 0; i < words.length; i++) {
+    if (/^(https?|webcal):\/\//i.test(words[i]) || /\..*\/|\/.*\./.test(words[i])) { at = i; break; }
+  }
+  if (at < 0) {
+    if (words.length === 1 && /^\S+\.\S+$/.test(words[0])) at = 0;
+    else return null;
+  }
+  var entry = { url: words[at] };
+  var name = words.slice(0, at).join(' ');
+  if (name) entry.line = name;
+  if (words[at + 1] && words[at + 1].toLowerCase() === 'holiday') entry.holiday = true;
+  return entry;
+}
+
+// The list as a configuration: the names, in the order they were first
+// written, are the lines, so the board is the same one the JSON would draw.
+function parseLinkList(raw) {
+  var entries = String(raw == null ? '' : raw).split(/\r?\n/).map(plainListEntry).filter(Boolean);
+  if (!entries.length) return null;
+  var names = [];
+  entries.forEach(function (e) {
+    if (e.line && names.indexOf(e.line) < 0) names.push(e.line);
+  });
+  var data = { calendars: entries };
+  if (names.length) data.lines = names.map(function (n) { return { name: n }; });
+  return data;
 }
 
 // Parses the "Calendar Config (JSON)" setting text into
@@ -3040,7 +3075,7 @@ function migrateConfig(input, hoist) {
   d = JSON.parse(JSON.stringify(d));
   if (Array.isArray(d.calendars)) {
     d.calendars = d.calendars.map(function (c) {
-      if (typeof c === 'string') c = plainListEntry(c) || { url: c };
+      if (typeof c === 'string') c = plainListEntry(c) || { url: c.trim() };
       if (!hoist || !c || typeof c !== 'object' || c.line || !Array.isArray(c.rules) || !isPlainOwnerRule(c.rules[0])) return c;
       var o = Object.assign({}, c);
       o.line = c.rules[0].line;
@@ -3125,10 +3160,7 @@ function parseConfig(raw) {
         // as URLs would draw a board of nonsense rather than fall back to
         // the demo.
         // Text with not one link in it is no more a list than a config.
-        var links = looksLikeConfigJson(raw) ? []
-          : raw.split(/\r?\n/).map(function (l) { return plainListEntry(l); }).filter(Boolean);
-        if (!links.some(function (l) { return /^\S+\.\S+$/.test(typeof l === 'string' ? l : l.url); })) links = [];
-        data = links.length ? { calendars: links } : { _unreadable: true };
+        data = (looksLikeConfigJson(raw) ? null : parseLinkList(raw)) || { _unreadable: true };
       }
     }
   }
@@ -4248,11 +4280,18 @@ async function run(input) {
   // the form says otherwise.
   var useDemoRaw = cf(input, 'use_demo_data').trim().toLowerCase();
   var useDemo = useDemoRaw === 'true';
-  var configRaw = cf(input, 'config_json').trim();
-  // ONE field for both shapes. parseConfig reads whatever is in it: JSON if
-  // it parses as JSON, otherwise one ICS link per line. calendar_urls, a
-  // retired second box, is not read: TRMNL keeps a retired field's old value,
-  // and emptying Calendars then drew those links instead of the example.
+  // TWO boxes, and a switch that says which one is meant. Calendar Links
+  // takes a name and a link per line; Calendars takes the setup helper's
+  // JSON. Only the chosen box is read: TRMNL keeps a hidden field's old
+  // value, and reading both drew a stale list over an emptied config (and
+  // once, a retired calendar_urls box over an emptied Calendars). A device
+  // from before the switch existed has no answer in it, and reads the box
+  // it always read, with the other as a fallback. Either box still takes
+  // either shape, because parseConfig reads whatever is in it.
+  var setupMode = cf(input, 'setup_mode').trim().toLowerCase();
+  var configRaw = setupMode === 'links' ? cf(input, 'calendar_list').trim()
+    : setupMode === 'config' ? cf(input, 'config_json').trim()
+    : (cf(input, 'config_json').trim() || cf(input, 'calendar_list').trim());
   // Which demo board to show. Unknown or unset falls back to Springfield.
   var demoSet = cf(input, 'demo_set');
   var latLonRaw = cf(input, 'lat_lon').trim();

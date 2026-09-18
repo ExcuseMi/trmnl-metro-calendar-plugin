@@ -81,6 +81,43 @@ module.exports = function (test, h) {
       ['https://a.example/x.ics', 'webcal://b.example/y.ics'], 'the simple setup broke');
   });
 
+  // The list with names in front: the names are the lines, in the order
+  // they were first written, a repeated name is one line with two feeds,
+  // and a bare link beside named ones belongs to everybody.
+  test('a name before a link puts that calendar on that line', () => {
+    const cfg = parse('Alex  https://a.example/x.ics\nSam https://b.example/y.ics\nSam webcal://b.example/z.ics\n   https://c.example/family.ics\nhttps://d.example/be.ics holiday\n');
+    assertEqual(Object.values(cfg.lines).map((l) => l.name), ['Alex', 'Sam'], 'the names are not the lines');
+    assertEqual(cfg.calendars.map((c) => (c.owner || []).join('+') + '@' + c.url + (c.holiday ? ' holiday' : '')),
+      ['Alex@https://a.example/x.ics', 'Sam@https://b.example/y.ics', 'Sam@webcal://b.example/z.ics', '@https://c.example/family.ics', '@https://d.example/be.ics holiday'],
+      'the calendars are not on the lines the list said');
+  });
+
+  test('a two-word name and a comment line both read as meant', () => {
+    const cfg = parse('# the kids\nAunt May https://a.example/x.ics\n');
+    assertEqual(Object.values(cfg.lines).map((l) => l.name), ['Aunt May'], 'the name was cut at the space');
+    assertEqual(cfg.calendars.length, 1, 'the comment line became a calendar');
+  });
+
+  // Which box is read is the switch's to say. A hidden box keeps its old
+  // text, so a list left behind in Calendar Links must not draw over a
+  // configuration that was chosen, and the other way round.
+  test('the Set Up With switch says which box is read', async () => {
+    const LIST = 'Fry ' + URL + '\n';
+    const JSONCFG = JSON.stringify({ lines: [{ name: 'Leela' }], calendars: [{ url: URL, line: 'Leela' }] });
+    const both = { use_demo_data: 'false', calendar_list: LIST, config_json: JSONCFG };
+    const { run } = runTransform(serve, NOW);
+    const links = await run(baseInput(NOW, Object.assign({ setup_mode: 'links' }, both)));
+    assertEqual(links.data.legend.map((t) => t.name), ['Fry'], 'links mode read the configuration');
+    const config = await run(baseInput(NOW, Object.assign({ setup_mode: 'config' }, both)));
+    assertEqual(config.data.legend.map((t) => t.name), ['Leela'], 'config mode read the list');
+    // A device from before the switch existed has no answer in it: the
+    // box it always read comes first, the new one is the fallback.
+    const older = await run(baseInput(NOW, both));
+    assertEqual(older.data.legend.map((t) => t.name), ['Leela'], 'an older device lost its configuration');
+    const onlyList = await run(baseInput(NOW, { use_demo_data: 'false', calendar_list: LIST }));
+    assertEqual(onlyList.data.legend.map((t) => t.name), ['Fry'], 'an older device did not fall back to the list');
+  });
+
   // Text that opens with a brace meant to be a configuration. Reading its
   // lines as URLs finds no URLs and draws a board of nothing, which looks
   // like the plugin is broken rather than like the config is. Nothing

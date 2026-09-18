@@ -42,19 +42,32 @@ No server of your own.
 
 ## Setup
 
-1. In TRMNL: **Plugins → Private Plugins → New**, name it, save. Then from
-   this repo's `plugin/` folder run `./push.sh` (it uploads settings,
-   templates and `transform.js`).
-
-   Not `trmnlp push`. The server takes 100KB per file and the sources are
-   several times that, so `push.sh` strips the comments and minifies before
-   it uploads. It also refuses to upload a build that does not render, which
-   plain `trmnlp push` has no way to check.
+1. In TRMNL: **Plugins → Recipes**, find **Metro Calendar** and install it
+   ([direct link](https://trmnl.com/recipes/471753)). Nothing to build or
+   upload.
 2. The plugin starts on an example day while **Calendars** is empty.
    **Example Day** picks which one; see [the demo folder](demo/) for what
    each shows.
-3. To show your own calendars, paste a JSON configuration into
-   **Calendars**. Build it with the
+3. To show your own calendars, paste their ICS links into **Calendar
+   Links**, one per line, with a name in front of each:
+
+   ```
+   Alex  https://calendar.google.com/calendar/ical/…/basic.ics
+   Sam   https://outlook.live.com/owa/calendar/…/calendar.ics
+   Sam   webcal://p12-caldav.icloud.com/published/2/…
+         https://…/family.ics
+   https://…/holidays.ics holiday
+   ```
+
+   Each name is a line on the board; the same name twice puts two calendars
+   on one line; a link with no name is the whole household's and shows on
+   every line; `holiday` after a link marks a public-holiday feed. A link
+   with no name at all, in a list with no names, is a line named as its
+   service names the calendar.
+
+   To route one shared feed to several people by rules (a school calendar
+   with each child's class in the title), switch **Set Up With** to the
+   setup helper and paste a JSON configuration into **Calendars**. Build it with the
    [Configuration editor](https://excusemi.github.io/trmnl-metro-calendar-plugin/tools/config-editor.html),
    which also previews the map at every device size, or write it by hand
    (see [CONFIG.md](CONFIG.md)). The editor opens as a step-by-step setup:
@@ -143,6 +156,12 @@ cd plugin && trmnlp serve        # local preview at http://127.0.0.1:4567
 node test/boards/run.js          # the drawing's geometry, in node
 cd test/layout && node run.js    # what needs the real page, headless Chromium
 ```
+
+To run your own copy rather than the recipe: **Plugins → Private Plugins →
+New**, name it, save, then from `plugin/` run `./push.sh`. Not
+`trmnlp push`: the server takes 100KB per file and the sources are several
+times that, so `push.sh` strips the comments and minifies before it
+uploads, and refuses to upload a build that does not render.
 
 The board is drawn by `solver/`, a set of plain node modules bundled into the
 template by `plugin/bundle.js`; `plugin/src/transform.js` turns calendars into
