@@ -329,7 +329,23 @@
     color: var(--framework-semantic-text-primary-text-color, #000);
     box-shadow: inset 0 0 0 2px var(--framework-semantic-text-primary-text-color, #000);
   }
-  .metro-terminus { white-space: nowrap; }
+  /* WHOSE LINE THIS IS, SET AS A DIFFERENT KIND OF THING FROM AN EVENT.
+     A terminus name and a caption were the same words in almost the same
+     face -- "they are different than the other captions" -- so a person
+     read as one more thing that happened rather than as the line itself.
+     The board already answers this on the hour strip, where a date among
+     the numbers is set in capitals (see .metro-daybreak) for exactly the
+     reason: a name among names has to say which of the two it is before
+     it is read. Same device here, and tracked a little wider because
+     capitals set tight are a wall.
+     Measured, not just styled: the ruler that books a name's width builds
+     an element with these same classes (see nameW), so the board reserves
+     the room the capitals actually take. */
+  .metro-terminus {
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
   /* A date marker on the hour strip is set in capitals, so that a name
      among numbers reads as a different KIND of thing at a glance rather
      than as another tick with letters in it. It is the same size as the
@@ -9611,7 +9627,7 @@ function draw(board, spec, ctx) {
       // THE LEGEND IS ON THE LINE. A name at the end of each rail is what a
       // transit map does instead of a key in the corner, and it is one size
       // up from the strip: it says whose day this row is.
-      var tn = turn(html('metro-terminus label label--base text--bold text--black text-stroke', fx.text));
+      var tn = turn(html('metro-terminus label label--small text--bold text--black text-stroke', fx.text));
       // ...AND HOW MANY OF THIS LINE'S STOPS IT COULD NOT NAME.
       //
       // A shed caption is an honest decision and a silent one: the mark is
@@ -10557,7 +10573,7 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
     // slot the title's height booked a band a few pixels short of the name
     // drawn in it, and "Jordan" sat on its own rail.
     var tag = document.createElement('span');
-    tag.className = 'metro-gen metro-terminus label label--base text--bold text--black text-stroke absolute';
+    tag.className = 'metro-gen metro-terminus label label--small text--bold text--black text-stroke absolute';
     canvas.appendChild(tag);
     tag.textContent = 'Mg';
     nameH = Math.max(nameH, Math.round(tag.offsetHeight));

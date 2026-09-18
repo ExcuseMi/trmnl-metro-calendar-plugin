@@ -2198,7 +2198,7 @@ function draw(board, spec, ctx) {
       // THE LEGEND IS ON THE LINE. A name at the end of each rail is what a
       // transit map does instead of a key in the corner, and it is one size
       // up from the strip: it says whose day this row is.
-      var tn = turn(html('metro-terminus label label--base text--bold text--black text-stroke', fx.text));
+      var tn = turn(html('metro-terminus label label--small text--bold text--black text-stroke', fx.text));
       // ...AND HOW MANY OF THIS LINE'S STOPS IT COULD NOT NAME.
       //
       // A shed caption is an honest decision and a silent one: the mark is
