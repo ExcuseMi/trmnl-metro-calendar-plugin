@@ -47,6 +47,38 @@ module.exports = function (test, h) {
     });
   }
 
+  // A LINE THAT BEGAN BEFORE THE BOARD REACHES THE PAPER'S EDGE.
+  //
+  // "Why aren't the top lines going to the left of the page." Where the
+  // legend has a column, the column is the time before the first minute, and
+  // every way a line says it was already going -- a trunk running on past the
+  // edge (its dots), a connector that predates the board (its ring and its
+  // approach), a day that is a slice of something longer (its arrow) -- is
+  // drawn out to the paper's edge across it. The arrow was the one left a
+  // column's width short.
+  for (const v of ['x-landscape', 'og-landscape']) {
+    test('a line that began before the board reaches the paper\'s edge: ' + v, () => {
+      const bad = [];
+      for (const f of fixtures) {
+        const rep = layout(f, v);
+        if (!rep.spec.nameGutter) continue;
+        const e0 = rep.spec.axis.edge0;
+        const reach = {};
+        const note = (k, x) => { if (k && !/\//.test(k)) reach[k] = Math.min(reach[k] == null ? Infinity : reach[k], x); };
+        rep.paths.filter((q) => q.role === 'terminal-open').forEach((q) => note(q.owner, Math.min(...q.pts.map((t) => t[0]))));
+        rep.circles.filter((c) => c.role === 'terminal-more' || c.role === 'ring-edge').forEach((c) => note(c.owner, c.x));
+        rep.rects.filter((r) => r.role === 'terminal-more').forEach((r) => note(r.owner, r.x));
+        for (const k of Object.keys(reach)) {
+          // only the marks at the LEADING end: those start left of the first minute
+          if (reach[k] >= rep.spec.axis.a0) continue;
+          if (reach[k] > e0 + 12) bad.push(f.name + ': ' + k + ' stops at ' + Math.round(reach[k])
+            + ', short of the paper\'s edge at ' + Math.round(e0));
+        }
+      }
+      assert(!bad.length, bad.slice(0, 4).join('; '));
+    });
+  }
+
   // THE SPLIT IS AT THE BADGE'S OWN BREAK, where it splits at all.
   test('a badge splits between its state and its day, or between two states', () => {
     const Day = require('../../../solver/day');

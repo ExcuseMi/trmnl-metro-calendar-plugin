@@ -9844,6 +9844,27 @@ function draw(board, spec, ctx) {
         // a terminal slash reaches, so an arrow-ended line starts where its
         // neighbours do.
         var dir = end ? 1 : -1, cvo = chevron(), r2 = cvo.back, ahead = p[0] + dir * cvo.out;
+        // ...AND AT THE LEADING END, OUT AT THE PAPER'S EDGE WHERE THERE IS A
+        // COLUMN: "why aren't the top lines going to the left of the page".
+        // Every other line that began before the board -- a trunk that ran on
+        // past the edge, a connector that predates it -- now reaches the
+        // paper's edge across the legend's column; a line whose day is a
+        // slice of something longer stopped at the first minute with its
+        // arrow, a column's width short of the rest. The arrow goes to the
+        // edge, and a dotted approach in the line's own ink carries it to
+        // the first minute, the same approach the connector's lines take.
+        var colEdge = spec.axis.edge0 == null ? p[0] : spec.axis.edge0;
+        if (!end && !nameLevel[ln.key] && p[0] - colEdge > cvo.out * 2 + r2 * 3) {
+          var eGp = edgeRing(S).gap;
+          var tipAt = colEdge, baseAt = tipAt + cvo.out;
+          var la = xy(baseAt + r2 * 0.5, p[1]), lb = xy(p[0], p[1]);
+          var lead = svgEl(doc, 'line', { x1: la[0], y1: la[1], x2: lb[0], y2: lb[1],
+            'stroke-width': Math.max(1.6 * S, RAIL_W * 0.84), 'stroke-linecap': 'round',
+            'stroke-dasharray': '0.1 ' + (eGp * 0.92) });
+          lead.style.stroke = inkOf(ln.key);
+          put(lead, 'terminal-more', ln.key);
+          ahead = tipAt;
+        }
         var base = ahead - dir * r2;
         var t0 = xy(base, p[1] - r2), tip = xy(ahead, p[1]), t1 = xy(base, p[1] + r2);
         var ch = svgEl(doc, 'path', { d: 'M ' + t0[0] + ' ' + t0[1] + ' L ' + tip[0] + ' ' + tip[1]
