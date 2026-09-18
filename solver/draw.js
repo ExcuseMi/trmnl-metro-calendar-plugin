@@ -465,6 +465,18 @@ function draw(board, spec, ctx) {
         [n].concat(Array.prototype.slice.call(n.querySelectorAll('.text-stroke'))).forEach(function (el) {
           if (el.classList.contains('text-stroke')) el.classList.add('text-stroke--gray-75');
         });
+        // ...AND SO IS AN IMAGE'S. The moon is a black disc with the lit part
+        // cut white out of it, rimmed in white so the dark of it has an edge
+        // on the ink panel. On tomorrow's panel that rim is the ground's own
+        // colour drawn on the ground: no edge at all, and a moon near full is
+        // a white disc on a light grey one -- "moonphases on the tomorrow
+        // view need an image-stroke". There the rim is ink, which is what
+        // gives the LIT part its edge.
+        [n].concat(Array.prototype.slice.call(n.querySelectorAll('.image-stroke'))).forEach(function (el) {
+          if (!el.classList.contains('image-stroke--white')) return;
+          el.classList.remove('image-stroke--white');
+          el.classList.add('image-stroke--black');
+        });
       }
       home.el.appendChild(n);
     });
