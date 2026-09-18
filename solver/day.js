@@ -1023,7 +1023,7 @@ function specFor(metro, view, opts) {
   // is rebuilt with the gutter (`regut`) and that is the board. Measured over
   // the fixture matrix, 18 boards of 76 need it.
   var nameRoom = opts.nameRoom != null ? opts.nameRoom : Math.round(cell);
-  var tookGutter = false;
+  var tookGutter = false, headLead = 0;
   if (opts.nameRoom == null && opts.nameGutter) {
     var wName = 0;
     (metro.legend || []).forEach(function (p) {
@@ -1045,8 +1045,18 @@ function specFor(metro, view, opts) {
     // Above the cap the names go back to the paper's edge and take their
     // chances with the first minute, which is what every board did before.
     if (wName > 0) {
-      var want = Math.ceil(wName + Math.max(cell * 0.5, NAME_CLEAR) + ringRoom(metro, opts) + 1);
-      if (want <= (view.w - pad * 2) * GUTTER_MAX) { nameRoom = want; tookGutter = true; }
+      // ...AND THE CONNECTOR'S OWN ROOM IS THE FIRST THING THE CAP TAKES
+      // BACK. A column that opens with the connector costs its width again,
+      // and on a half that was enough to put the whole column over the cap --
+      // and a board with no column at all has no escape for a name a branch
+      // runs through. So the lead is what goes: the names start at the
+      // paper's edge with the connector's rings below them, which is tighter
+      // than it looks (a ring is on the rail, a name in the row beside it)
+      // and is still a column.
+      var room = Math.ceil(wName + Math.max(cell * 0.5, NAME_CLEAR) + 1);
+      var lead = ringRoom(metro, opts), cap = (view.w - pad * 2) * GUTTER_MAX;
+      if (room + lead <= cap) { nameRoom = room + lead; tookGutter = true; headLead = lead; }
+      else if (room <= cap) { nameRoom = room; tookGutter = true; }
     }
   }
   // ...EXCEPT WHERE THERE IS NO ROW ABOVE A RAIL TO SET IT IN. A flat slot
@@ -1180,7 +1190,7 @@ function specFor(metro, view, opts) {
                          segments: opts.evenTime ? null : segmentsFor(metro) });
   var got = wantsFrom(metro, scale, measure, opts);
   var states = statesFor(metro);
-  opts = Object.assign({}, opts, { states: states, gutter: tookGutter });
+  opts = Object.assign({}, opts, { states: states, gutter: tookGutter, headLead: headLead });
   got.wants.sort(function (p, q) { return p.a0 - q.a0; });
   var lines = linesFrom(metro);
   // WHERE ONE DAY ENDS AND THE NEXT BEGINS, on the axis: a name may not
@@ -1242,15 +1252,16 @@ function specFor(metro, view, opts) {
 // cannot be placed there -- in the engine this replaces they were placed
 // last, against a board that was already full, and a line's own name was
 // regularly the thing that had nowhere to go.
-// WHAT THE FIRST MINUTE'S OWN MARK REACHES BACK, where the board has one.
+// THE COLUMN OPENS WITH THE CONNECTOR, where the board has one.
 //
-// A line whose day opened inside a shared event is drawn with a ring on its
-// rail's first point, centred there, so it reaches a radius back into the
-// legend's column -- and a name set flush against that first minute has the
-// ring under its last letters, a pixel below them. The column holds it where
-// there is one to hold: a board with nothing already running when it opens
-// has no ring anywhere and pays nothing. What draws the ring is a tie, and a
-// tie is a shared event, so that is what is asked.
+// A shared event that was already running when the board opened is drawn as
+// a connector standing in the column -- rings on each member's rail at the
+// paper's edge, a bar joining them, and a dotted approach from there to the
+// first minute (draw.js). The names start after it: written from the paper's
+// edge they were laid across the rings, a row of words on a row of marks.
+// A board with nothing already running when it opens has no connector at the
+// edge and pays nothing for one. What draws it is a tie, and a tie is a
+// shared event, so that is what is asked.
 function ringRoom(metro, opts) {
   var lo = metro.day_start_min;
   var any = (metro.events || []).some(function (ev) {
@@ -1258,7 +1269,10 @@ function ringRoom(metro, opts) {
     if (!((ev.co_owners || []).length)) return false;
     return ev.start_min < lo && ev.end_min > lo;
   });
-  return any ? ((opts && opts.edgeRingR) || (opts && opts.markR) || 8) : 0;
+  if (!any) return 0;
+  // the ring's own width, and the step the approach's first dot takes
+  var r = (opts && opts.edgeRingR) || (opts && opts.markR) || 8;
+  return Math.round(r * 2 + 2);
 }
 
 // A few pixels clear of the caption that ends against it: measured flush,
@@ -1371,35 +1385,20 @@ function fixedFor(metro, scale, axis, cross, opts) {
                align: 'right', at: axis.a1, a0: e1 - Math.max(w, rw1) - NAME_CLEAR, a1: e1,
                c0: 0, c1: 0 });   // c is filled in once the bands are solved
     var rw = routes[0] ? routes[0].length * cell * 0.85 + rowH : 0;
-    // FLUSH AGAINST THE RAIL IT NAMES, where there is a column to be flush
-    // in. Every name starting at the paper's edge leaves the short ones a
-    // name's width of blank between the word and the line -- "there a lot of
-    // wasted space here" -- and the eye has to cross it to find out whose
-    // rail this is. Set to END at the first minute instead, the words hug
-    // their own lines and the slack goes to the paper's edge, which is where
-    // the dots that say "there was more before this" live (draw.js).
+    // ALL FROM THE PAPER'S EDGE: "align all the track names to the left".
     //
-    // WITH NO COLUMN there is nowhere to be flush: the name starts at the
-    // paper's edge as it always did, because a word set to end at the first
-    // minute would begin off the board.
-    var headClear = NAME_CLEAR + ringRoom(metro, opts);
-    // ...AND THE WORD ALONE IS WHAT GOES FLUSH. A head carrying a badge is
-    // as wide as the BADGE, and both its rows start together, so a block
-    // pushed up against the first minute pushes its badge that much further
-    // into the morning -- which is paper the first caption of the day was
-    // leaning into. Those keep the paper's edge, where they have always
-    // begun; it is the plain names, which are most of them, that hug their
-    // rails.
-    // ...AND NOT QUITE TOUCHING THE FIRST MINUTE. Flush means up against the
-    // rail, not on it: a box that ends exactly ON the first minute is a box
-    // every branch leaving at that minute crosses, and the name then steps
-    // out of the way along the rail and takes the morning's first caption
-    // with it ("School Run" sixteen pixels from its own event). A pixel of
-    // daylight, and the branch leaves past the end of the word.
-    var head = gutter && !rw ? Math.max(e0, axis.a0 - 1 - headClear - w) : e0;
+    // Flush against the first minute was tried -- the words hugging their own
+    // rails, the slack at the paper's edge -- and a column of words that all
+    // START together is the one that reads as a legend: the eye runs down one
+    // edge rather than down a ragged one, and what fills the space between a
+    // short name and its rail is the line's own dotted approach (draw.js),
+    // which is a thing worth drawing rather than a gap worth closing.
+    // Past the connector that opens the column, where the column was cut
+    // wide enough to hold both. Otherwise at the paper's edge, as always.
+    var head = e0 + ((opts && opts.headLead) || 0);
     out.push({ id: 'name0:' + p.key, kind: 'terminus', line: p.key, text: t, level: lv,
                route: routes[0], rows: routes[0] ? 2 : 1, nameW: w + NAME_CLEAR, routeW: rw,
-               at: axis.a0, a0: head, a1: head + Math.max(w, rw) + headClear,
+               at: axis.a0, a0: head, a1: head + Math.max(w, rw) + NAME_CLEAR,
                c0: 0, c1: 0 });
   });
 
@@ -1429,8 +1428,13 @@ function fixedFor(metro, scale, axis, cross, opts) {
   if (!(metro.days || []).length || metro.days.length === 1) {
     var dl = metro.date_label || (metro.days && metro.days[0] && metro.days[0].date_label);
     if (dl) {
+      // AT THE PAPER'S EDGE, NOT AT THE FIRST MINUTE. The date is a fact
+      // about the whole panel and it sits in the strip, which runs the
+      // paper's width; declared at the axis it stepped in by the legend's
+      // whole column and the holiday beside it ran out of room.
       out.push({ id: 'date', kind: 'date', text: dl, align: 'left',
-                 a0: axis.a0, a1: axis.a0 + dl.length * cell,
+                 a0: axis.edge0 != null ? axis.edge0 : axis.a0,
+                 a1: (axis.edge0 != null ? axis.edge0 : axis.a0) + dl.length * cell,
                  c0: lip - rowH * 2 - 10, c1: lip - rowH - 10 });
     }
   } else {

@@ -22,11 +22,23 @@ module.exports = function (test, h) {
         const rs = rails(rep);
         const bad = [];
         const marks = rep.circles.filter((c) => /^(ring|ring-edge|stop|stop-start)$/.test(c.role));
+        // A LINE'S APPROACH IS ITS OWN INK TOO. Where the board opens inside a
+        // shared event, the connector for it stands in the legend's column at
+        // the paper's edge -- before the first minute, which is when the
+        // meeting happened -- and a dotted run carries the line from there
+        // into the day. The rail proper starts at the first minute, so a ring
+        // out at the connector sits on the approach rather than on the rail:
+        // still on its own line, which is what this asks.
+        const leads = rep.rects.filter((r) => r.role === 'terminal-more');
         for (const c of marks) {
           const cx = c.x + c.w / 2, cy = c.y + c.h / 2;
           let best = Infinity;
           for (const p of rs) for (const pt of p.pts) best = Math.min(best, Math.hypot(pt[0] - cx, pt[1] - cy));
-          if (best > 4) bad.push(c.role + ' ' + c.owner + ' at ' + Math.round(cx) + ',' + Math.round(cy)
+          for (const l of leads) {
+            if (l.owner !== c.owner) continue;
+            for (const e of (l.ends || [])) best = Math.min(best, Math.hypot(e[0] - cx, e[1] - cy));
+          }
+          if (best > 4 + c.w / 2) bad.push(c.role + ' ' + c.owner + ' at ' + Math.round(cx) + ',' + Math.round(cy)
             + ' is ' + best.toFixed(1) + 'px off');
         }
         assert(!bad.length, bad.length + ' mark(s) adrift: ' + bad.slice(0, 4).join('; '));

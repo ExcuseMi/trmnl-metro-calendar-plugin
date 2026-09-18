@@ -294,9 +294,9 @@
     "timed": 3
   },
   "futurama 21:30 og-half-vertical": {
-    "shed": 2,
+    "shed": 1,
     "dropped": 0,
-    "caps": 13,
+    "caps": 14,
     "timed": 0
   },
   "futurama 21:30 og-landscape": {
@@ -312,10 +312,10 @@
     "timed": 0
   },
   "futurama 21:30 x-landscape": {
-    "shed": 1,
+    "shed": 0,
     "dropped": 0,
-    "caps": 17,
-    "timed": 17
+    "caps": 18,
+    "timed": 2
   },
   "futurama 21:30 x-portrait": {
     "shed": 1,

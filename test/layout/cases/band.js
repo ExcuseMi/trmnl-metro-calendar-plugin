@@ -229,14 +229,15 @@ module.exports = function (test, h) {
     const late = names.filter((l) => l.x > mid);
     assert(!late.length, late.length + ' name(s) past halfway: '
       + late.map((l) => '"' + l.text + '" at ' + Math.round(l.x)).join(', '));
-    // ...AND ALL ENDING TOGETHER, against the rails they name. A column of
-    // words that start together and stop wherever they happen to stop leaves
-    // the short ones a name's width from their own line -- "there a lot of
-    // wasted space here" -- and a ragged legend is the whole complaint the
-    // column answers: "Bart looks squished here on the left".
-    const x1 = Math.max(...names.map((l) => l.x + l.w));
-    const ragged = names.filter((l) => l.x + l.w < x1 - 4);
-    assert(!ragged.length, ragged.length + ' name(s) not flush at ' + Math.round(x1)
-      + ': ' + ragged.map((l) => '"' + l.text + '" ends at ' + Math.round(l.x + l.w)).join(', '));
+    // ...AND ALL STARTING TOGETHER: "align all the track names to the left".
+    // A legend is read down its left edge, and a ragged one is the whole
+    // complaint the column answers: "Bart looks squished here on the left".
+    // Ending together against the rails was tried and is not it -- what
+    // fills the space between a short name and its rail is that line's own
+    // dotted approach, which is worth drawing.
+    const x0 = Math.min(...names.map((l) => l.x));
+    const ragged = names.filter((l) => l.x > x0 + 4);
+    assert(!ragged.length, ragged.length + ' name(s) not at the column edge ' + Math.round(x0)
+      + ': ' + ragged.map((l) => '"' + l.text + '" starts at ' + Math.round(l.x)).join(', '));
   });
 };

@@ -203,7 +203,10 @@ function report(built) {
     var x1 = +el.getAttribute('x1'), y1 = +el.getAttribute('y1');
     var x2 = +el.getAttribute('x2'), y2 = +el.getAttribute('y2');
     var row = { role: roleOf(el), owner: ownerOf(el), x: Math.min(x1, x2), y: Math.min(y1, y2),
-                w: Math.abs(x2 - x1), h: Math.abs(y2 - y1), ends: [[x1, y1], [x2, y2]] };
+                w: Math.abs(x2 - x1), h: Math.abs(y2 - y1), ends: [[x1, y1], [x2, y2]],
+                // a <line> can be dotted too: the approach out of a connector
+                // that stands before the board's first minute is
+                dash: el.getAttribute('stroke-dasharray') || '' };
     rects.push(row);
     if (row.role === 'stop') circles.push(row);
   });

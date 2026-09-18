@@ -876,12 +876,52 @@ function draw(board, spec, ctx) {
   // begins: trimmed shorter, the last stretch of rail was solid ink and drew
   // a black block behind the arrowhead.
   function chevron() { var d = 4 * S * 1.6; return { back: d, out: d }; }
+
+  // WHERE A CONNECTOR THAT PREDATES THE BOARD IS DRAWN, by line.
+  //
+  // A shared event already running at the first minute did not begin there:
+  // it began off the left of the paper. The legend's column is that time, so
+  // the connector stands at the paper's edge, a dotted approach carries each
+  // member into the day, and the event's own branch leaves the bar rather
+  // than the first minute -- "move the left connector to the left", "delivery
+  // should also start from the edge", "actually it should join the
+  // connector". Worked out here because the rails are drawn before the
+  // connectors and both have to agree about where it is.
+  var edgeTieAt = {};
+  // (`spec.axis.a0` by name: the rails are drawn well before this file's own
+  // `axisA0` is set, and read early it is quietly undefined -- which reads as
+  // "no", so the branch the connector belongs to went on starting at the
+  // first minute while the connector itself stood at the edge.)
+  (board.pills || []).forEach(function (pl) {
+    if (!pl.tie || !pl.open0 || pl.a > spec.axis.a0 + 1) return;
+    var eR = edgeRing(S), eE = spec.axis.edge0 == null ? pl.a : spec.axis.edge0;
+    // only where the column can hold a lettered ring and a step of approach
+    if (pl.a - eE <= eR.r * 2 + eR.gap * 2) return;
+    (pl.lines || []).forEach(function (k) { edgeTieAt[k] = eE + eR.r; });
+  });
+
   board.lines.forEach(function (ln, li) {
     var lpts = ln.pts;
     if (ln.branchOf && lpts.length) {
       var trunk = board.lineByKey(ln.branchOf);
       var on = trunk ? roundedAt(trunk, lpts[0][0]) : null;
       if (on) lpts = [on].concat(lpts.slice(1));
+      // ...AND FROM THE CONNECTOR, where the connector is what it left. The
+      // branch for the event the board opened inside starts at the first
+      // minute because that is the first minute the board HAS; drawn from
+      // there it hangs a ring's width clear of the bar it belongs to, with
+      // the dotted approach passing under it.
+      if (edgeTieAt[ln.branchOf] != null && lpts.length && lpts[0][0] <= spec.axis.a0 + 1) {
+        // Off the bar and along: down from its own rail at the connector to
+        // the row the shelf runs in, then into the day. Started at the shelf's
+        // own row it ran out of the column with nothing above it, which reads
+        // as a second line rather than as this one's event.
+        var tA = edgeTieAt[ln.branchOf];
+        var rc = trunk ? trunk.cAt(spec.axis.a0) : lpts[0][1];
+        var pre = [[tA, rc]];
+        if (Math.abs(rc - lpts[0][1]) > 1) pre.push([tA, lpts[0][1]]);
+        lpts = pre.concat(lpts);
+      }
     }
     var pts = lpts.map(function (p) { return xy(p[0], p[1], p[2]); });
     // A SPUR ROUNDS TIGHTER. An upright departure is two corners a mark's
@@ -1327,6 +1367,22 @@ function draw(board, spec, ctx) {
       // first minute of the paper: no bar and no rings at the edge, only
       // its spur arriving under the half dot (rule 2g).
       var atEdge = pl.open0 && pl.a <= axisA0 + 1;
+      // ...AND IT IS DRAWN BEFORE THE FIRST MINUTE, WHERE IT HAPPENED.
+      //
+      // "Move the left connector to the left. Dotted tracks between the
+      // connectors and enough space for the track name above/below the
+      // dotted lines."
+      //
+      // The event was already running when the board opened, so the meeting
+      // it draws is not at the first minute -- it is off the left of the
+      // paper, and the board has a column there now for the legend. Set at
+      // the first minute the connector stood ON the day and the morning
+      // began with a bar across it; set at the paper's edge it stands in the
+      // time before the board, where it belongs, and what joins it to the
+      // day is the approach below. The column has to be able to hold it: a
+      // lettered ring and a step, or it stays where it was.
+      var eMove = atEdge && edgeTieAt[(pl.lines || [])[0]] != null;
+      var tieA = eMove ? edgeTieAt[pl.lines[0]] : pl.a;
       // ...BUT ITS NAME STILL HAS TO HANG ON SOMETHING, AND IT HAS TO LOOK
       // LIKE AN INTERCHANGE. A shared event already running when the board
       // opened left its name loose beside the frame: "Delivery Run is just
@@ -1364,7 +1420,7 @@ function draw(board, spec, ctx) {
         // cost the morning nothing and the column stops being blank paper.
         // As many as it holds, at their own spacing, rather than three.
         var eLane = pl.a - eRingR - (spec.axis.edge0 == null ? pl.a : spec.axis.edge0);
-        var eBack = eLane > eGap * 3 + eDr;
+        var eBack = !eMove && eLane > eGap * 3 + eDr;
         var eFrom = eBack ? pl.a + eRingR : pl.a + eRingR + eGap * 4;
         members.forEach(function (k5) {
           var l5 = board.lineByKey(k5);
@@ -1380,6 +1436,22 @@ function draw(board, spec, ctx) {
           var w5 = railStroke(l5, k5).width + 1.2 * S;
           var c5 = l5.cAt(pl.a);
           if (c5 == null) return;
+          // MOVED OUT, THE APPROACH IS THE MARK. A dotted run at the rail's
+          // own level from the ring to the first minute: the reader follows
+          // the line out of the connector, across the time the board does
+          // not show, and into the day where its ink begins. The three dots
+          // said the same thing in three marks; this says it in the shape of
+          // a track, which is what the column had room for all along. The
+          // name sits in the row beside it, as it does over any rail.
+          if (eMove) {
+            var a5 = xy(tieA + eRingR, c5), b5 = xy(pl.a, c5);
+            var lead5 = svgEl(doc, 'line', { x1: a5[0], y1: a5[1], x2: b5[0], y2: b5[1],
+              'stroke-width': Math.max(1.6 * S, RAIL_W * 0.84), 'stroke-linecap': 'round',
+              'stroke-dasharray': '0.1 ' + (eGap * 0.92) });
+            lead5.style.stroke = inkOf(k5);
+            put(lead5, 'terminal-more', k5);
+            return;
+          }
           var p5 = xy(pl.a - eRingR, c5), q5 = xy(eFrom, c5);
           var wipe5 = svgEl(doc, 'line', { x1: p5[0], y1: p5[1], x2: q5[0], y2: q5[1],
             'stroke-width': w5, 'stroke-linecap': 'butt' });
@@ -1397,7 +1469,7 @@ function draw(board, spec, ctx) {
           }
         });
         // The bar itself, solid and the same weight as any other.
-        bar(pl.a, pl.c0, pl.c1, pl.id, capGaps(pl));
+        bar(tieA, pl.c0, pl.c1, pl.id, capGaps(pl));
         // ...AND A SHELF OFF IT, SAYING HOW FAR THE EVENT RUNS.
         //
         // The ring column says three people are together and the quiet rails
@@ -1442,7 +1514,7 @@ function draw(board, spec, ctx) {
                      && cb3.c0 < shC + BAR_W * 0.5 + 1 * S && cb3.c1 > shC - BAR_W * 0.5 - 1 * S);
           });
           if (shClear) {
-            var shD = 'M ' + xy(pl.a, pl.c1).join(' ') + ' L ' + xy(pl.a, shC).join(' ')
+            var shD = 'M ' + xy(tieA, pl.c1).join(' ') + ' L ' + xy(tieA, shC).join(' ')
               + ' L ' + xy(shTo, shC).join(' ');
             var shOut = svgEl(doc, 'path', { d: shD, fill: 'none', 'stroke-width': TUBE_W,
               'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
@@ -1527,7 +1599,7 @@ function draw(board, spec, ctx) {
         var ln = board.lineByKey(k);
         var c = ln ? ln.cAt(pl.a) : null;
         if (c == null) return;
-        var q = xy(pl.a, c);
+        var q = xy(tieA, c);
         var lettered = !spec.oneName && initials[k];
         var rr = NODE_R * (lettered ? 1.4 : 1) * (atEdge ? EDGE_RING : 1);
         // (a task's rings are squares, as its stop is)
@@ -2041,7 +2113,12 @@ function draw(board, spec, ctx) {
       // No badge longer than a third of the scale, or past the midnight
       // that ends its day.
       // (a little more of it where the strip's words are a size up)
-      var room = (spec.axis.a1 - spec.axis.a0) / (STRIP_SM ? 3 : 2.4);
+      // ...OF THE STRIP, WHICH IS THE PAPER'S WIDTH AND NOT THE DAY'S. The
+      // legend's column comes off the axis, and measured against the axis the
+      // badge lost a tenth of its room to a column it does not stand in: the
+      // strip runs the whole panel, over the column and all.
+      var stripRun = spec.axis.a1 - (spec.axis.edge0 == null ? spec.axis.a0 : spec.axis.edge0);
+      var room = stripRun / (STRIP_SM ? 3 : 2.4);
       var dd = ((spec.metro && spec.metro.days) || [])[dayIx];
       if (dd && spec.scale) room = Math.min(room, spec.scale.at(Math.min(dd.end_min, spec.metro.day_end_min)) - fx.a0);
       var forms0 = hol ? (hol.day_label ? [2, 1, 0] : [1, 0]) : [0];
