@@ -8274,6 +8274,17 @@ function draw(board, spec, ctx) {
     el.setAttribute('stroke-width', sw - 2 * EDGE_W);
     el.style.fill = 'none';
   }
+  // ...AND A SOLID SHADE SHAPE (the open chevron, the three dots that say a
+  // line arrives from before the board) gets a hairline of ink round it:
+  // an ink twin under it, stroked a pixel proud, that the shade's own fill
+  // then covers from the inside.
+  function edgeFill(el, role) {
+    var twin = el.cloneNode(false);
+    twin.style.fill = INK; twin.style.stroke = INK;
+    twin.setAttribute('stroke-width', 2 * EDGE_W);
+    twin.setAttribute('data-metro-role', role + '-edge');
+    svg.insertBefore(twin, el);
+  }
   function railStroke(ln, key) {
     if (!ln) return { ink: inkOf(key), width: RAIL_W };
     var w = ln.branchOf ? RAIL_W * 0.8 : RAIL_W;
@@ -9525,6 +9536,7 @@ function draw(board, spec, ctx) {
             var dot5 = svgEl(doc, 'circle', { cx: t5[0], cy: t5[1], r: eDr, stroke: 'none' });
             dot5.style.fill = inkOf(k5);
             put(dot5, 'terminal-more', k5);
+            edgeFill(dot5, 'terminal-more');
           }
         });
         // The bar itself, solid and the same weight as any other.
@@ -10013,6 +10025,7 @@ function draw(board, spec, ctx) {
           var dot = svgEl(doc, 'circle', { cx: q[0], cy: q[1], r: dr, stroke: 'none' });
           dot.style.fill = inkOf(ln.key);
           put(dot, 'terminal-more', ln.key);
+          edgeFill(dot, 'terminal-more');
         }
         return;
       }
@@ -10062,6 +10075,7 @@ function draw(board, spec, ctx) {
           + ' L ' + t1[0] + ' ' + t1[1] + ' Z', stroke: 'none' });
         ch.style.fill = inkOf(ln.key);
         put(ch, 'terminal-open', ln.key);
+        edgeFill(ch, 'terminal-open');
         return;
       }
       // A SLASH AT BOTH ENDS: "where is the beginning start mark". Where the
