@@ -144,6 +144,57 @@ function withoutLines(spec, drop) {
 
 var EVAL_POOL = 72000;
 
+// WHETHER THE LEGEND NEEDS A COLUMN OF ITS OWN, ASKED OF THE BOARD.
+//
+// A name is set at the paper's edge in the row above its rail, and on most
+// days it stays there: nothing is on that line's first minute, so the word
+// has the corner to itself and the day keeps its full width. On the rest,
+// the first minute has a ring on it, or a branch climbing out of it, or a
+// caption already in that corner, and the name is moved -- past the ring,
+// in off the edge, or with its badge dropped to make it narrow enough. One
+// name at the edge, the next forty pixels in, the third somewhere between:
+// "only when one label has to move, we should gutter."
+//
+// So the question is put to the board rather than guessed from the payload.
+// The rule that moves a name lives in bands.js and depends on where the
+// rails end up, which is a solve; but it is decided by the FLAT arrangement
+// every search starts from, not by the search. Measured over the 76 boards
+// of the fixture matrix, a probe allowed a fortieth of the pool gives the
+// same answer as the full solve on 74 of them, and both the two it differs
+// on are boards it says need a gutter that would have been fine -- which
+// costs those two a tenth of their day and never costs anyone a name in the
+// wrong place.
+var PROBE_POOL = 2000;
+function namesMoved(spec, b) {
+  var e0 = spec.axis.edge0 == null ? spec.axis.a0 : spec.axis.edge0, dec = {};
+  (spec.fixed || []).forEach(function (f) { if (f.kind === 'terminus') dec[f.id] = f; });
+  var shoved = (b.fixed || []).some(function (f) {
+    if (f.kind !== 'terminus') return false;
+    // Moved along the rail, out of the corner it belongs in...
+    if (f.a0 > e0 + 0.5) return true;
+    // ...or still there because it gave up saying what the line is today.
+    return !!(dec[f.id] && dec[f.id].route && !f.route);
+  });
+  return shoved || cutNames(b);
+}
+// ...OR IT COULD NOT MOVE AND WAS RUN OVER, which is the same fact at its
+// worst: every escape bands.js has was refused and the name was left with a
+// branch through it.
+function cutNames(b) {
+  return B.check(b).some(function (f) { return f.kind === 'namecut'; });
+}
+function gutterIfNeeded(spec, opts) {
+  if (!spec.regut || spec.nameGutter) return spec;
+  // ON A COPY, because a solve leaves its arrangement on the spec's wants
+  // -- each one wearing the form that solve chose -- and a probe is not
+  // supposed to be able to change the board that follows it. Dropping
+  // nobody is the clone: `withoutLines` rebuilds the wants and hands back
+  // the settings a fresh search expects.
+  var probe = Bands.solve(withoutLines(spec, []), Object.assign({}, opts,
+    { pool: { used: 0, left: PROBE_POOL } }));
+  return namesMoved(spec, probe) ? spec.regut() : spec;
+}
+
 // Solve, and if the board cannot hold everyone, leave the quietest people
 // out until it can.
 function fit(spec, opts) {
@@ -175,11 +226,45 @@ function fit(spec, opts) {
   // buys nothing; in the browser that is under three seconds, which is what
   // the page allows, and a slower renderer still has the clock above.
   if (!opts.pool) opts = Object.assign({}, opts, { pool: { used: 0, left: EVAL_POOL } });
+  spec = gutterIfNeeded(spec, opts);
   var best = Bands.solve(spec, opts);
+  // ...AND THE REAL BOARD IS ASKED THE SAME QUESTION, because the probe is
+  // an optimisation and not the rule. It is the flat arrangement, and on a
+  // board whose rails end up somewhere else a name can be shoved, or cut,
+  // by a branch the flat board never grew: four of the fixture matrix's
+  // seventy-six og-half boards, and "Marge" with a spur drawn through her
+  // on the evening example. Those boards solve twice, which is what a
+  // legend a reader has to hunt along is worth. The second search gets a
+  // whole budget, because the board it replaces is thrown away and an
+  // under-searched board is what the pool exists to prevent.
+  if (spec.regut && !spec.nameGutter && namesMoved(spec, best)) {
+    spec = spec.regut();
+    // WHAT IS LEFT OF THE BUDGET, AND NEVER LESS THAN THREE QUARTERS. The board
+    // just solved is thrown away, so its spending should not come off the
+    // one that replaces it -- and the panel has three seconds for the whole
+    // page, so a board cannot simply be allowed to search twice over. The
+    // first solve is the cheap end of the fit (the drop ladder below is the
+    // expensive one and runs once, on the spec this settles), and it had
+    // spent between 1k and 22k of the 72k on the boards that come here.
+    // Measured on the demo sweep: at three quarters the boards come out
+    // exactly as they do with a whole fresh pool -- 910 captions, 539 of
+    // them timed, 28 shed -- and the slowest board takes 2.6s instead of
+    // 3.2s. At half it is faster again and costs four captions, which is
+    // not a trade worth making with three seconds to spend.
+    opts = Object.assign({}, opts, { pool: { used: 0,
+      left: Math.max(EVAL_POOL * 0.75, EVAL_POOL - opts.pool.used) } });
+    best = Bands.solve(spec, opts);
+  }
   var bestSpec = spec, bestW = worth(spec, best), dropped = [];
   // Nothing dropped yet, so the whole cost is what is unreadable.
   var bestCost = bestW.lost * 4;
-  if (!bestW.lost) { best.dropped = []; return best; }
+  // ...AND WHICH SPEC IT IS A BOARD OF, on the way out of every door. A
+  // board that loses nothing leaves here, and it used to leave without
+  // saying: harmless while the spec was whatever the caller passed in, and
+  // not any more, because the gutter is decided in here (see
+  // gutterIfNeeded) and a caller drawing a gutter board against the spec it
+  // handed over draws every rail at the wrong minute.
+  if (!bestW.lost) { best.dropped = []; best.spec = spec; return best; }
 
   // Quietest first. Counted from the events that are actually theirs, not
   // from the ones they merely attend.

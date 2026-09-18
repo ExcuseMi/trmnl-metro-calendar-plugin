@@ -6243,6 +6243,7 @@ function crowding(spec) {
 
 function specFor(metro, view, opts) {
   opts = opts || {};
+  var asked = metro, askedOpts = opts;
   metro = framed(edged(opened(metro)), view, opts);
   var measure = opts.measure || charMeasure(opts.cell, opts.rowH);
   var cell = opts.cell || 7;
@@ -6281,8 +6282,19 @@ function specFor(metro, view, opts) {
   // second copy of the same word, and giving that back buys more of the day
   // than this spends. Tight, because the names are set small now -- the
   // widest of them and a hair, not the old name-and-a-half.
+  //
+  // ...AND ONLY ON A BOARD THAT NEEDS ONE, which is not most of them: "this
+  // example didn't [have] the labels [as] issues there. Only when one label
+  // has to move, we should gutter." Most days open with every line's first
+  // minute clear, every name sits at the paper's edge over its own rail, and
+  // a column cut for them there would be a tenth of the day spent on nothing.
+  // The board is asked instead of guessed: fit.js solves it once, cheaply,
+  // with no gutter, and asks whether any name had to leave the edge -- past
+  // a ring, out of a branch, or by dropping its badge. If one did, the spec
+  // is rebuilt with the gutter (`regut`) and that is the board. Measured over
+  // the fixture matrix, 18 boards of 76 need it.
   var nameRoom = opts.nameRoom != null ? opts.nameRoom : Math.round(cell);
-  if (opts.nameRoom == null) {
+  if (opts.nameRoom == null && opts.nameGutter) {
     var wName = 0;
     (metro.legend || []).forEach(function (p) {
       wName = Math.max(wName, (opts.nameW && opts.nameW[p.key]) || String(p.name || p.key).length * cell);
@@ -6445,6 +6457,15 @@ function specFor(metro, view, opts) {
            // WHAT THIS PANEL CAN HOLD, carried on the spec so that `fit` can
            // read it without being handed the view. See frameFor.
            tracks: frameFor(view, opts).tracks, oneName: oneName,
+           // WHETHER THE LEGEND TOOK ITS COLUMN, and how to ask for one. A
+           // spec that has not spent the gutter can be rebuilt as the same
+           // board with it, which is how the decision is made (see fit.js):
+           // solve, look at where the names landed, and buy the column only
+           // for a board whose names could not stay at the edge without it.
+           nameGutter: !!(opts.nameRoom == null && opts.nameGutter),
+           regut: opts.nameRoom != null || opts.nameGutter ? null : function () {
+             return specFor(asked, view, Object.assign({}, askedOpts, { nameGutter: true }));
+           },
            // What a drawn mark reaches and how a corner rounds, at this panel's
            // scale: the two numbers the solver and the renderer must agree
            // on. They were passed in and never copied here, so the solver
@@ -7279,6 +7300,57 @@ function withoutLines(spec, drop) {
 
 var EVAL_POOL = 72000;
 
+// WHETHER THE LEGEND NEEDS A COLUMN OF ITS OWN, ASKED OF THE BOARD.
+//
+// A name is set at the paper's edge in the row above its rail, and on most
+// days it stays there: nothing is on that line's first minute, so the word
+// has the corner to itself and the day keeps its full width. On the rest,
+// the first minute has a ring on it, or a branch climbing out of it, or a
+// caption already in that corner, and the name is moved -- past the ring,
+// in off the edge, or with its badge dropped to make it narrow enough. One
+// name at the edge, the next forty pixels in, the third somewhere between:
+// "only when one label has to move, we should gutter."
+//
+// So the question is put to the board rather than guessed from the payload.
+// The rule that moves a name lives in bands.js and depends on where the
+// rails end up, which is a solve; but it is decided by the FLAT arrangement
+// every search starts from, not by the search. Measured over the 76 boards
+// of the fixture matrix, a probe allowed a fortieth of the pool gives the
+// same answer as the full solve on 74 of them, and both the two it differs
+// on are boards it says need a gutter that would have been fine -- which
+// costs those two a tenth of their day and never costs anyone a name in the
+// wrong place.
+var PROBE_POOL = 2000;
+function namesMoved(spec, b) {
+  var e0 = spec.axis.edge0 == null ? spec.axis.a0 : spec.axis.edge0, dec = {};
+  (spec.fixed || []).forEach(function (f) { if (f.kind === 'terminus') dec[f.id] = f; });
+  var shoved = (b.fixed || []).some(function (f) {
+    if (f.kind !== 'terminus') return false;
+    // Moved along the rail, out of the corner it belongs in...
+    if (f.a0 > e0 + 0.5) return true;
+    // ...or still there because it gave up saying what the line is today.
+    return !!(dec[f.id] && dec[f.id].route && !f.route);
+  });
+  return shoved || cutNames(b);
+}
+// ...OR IT COULD NOT MOVE AND WAS RUN OVER, which is the same fact at its
+// worst: every escape bands.js has was refused and the name was left with a
+// branch through it.
+function cutNames(b) {
+  return B.check(b).some(function (f) { return f.kind === 'namecut'; });
+}
+function gutterIfNeeded(spec, opts) {
+  if (!spec.regut || spec.nameGutter) return spec;
+  // ON A COPY, because a solve leaves its arrangement on the spec's wants
+  // -- each one wearing the form that solve chose -- and a probe is not
+  // supposed to be able to change the board that follows it. Dropping
+  // nobody is the clone: `withoutLines` rebuilds the wants and hands back
+  // the settings a fresh search expects.
+  var probe = Bands.solve(withoutLines(spec, []), Object.assign({}, opts,
+    { pool: { used: 0, left: PROBE_POOL } }));
+  return namesMoved(spec, probe) ? spec.regut() : spec;
+}
+
 // Solve, and if the board cannot hold everyone, leave the quietest people
 // out until it can.
 function fit(spec, opts) {
@@ -7310,11 +7382,45 @@ function fit(spec, opts) {
   // buys nothing; in the browser that is under three seconds, which is what
   // the page allows, and a slower renderer still has the clock above.
   if (!opts.pool) opts = Object.assign({}, opts, { pool: { used: 0, left: EVAL_POOL } });
+  spec = gutterIfNeeded(spec, opts);
   var best = Bands.solve(spec, opts);
+  // ...AND THE REAL BOARD IS ASKED THE SAME QUESTION, because the probe is
+  // an optimisation and not the rule. It is the flat arrangement, and on a
+  // board whose rails end up somewhere else a name can be shoved, or cut,
+  // by a branch the flat board never grew: four of the fixture matrix's
+  // seventy-six og-half boards, and "Marge" with a spur drawn through her
+  // on the evening example. Those boards solve twice, which is what a
+  // legend a reader has to hunt along is worth. The second search gets a
+  // whole budget, because the board it replaces is thrown away and an
+  // under-searched board is what the pool exists to prevent.
+  if (spec.regut && !spec.nameGutter && namesMoved(spec, best)) {
+    spec = spec.regut();
+    // WHAT IS LEFT OF THE BUDGET, AND NEVER LESS THAN THREE QUARTERS. The board
+    // just solved is thrown away, so its spending should not come off the
+    // one that replaces it -- and the panel has three seconds for the whole
+    // page, so a board cannot simply be allowed to search twice over. The
+    // first solve is the cheap end of the fit (the drop ladder below is the
+    // expensive one and runs once, on the spec this settles), and it had
+    // spent between 1k and 22k of the 72k on the boards that come here.
+    // Measured on the demo sweep: at three quarters the boards come out
+    // exactly as they do with a whole fresh pool -- 910 captions, 539 of
+    // them timed, 28 shed -- and the slowest board takes 2.6s instead of
+    // 3.2s. At half it is faster again and costs four captions, which is
+    // not a trade worth making with three seconds to spend.
+    opts = Object.assign({}, opts, { pool: { used: 0,
+      left: Math.max(EVAL_POOL * 0.75, EVAL_POOL - opts.pool.used) } });
+    best = Bands.solve(spec, opts);
+  }
   var bestSpec = spec, bestW = worth(spec, best), dropped = [];
   // Nothing dropped yet, so the whole cost is what is unreadable.
   var bestCost = bestW.lost * 4;
-  if (!bestW.lost) { best.dropped = []; return best; }
+  // ...AND WHICH SPEC IT IS A BOARD OF, on the way out of every door. A
+  // board that loses nothing leaves here, and it used to leave without
+  // saying: harmless while the spec was whatever the caller passed in, and
+  // not any more, because the gutter is decided in here (see
+  // gutterIfNeeded) and a caller drawing a gutter board against the spec it
+  // handed over draws every rail at the wrong minute.
+  if (!bestW.lost) { best.dropped = []; best.spec = spec; return best; }
 
   // Quietest first. Counted from the events that are actually theirs, not
   // from the ones they merely attend.
@@ -8009,7 +8115,9 @@ function draw(board, spec, ctx) {
     var g = node.cloneNode(false);
     if (g.style.fill && g.style.fill !== 'none') { g.style.fill = INK; g.setAttribute('fill-opacity', 0.08); }
     if (g.style.stroke && g.style.stroke !== 'none') { g.style.stroke = INK; g.setAttribute('stroke-opacity', 0.08); }
-    g.setAttribute('data-metro-role', 'night');
+    // Its own name: this is paper put BACK over a cut, not a statement about
+    // the sky, and anything measuring the dark has to skip it.
+    g.setAttribute('data-metro-role', 'night-over');
     svg.appendChild(g);
   }
   // ---- the dark hours, behind everything ---------------------------------
@@ -8036,11 +8144,16 @@ function draw(board, spec, ctx) {
       lights.push([base + wx.sunrise_min, base + wx.sunset_min, base]);
     });
     lights.sort(function (p, q) { return p[0] - q[0]; });
+    // ...AND EACH END OF A DARK SPAN KNOWS WHETHER THE SUN DID IT. A night
+    // between two days begins at a sunset and ends at a sunrise; one at
+    // either end of the list begins or ends at a midnight the forecast
+    // simply stops at, which is not an event in the sky and must not be
+    // drawn as one (see the twilight shoulders below).
     var darks = [];
     lights.forEach(function (l, li) {
-      if (li === 0) darks.push([l[2], l[0]]);
-      else darks.push([lights[li - 1][1], l[0]]);
-      if (li === lights.length - 1) darks.push([l[1], l[2] + 1440]);
+      if (li === 0) darks.push([l[2], l[0], false, true]);
+      else darks.push([lights[li - 1][1], l[0], true, true]);
+      if (li === lights.length - 1) darks.push([l[1], l[2] + 1440, true, false]);
     });
     // DUSK AND DAWN ARE NOT A LINE, THEY ARE A WHILE.
     //
@@ -8086,8 +8199,17 @@ function draw(board, spec, ctx) {
       put(shade, 'night');
       // ...and the deep of it, inside the two twilights. A night shorter than
       // two of them is all shoulder, which is what midsummer looks like.
-      var d0 = Math.max(f, Math.min(t, span[0] + twi));
-      var d1 = Math.min(t, Math.max(f, span[1] - twi));
+      //
+      // ONLY WHERE THE SUN IS ACTUALLY DOING SOMETHING. A shoulder says the
+      // sky is changing, and at the far end of a two-day board the night
+      // does not end -- the PAPER does. Drawn there anyway it read as a
+      // dawn six hours early: "why does the sunup twilight look like that at
+      // the end? it shouldn't be there yet". The same at a midnight the
+      // forecast stops at, and at a window that opens or closes inside a
+      // night. At an end like that the deep runs to the edge and the night
+      // is simply cut off, which is what has happened to it.
+      var d0 = span[2] ? Math.max(f, Math.min(t, span[0] + twi)) : f;
+      var d1 = span[3] ? Math.min(t, Math.max(f, span[1] - twi)) : t;
       if (d1 > d0) {
         var b0 = d0 <= m0min ? 0 : spec.scale.at(d0);
         var b1 = d1 >= m1min ? (horizontal ? W : H) : spec.scale.at(d1);
@@ -8096,7 +8218,10 @@ function draw(board, spec, ctx) {
           width: Math.abs(p1[0] - p0[0]), height: Math.abs(p1[1] - p0[1]),
           stroke: 'none', 'fill-opacity': 0.06 });
         deep.style.fill = INK;
-        put(deep, 'night');
+        // Its own name, because the two say different things -- "the sky is
+        // changing" and "it is dark" -- and anything asking where the night
+        // really is has to be able to tell them apart.
+        put(deep, 'night-deep');
       }
       nights.push([Math.min(a0n, a1n), Math.max(a0n, a1n)]);
       // NO LINE AT THE EDGE ANY MORE. There was one at each end -- sunset
@@ -9346,15 +9471,18 @@ function draw(board, spec, ctx) {
         // THE DAY GOES ON PAST THE PAPER: "..." where the slash would be.
         var dir = end ? 1 : -1, gapD = Math.max(RAIL_W * 1.3, 2.6 * S), dr = Math.max(1.2 * S, RAIL_W * 0.42);
         // ...AND AT THE LEADING END THEY RUN THE WHOLE GUTTER: "have the dots
-        // extend across the gutter". The legend took a column off the day for
-        // the names (nameRoom, day.js) and at the rail's own row that column
-        // is empty paper, so three dots pressed against the first minute are
-        // three dots with a hole beside them. Spread to the paper's edge they
-        // read as the line arriving from before the board -- and they say it
-        // in the gutter instead of in the day.
+        // extend across the gutter", "as many as needed instead of just 3".
+        // Where the legend has taken a column off the day (nameRoom, day.js)
+        // the rail's own row in it is empty paper, and three dots pressed
+        // against the first minute are three dots with a hole beside them.
+        // They keep their own spacing and there are as many as the column
+        // holds, so the line arrives out of the gutter rather than starting
+        // in it. Where there is no column -- which is most boards -- there
+        // is room for three and three is what is drawn.
         var lane = axisA0 - (spec.axis.edge0 == null ? axisA0 : spec.axis.edge0);
-        if (!end && lane > gapD * 3 && !nameLevel[ln.key]) gapD = (lane - dr) / 3;
-        for (var di2 = 1; di2 <= 3; di2++) {
+        var dots = 3;
+        if (!end && !nameLevel[ln.key]) dots = Math.max(3, Math.floor((lane - dr) / gapD));
+        for (var di2 = 1; di2 <= dots; di2++) {
           var q = xy(p[0] + dir * gapD * di2, p[1]);
           var dot = svgEl(doc, 'circle', { cx: q[0], cy: q[1], r: dr, stroke: 'none' });
           dot.style.fill = inkOf(ln.key);

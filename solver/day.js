@@ -970,6 +970,7 @@ function crowding(spec) {
 
 function specFor(metro, view, opts) {
   opts = opts || {};
+  var asked = metro, askedOpts = opts;
   metro = framed(edged(opened(metro)), view, opts);
   var measure = opts.measure || charMeasure(opts.cell, opts.rowH);
   var cell = opts.cell || 7;
@@ -1008,8 +1009,19 @@ function specFor(metro, view, opts) {
   // second copy of the same word, and giving that back buys more of the day
   // than this spends. Tight, because the names are set small now -- the
   // widest of them and a hair, not the old name-and-a-half.
+  //
+  // ...AND ONLY ON A BOARD THAT NEEDS ONE, which is not most of them: "this
+  // example didn't [have] the labels [as] issues there. Only when one label
+  // has to move, we should gutter." Most days open with every line's first
+  // minute clear, every name sits at the paper's edge over its own rail, and
+  // a column cut for them there would be a tenth of the day spent on nothing.
+  // The board is asked instead of guessed: fit.js solves it once, cheaply,
+  // with no gutter, and asks whether any name had to leave the edge -- past
+  // a ring, out of a branch, or by dropping its badge. If one did, the spec
+  // is rebuilt with the gutter (`regut`) and that is the board. Measured over
+  // the fixture matrix, 18 boards of 76 need it.
   var nameRoom = opts.nameRoom != null ? opts.nameRoom : Math.round(cell);
-  if (opts.nameRoom == null) {
+  if (opts.nameRoom == null && opts.nameGutter) {
     var wName = 0;
     (metro.legend || []).forEach(function (p) {
       wName = Math.max(wName, (opts.nameW && opts.nameW[p.key]) || String(p.name || p.key).length * cell);
@@ -1172,6 +1184,15 @@ function specFor(metro, view, opts) {
            // WHAT THIS PANEL CAN HOLD, carried on the spec so that `fit` can
            // read it without being handed the view. See frameFor.
            tracks: frameFor(view, opts).tracks, oneName: oneName,
+           // WHETHER THE LEGEND TOOK ITS COLUMN, and how to ask for one. A
+           // spec that has not spent the gutter can be rebuilt as the same
+           // board with it, which is how the decision is made (see fit.js):
+           // solve, look at where the names landed, and buy the column only
+           // for a board whose names could not stay at the edge without it.
+           nameGutter: !!(opts.nameRoom == null && opts.nameGutter),
+           regut: opts.nameRoom != null || opts.nameGutter ? null : function () {
+             return specFor(asked, view, Object.assign({}, askedOpts, { nameGutter: true }));
+           },
            // What a drawn mark reaches and how a corner rounds, at this panel's
            // scale: the two numbers the solver and the renderer must agree
            // on. They were passed in and never copied here, so the solver

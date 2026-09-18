@@ -181,6 +181,20 @@ function report(built) {
                  width: parseFloat(el.getAttribute('stroke-width')) || 0,
                  dash: el.getAttribute('stroke-dasharray') || '' });
   });
+  // THE NIGHT, WHICH NOTHING COULD SEE. It is drawn as two <rect>s per dark
+  // span -- the whole of it, pale, and the deep of it inside the twilight
+  // shoulders -- and neither harness reported a rect at all, so no case
+  // could ask where the dark was. A dawn drawn at the paper's edge on a
+  // two-day board went out on the wall.
+  var nights = [];
+  built.svg.querySelectorAll('rect').forEach(function (el) {
+    var role = roleOf(el);
+    if (role !== 'night' && role !== 'night-deep') return;
+    var x = +el.getAttribute('x'), y = +el.getAttribute('y');
+    var w = +el.getAttribute('width'), h = +el.getAttribute('height');
+    nights.push({ role: role, x: x, y: y, w: w, h: h,
+                  a0: o.horiz ? x : y, a1: o.horiz ? x + w : y + h });
+  });
   built.svg.querySelectorAll('circle').forEach(function (el) {
     var cx = +el.getAttribute('cx'), cy = +el.getAttribute('cy'), r = +el.getAttribute('r');
     circles.push({ role: roleOf(el), owner: ownerOf(el), x: cx - r, y: cy - r, w: 2 * r, h: 2 * r });
@@ -229,7 +243,7 @@ function report(built) {
   var b = built.board, spec = built.spec;
   return {
     canvas: { w: built.view.W, h: built.view.H },
-    paths: paths, circles: circles, rects: rects, labels: labels,
+    paths: paths, circles: circles, rects: rects, labels: labels, nights: nights,
     board: b, spec: spec,
     debug: {
       W: built.view.W, H: built.view.H, S: o.S, Z: 1, horizontal: o.horiz,
@@ -288,14 +302,21 @@ function freeze(built, rep) {
       plain: PLAIN.reduce(function (o, k) { o[k] = b[k]; return o; }, {}),
     },
     wants: built.spec.wants.map(function (w) { return { id: w.id, rail: w._rail || null, form: w.form }; }),
+    // WHETHER THE LEGEND TOOK ITS COLUMN. The spec is recomputed on the way
+    // back in, and `fit` decides the gutter by solving (see fit.js), so a
+    // board frozen with one would be rebuilt against an axis starting a
+    // name's width earlier than the one its captions were placed on.
+    gutter: !!built.spec.nameGutter,
     solveMs: built.solveMs,
-    rep: { canvas: rep.canvas, paths: rep.paths, circles: rep.circles, rects: rep.rects, labels: rep.labels, debug: rep.debug },
+    rep: { canvas: rep.canvas, paths: rep.paths, circles: rep.circles, rects: rep.rects,
+           labels: rep.labels, nights: rep.nights, debug: rep.debug },
   };
 }
 function thaw(data, metro, viewName, extra) {
   var v = typeof viewName === 'string' ? VIEWS[viewName] : viewName;
   var o = optsFor(v, metro);
   var spec = specOf(metro, v, o, extra);
+  if (data.gutter && spec.regut) spec = spec.regut();
   var dropped = data.board.plain.dropped || [];
   if (dropped.length) spec = Fit.withoutLines(spec, dropped);
   var byId = {};

@@ -479,7 +479,9 @@ function draw(board, spec, ctx) {
     var g = node.cloneNode(false);
     if (g.style.fill && g.style.fill !== 'none') { g.style.fill = INK; g.setAttribute('fill-opacity', 0.08); }
     if (g.style.stroke && g.style.stroke !== 'none') { g.style.stroke = INK; g.setAttribute('stroke-opacity', 0.08); }
-    g.setAttribute('data-metro-role', 'night');
+    // Its own name: this is paper put BACK over a cut, not a statement about
+    // the sky, and anything measuring the dark has to skip it.
+    g.setAttribute('data-metro-role', 'night-over');
     svg.appendChild(g);
   }
   // ---- the dark hours, behind everything ---------------------------------
@@ -506,11 +508,16 @@ function draw(board, spec, ctx) {
       lights.push([base + wx.sunrise_min, base + wx.sunset_min, base]);
     });
     lights.sort(function (p, q) { return p[0] - q[0]; });
+    // ...AND EACH END OF A DARK SPAN KNOWS WHETHER THE SUN DID IT. A night
+    // between two days begins at a sunset and ends at a sunrise; one at
+    // either end of the list begins or ends at a midnight the forecast
+    // simply stops at, which is not an event in the sky and must not be
+    // drawn as one (see the twilight shoulders below).
     var darks = [];
     lights.forEach(function (l, li) {
-      if (li === 0) darks.push([l[2], l[0]]);
-      else darks.push([lights[li - 1][1], l[0]]);
-      if (li === lights.length - 1) darks.push([l[1], l[2] + 1440]);
+      if (li === 0) darks.push([l[2], l[0], false, true]);
+      else darks.push([lights[li - 1][1], l[0], true, true]);
+      if (li === lights.length - 1) darks.push([l[1], l[2] + 1440, true, false]);
     });
     // DUSK AND DAWN ARE NOT A LINE, THEY ARE A WHILE.
     //
@@ -556,8 +563,17 @@ function draw(board, spec, ctx) {
       put(shade, 'night');
       // ...and the deep of it, inside the two twilights. A night shorter than
       // two of them is all shoulder, which is what midsummer looks like.
-      var d0 = Math.max(f, Math.min(t, span[0] + twi));
-      var d1 = Math.min(t, Math.max(f, span[1] - twi));
+      //
+      // ONLY WHERE THE SUN IS ACTUALLY DOING SOMETHING. A shoulder says the
+      // sky is changing, and at the far end of a two-day board the night
+      // does not end -- the PAPER does. Drawn there anyway it read as a
+      // dawn six hours early: "why does the sunup twilight look like that at
+      // the end? it shouldn't be there yet". The same at a midnight the
+      // forecast stops at, and at a window that opens or closes inside a
+      // night. At an end like that the deep runs to the edge and the night
+      // is simply cut off, which is what has happened to it.
+      var d0 = span[2] ? Math.max(f, Math.min(t, span[0] + twi)) : f;
+      var d1 = span[3] ? Math.min(t, Math.max(f, span[1] - twi)) : t;
       if (d1 > d0) {
         var b0 = d0 <= m0min ? 0 : spec.scale.at(d0);
         var b1 = d1 >= m1min ? (horizontal ? W : H) : spec.scale.at(d1);
@@ -566,7 +582,10 @@ function draw(board, spec, ctx) {
           width: Math.abs(p1[0] - p0[0]), height: Math.abs(p1[1] - p0[1]),
           stroke: 'none', 'fill-opacity': 0.06 });
         deep.style.fill = INK;
-        put(deep, 'night');
+        // Its own name, because the two say different things -- "the sky is
+        // changing" and "it is dark" -- and anything asking where the night
+        // really is has to be able to tell them apart.
+        put(deep, 'night-deep');
       }
       nights.push([Math.min(a0n, a1n), Math.max(a0n, a1n)]);
       // NO LINE AT THE EDGE ANY MORE. There was one at each end -- sunset
@@ -1816,15 +1835,18 @@ function draw(board, spec, ctx) {
         // THE DAY GOES ON PAST THE PAPER: "..." where the slash would be.
         var dir = end ? 1 : -1, gapD = Math.max(RAIL_W * 1.3, 2.6 * S), dr = Math.max(1.2 * S, RAIL_W * 0.42);
         // ...AND AT THE LEADING END THEY RUN THE WHOLE GUTTER: "have the dots
-        // extend across the gutter". The legend took a column off the day for
-        // the names (nameRoom, day.js) and at the rail's own row that column
-        // is empty paper, so three dots pressed against the first minute are
-        // three dots with a hole beside them. Spread to the paper's edge they
-        // read as the line arriving from before the board -- and they say it
-        // in the gutter instead of in the day.
+        // extend across the gutter", "as many as needed instead of just 3".
+        // Where the legend has taken a column off the day (nameRoom, day.js)
+        // the rail's own row in it is empty paper, and three dots pressed
+        // against the first minute are three dots with a hole beside them.
+        // They keep their own spacing and there are as many as the column
+        // holds, so the line arrives out of the gutter rather than starting
+        // in it. Where there is no column -- which is most boards -- there
+        // is room for three and three is what is drawn.
         var lane = axisA0 - (spec.axis.edge0 == null ? axisA0 : spec.axis.edge0);
-        if (!end && lane > gapD * 3 && !nameLevel[ln.key]) gapD = (lane - dr) / 3;
-        for (var di2 = 1; di2 <= 3; di2++) {
+        var dots = 3;
+        if (!end && !nameLevel[ln.key]) dots = Math.max(3, Math.floor((lane - dr) / gapD));
+        for (var di2 = 1; di2 <= dots; di2++) {
           var q = xy(p[0] + dir * gapD * di2, p[1]);
           var dot = svgEl(doc, 'circle', { cx: q[0], cy: q[1], r: dr, stroke: 'none' });
           dot.style.fill = inkOf(ln.key);
