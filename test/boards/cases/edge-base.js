@@ -85,11 +85,21 @@ module.exports = function (test, h) {
       const open = {};
       for (const w of rep.spec.wants || []) if (w._rail) open[w._rail] = [!!w.open0, !!w.open1];
       const bad = [];
+      // ...EXCEPT THE ONE THAT RUNS ON OUT OF A CONNECTOR IN THE COLUMN. The
+      // event the board opened inside is drawn leaving the connector at the
+      // paper's edge and running the whole way in, so its leading end is the
+      // bar and not the paper: nothing is cut off there to put dots on.
+      const e0 = rep.spec.axis.edge0 == null ? axis.a0 : rep.spec.axis.edge0;
+      const movedOut = new Set();
+      for (const r of rep.circles.filter((c) => c.role === 'ring-edge')) {
+        if (r.x + r.w / 2 < e0 + r.w * 1.5) movedOut.add(r.owner);
+      }
       for (const ln of (rep.board.lines || []).filter((l) => l.branchOf && l.pts.length > 1)) {
         const op = open[ln.key] || [false, false];
         const ends = [ln.pts[0][0], ln.pts[ln.pts.length - 1][0]];
         const want = [0, 1].reduce((n, e) => n
-          + (op[e] && Math.abs(ends[e] - (e ? axis.a1 : axis.a0)) < 1 ? 3 : 0), 0);
+          + (op[e] && Math.abs(ends[e] - (e ? axis.a1 : axis.a0)) < 1
+             && !(e === 0 && movedOut.has(ln.branchOf)) ? 3 : 0), 0);
         const got = rep.circles.filter((c) => c.role === 'terminal-more' && c.owner === ln.key).length;
         if (got !== want) bad.push(ln.key + ': ' + got + ' dot(s), wanted ' + want);
       }

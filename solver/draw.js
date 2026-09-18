@@ -141,6 +141,30 @@ function draw(board, spec, ctx) {
   // The constants the old engine tuned, at the panel's own scale.
   var NODE_R = 6 * S, NODE_STROKE = 3 * S, LINE_GAP = 6 * S, CORNER = 13 * S;
   var RAIL_W = 3 * S;
+
+  // WHERE A CONNECTOR THAT PREDATES THE BOARD IS DRAWN, by line.
+  //
+  // A shared event already running at the first minute did not begin there:
+  // it began off the left of the paper. The legend's column is that time, so
+  // the connector stands at the paper's edge, a dotted approach carries each
+  // member into the day, and the event's own branch leaves the bar rather
+  // than the first minute -- "move the left connector to the left", "delivery
+  // should also start from the edge", "actually it should join the
+  // connector". Worked out here because the rails are drawn before the
+  // connectors and both have to agree about where it is.
+  var edgeTieAt = {};
+  // (`spec.axis.a0` by name: the rails are drawn well before this file's own
+  // `axisA0` is set, and read early it is quietly undefined -- which reads as
+  // "no", so the branch the connector belongs to went on starting at the
+  // first minute while the connector itself stood at the edge.)
+  (board.pills || []).forEach(function (pl) {
+    if (!pl.tie || !pl.open0 || pl.a > spec.axis.a0 + 1) return;
+    var eR = edgeRing(S), eE = spec.axis.edge0 == null ? pl.a : spec.axis.edge0;
+    // only where the column can hold a lettered ring and a step of approach
+    if (pl.a - eE <= eR.r * 2 + eR.gap * 2) return;
+    (pl.lines || []).forEach(function (k) { edgeTieAt[k] = eE + eR.r; });
+  });
+
   // ONE HOLLOW, for the bar and the branch that continues it: the same width
   // and the same walls, "the connector and the branch don't use the exact same
   // style".
@@ -780,6 +804,13 @@ function draw(board, spec, ctx) {
             var best = null;
             (board.pills || []).forEach(function (q) {
               if ((q.lines || []).indexOf(k) < 0) return;
+              // ...but not a connector that has moved out into the legend's
+              // column: there is no ring at the first minute any more, and
+              // measured off where it used to be the quiet stretch began a
+              // ring's width late, leaving that much of the line's full ink
+              // showing between the dotted approach and the grey -- "why does
+              // it show the normal track inside the light shared track".
+              if (q.tie && q.open0 && edgeTieAt[k] != null) return;
               [q.a, q.a0, q.a1].forEach(function (qa) {
                 if (qa == null || Math.abs(qa - a) > NODE_R * 1.6) return;
                 var e = qa + dir * ringR;
@@ -876,29 +907,6 @@ function draw(board, spec, ctx) {
   // begins: trimmed shorter, the last stretch of rail was solid ink and drew
   // a black block behind the arrowhead.
   function chevron() { var d = 4 * S * 1.6; return { back: d, out: d }; }
-
-  // WHERE A CONNECTOR THAT PREDATES THE BOARD IS DRAWN, by line.
-  //
-  // A shared event already running at the first minute did not begin there:
-  // it began off the left of the paper. The legend's column is that time, so
-  // the connector stands at the paper's edge, a dotted approach carries each
-  // member into the day, and the event's own branch leaves the bar rather
-  // than the first minute -- "move the left connector to the left", "delivery
-  // should also start from the edge", "actually it should join the
-  // connector". Worked out here because the rails are drawn before the
-  // connectors and both have to agree about where it is.
-  var edgeTieAt = {};
-  // (`spec.axis.a0` by name: the rails are drawn well before this file's own
-  // `axisA0` is set, and read early it is quietly undefined -- which reads as
-  // "no", so the branch the connector belongs to went on starting at the
-  // first minute while the connector itself stood at the edge.)
-  (board.pills || []).forEach(function (pl) {
-    if (!pl.tie || !pl.open0 || pl.a > spec.axis.a0 + 1) return;
-    var eR = edgeRing(S), eE = spec.axis.edge0 == null ? pl.a : spec.axis.edge0;
-    // only where the column can hold a lettered ring and a step of approach
-    if (pl.a - eE <= eR.r * 2 + eR.gap * 2) return;
-    (pl.lines || []).forEach(function (k) { edgeTieAt[k] = eE + eR.r; });
-  });
 
   board.lines.forEach(function (ln, li) {
     var lpts = ln.pts;
@@ -1768,6 +1776,16 @@ function draw(board, spec, ctx) {
     // Built from the axis direction rather than from x, so it comes out the
     // right way round on a board drawn standing up.
     var r = NODE_R * 0.62 * mk;
+    // A BRANCH THAT LEAVES A CONNECTOR IN THE COLUMN did not arrive from off
+    // the paper at the first minute: it is drawn coming out of the bar, the
+    // whole way. Its half dot and the dotted drop to its trunk were saying
+    // "this came in from the left edge" halfway along a line that visibly
+    // did, which is two marks for a fact the shape already states.
+    if (st.kind === 'from') {
+      var ownB = board.lineByKey(st.line);
+      if (ownB && ownB.branchOf && edgeTieAt[ownB.branchOf] != null
+          && Math.abs(st.a - spec.axis.a0) < NODE_R) return;
+    }
     if (st.kind === 'from') {
       // THE HALF DOT IS THE HEAD. Where the event runs on the trunk from
       // the first minute of the paper, the terminal slash would be drawn
@@ -1903,6 +1921,9 @@ function draw(board, spec, ctx) {
       var bOpen = branchOpen[ln.key] || [false, false];
       [ln.pts[0], ln.pts[ln.pts.length - 1]].forEach(function (p, end) {
         if (!bOpen[end]) return;
+        // (not where the branch now runs on out of a connector in the
+        // column: those dots were left standing halfway along it)
+        if (!end && edgeTieAt[ln.branchOf] != null && Math.abs(p[0] - axisA0) <= 1) return;
         // ...AND CUT HERE. The payload says the event runs past the window;
         // this says the branch drawn for it really does reach the paper's
         // edge, so the dots are put where the ink stops.
@@ -2349,7 +2370,14 @@ function draw(board, spec, ctx) {
       // THE LEGEND IS ON THE LINE. A name at the end of each rail is what a
       // transit map does instead of a key in the corner, and it is one size
       // up from the strip: it says whose day this row is.
-      var tn = turn(html('metro-terminus label label--small text--bold text--black text-stroke', fx.text));
+      // AT THE SIZE THE RULER BOOKS IT AT, which is the label's base and not
+      // its small: "increase the font size of those labels". The offline
+      // ruler has measured a name at `label--base` since it was written
+      // (test/boards/calibrate.js) while the page drew it a size down, so the
+      // board has always reserved this much paper for a name -- and a legend
+      // in the smallest type on the board is the one thing on it a reader
+      // looks for from across the room.
+      var tn = turn(html('metro-terminus label label--base text--bold text--black text-stroke', fx.text));
       // ...AND HOW MANY OF THIS LINE'S STOPS IT COULD NOT NAME.
       //
       // A shed caption is an honest decision and a silent one: the mark is
