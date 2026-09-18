@@ -719,10 +719,8 @@ function edged(metro) {
 function frameFor(view, opts) {
   var rowH = (opts && opts.rowH) || 12;
   var hours = Math.max(6, Math.min(24, Math.round(view.w / (rowH * 2.0))));
-  // A SHORTER WINDOW WAS SOMETHING THE CALLER COULD ASK FOR, and the note by
-  // the window ladder in fit.js says why it is not any more: choosing the
-  // length of the day by solving it at several lengths works, and wants six
-  // seconds where the panel has three.
+  // A SHORTER WINDOW WAS SOMETHING THE CALLER COULD ASK FOR, twice, and the
+  // note by the window ladder in fit.js has the measurements both times.
   var events = Math.max(3, Math.min(60, Math.round(view.w * view.h / (rowH * rowH * 45))));
   // ...AND HOW MANY PEOPLE. The third cap, and the one that buys time rather
   // than paper: `fit` sheds a line at a time from the top, re-solving at
@@ -922,6 +920,42 @@ function framed(metro, view, opts) {
   var out = Object.assign({}, metro, { day_end_min: end });
   if (metro.days) out.days = metro.days.filter(function (d) { return d.start_min < end; });
   return out;
+}
+
+// HOW DEEP THE WORDS WOULD STACK IF THEY WERE SPREAD OUT EVENLY.
+//
+// The question a board cannot answer without solving it is "will the captions
+// keep the time under their names". The question it CAN answer is whether
+// there is any doubt -- and most of the time there is not.
+//
+// Total caption width over the axis, per line: a line whose names add up to
+// half its rail is a line whose names mostly do not have to share a row, and
+// one whose names add up to twice it is a line that has to stack them three
+// deep. It is not events per screen, which cannot tell these two apart:
+//
+//   busy-day  og-landscape  14 captions, 4 lines, 750x441 solver units,  29%
+//   busy-day  x-landscape   14 captions, 4 lines, 590x439 solver units, 100%
+//
+// Same names, same depth, and the SMALLER board has the longer axis -- and is
+// the one that loses its times. The framework does not scale its text with
+// the panel, so on a small screen the words are wider relative to the board,
+// which is what this measures and an area formula cannot.
+//
+// IT ONLY ANSWERS IN ONE DIRECTION. Measured over the fixtures at every
+// lying-down view, every board under 0.27 keeps every one of its time rows,
+// nineteen for nineteen. Above it the outcome stops being a fact about the
+// board and becomes one about the search -- crew-day at 0.71 keeps all of
+// them, busy-day at 0.65 keeps 29% -- so this is a way to know that a board
+// is FINE, never that it is doomed. That is enough: it is asked in order to
+// skip the work, not to do it.
+var CROWD_SAFE = 0.27;
+function crowding(spec) {
+  var lines = (spec.lines || []).length || 1;
+  var axis = spec.axis.a1 - spec.axis.a0;
+  if (axis <= 0) return 0;
+  var total = 0;
+  (spec.wants || []).forEach(function (w) { if (!w.pill) total += w.w || 0; });
+  return total / (axis * lines);
 }
 
 function specFor(metro, view, opts) {
@@ -1375,7 +1409,8 @@ function fixedFor(metro, scale, axis, cross, opts) {
   return out;
 }
 
-module.exports = { specFor: specFor, scaleFor: scaleFor, linesFrom: linesFrom,
+module.exports = { specFor: specFor, crowding: crowding, CROWD_SAFE: CROWD_SAFE,
+                   scaleFor: scaleFor, linesFrom: linesFrom,
                    opened: opened, framed: framed,
                    frameFor: frameFor,
                    fixedFor: fixedFor, statesFor: statesFor, routeRows: routeRows,

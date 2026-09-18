@@ -1300,9 +1300,23 @@ function travel(moves, baseC, axis, room, minLift, leadCap, share) {
 // corner the trunk has just turned: a 45 degree lead that would have to
 // leave from the corner departs upright instead, and an upright departure
 // may leave from the floor itself.
+// ...AND NEVER SPENDS MORE CLOCK ARRIVING THAN THE EVENT ITSELF LASTS.
+//
+// The lead is as long as the shelf is deep, because it is drawn at 45 degrees
+// and nothing here is drawn at any other angle. On a board with few lines the
+// bands are deep, so the shelves are deep, so the approach is long -- and a
+// fifteen-minute meeting was reached by a slope twice its own width, reading
+// as a solid hour of somebody's morning: "that cpoe one now looks like it's
+// busy but it's not".
+//
+// There is no shorter slope to take, only no slope: past this the shelf
+// leaves upright at the event's own minute, which is what the leadCap
+// branch already does for one that is too deep. So the rule is the same
+// rule, measured against the event instead of against the board.
 function branch(key, trunk, a0, a1, dist, dir, axis, leadCap, pre, floor, corner) {
   leadCap = leadCap == null ? 1e9 : leadCap;
   var lead = dist <= leadCap ? dist : 0;
+  if (lead > Math.max(0, a1 - a0)) lead = 0;
   var run = Math.max(0, pre || 0);
   var lo = floor == null ? axis.a0 : Math.max(axis.a0, floor);
   var loC = lo + Math.max(0, corner || 0);
@@ -5898,10 +5912,8 @@ function edged(metro) {
 function frameFor(view, opts) {
   var rowH = (opts && opts.rowH) || 12;
   var hours = Math.max(6, Math.min(24, Math.round(view.w / (rowH * 2.0))));
-  // A SHORTER WINDOW WAS SOMETHING THE CALLER COULD ASK FOR, and the note by
-  // the window ladder in fit.js says why it is not any more: choosing the
-  // length of the day by solving it at several lengths works, and wants six
-  // seconds where the panel has three.
+  // A SHORTER WINDOW WAS SOMETHING THE CALLER COULD ASK FOR, twice, and the
+  // note by the window ladder in fit.js has the measurements both times.
   var events = Math.max(3, Math.min(60, Math.round(view.w * view.h / (rowH * rowH * 45))));
   // ...AND HOW MANY PEOPLE. The third cap, and the one that buys time rather
   // than paper: `fit` sheds a line at a time from the top, re-solving at
@@ -6101,6 +6113,42 @@ function framed(metro, view, opts) {
   var out = Object.assign({}, metro, { day_end_min: end });
   if (metro.days) out.days = metro.days.filter(function (d) { return d.start_min < end; });
   return out;
+}
+
+// HOW DEEP THE WORDS WOULD STACK IF THEY WERE SPREAD OUT EVENLY.
+//
+// The question a board cannot answer without solving it is "will the captions
+// keep the time under their names". The question it CAN answer is whether
+// there is any doubt -- and most of the time there is not.
+//
+// Total caption width over the axis, per line: a line whose names add up to
+// half its rail is a line whose names mostly do not have to share a row, and
+// one whose names add up to twice it is a line that has to stack them three
+// deep. It is not events per screen, which cannot tell these two apart:
+//
+//   busy-day  og-landscape  14 captions, 4 lines, 750x441 solver units,  29%
+//   busy-day  x-landscape   14 captions, 4 lines, 590x439 solver units, 100%
+//
+// Same names, same depth, and the SMALLER board has the longer axis -- and is
+// the one that loses its times. The framework does not scale its text with
+// the panel, so on a small screen the words are wider relative to the board,
+// which is what this measures and an area formula cannot.
+//
+// IT ONLY ANSWERS IN ONE DIRECTION. Measured over the fixtures at every
+// lying-down view, every board under 0.27 keeps every one of its time rows,
+// nineteen for nineteen. Above it the outcome stops being a fact about the
+// board and becomes one about the search -- crew-day at 0.71 keeps all of
+// them, busy-day at 0.65 keeps 29% -- so this is a way to know that a board
+// is FINE, never that it is doomed. That is enough: it is asked in order to
+// skip the work, not to do it.
+var CROWD_SAFE = 0.27;
+function crowding(spec) {
+  var lines = (spec.lines || []).length || 1;
+  var axis = spec.axis.a1 - spec.axis.a0;
+  if (axis <= 0) return 0;
+  var total = 0;
+  (spec.wants || []).forEach(function (w) { if (!w.pill) total += w.w || 0; });
+  return total / (axis * lines);
 }
 
 function specFor(metro, view, opts) {
@@ -6554,7 +6602,8 @@ function fixedFor(metro, scale, axis, cross, opts) {
   return out;
 }
 
-module.exports = { specFor: specFor, scaleFor: scaleFor, linesFrom: linesFrom,
+module.exports = { specFor: specFor, crowding: crowding, CROWD_SAFE: CROWD_SAFE,
+                   scaleFor: scaleFor, linesFrom: linesFrom,
                    opened: opened, framed: framed,
                    frameFor: frameFor,
                    fixedFor: fixedFor, statesFor: statesFor, routeRows: routeRows,
@@ -7854,7 +7903,13 @@ function draw(board, spec, ctx) {
       var q0 = xy(a0n, strip ? strip.c1 : spec.cross.c0), q1 = xy(a1n, horizontal ? H : W);
       var shade = svgEl(doc, 'rect', { x: Math.min(q0[0], q1[0]), y: Math.min(q0[1], q1[1]),
         width: Math.abs(q1[0] - q0[0]), height: Math.abs(q1[1] - q0[1]),
-        stroke: 'none', 'fill-opacity': 0.08 });
+        // A SHADE DARKER THAN IT WAS. At eight per cent the night was a
+        // suggestion: on a panel across a room it read as a smudge on the
+        // paper rather than as the dark hours, and on a 1-bit screen it
+        // dithered away to almost nothing. Twelve is still well under the
+        // lightest thing drawn ON it -- a dotted rail is the framework's own
+        // grey -- so nothing that crosses the night gets harder to read.
+        stroke: 'none', 'fill-opacity': 0.12 });
       shade.style.fill = INK;
       put(shade, 'night');
       nights.push([Math.min(a0n, a1n), Math.max(a0n, a1n)]);
@@ -7865,7 +7920,7 @@ function draw(board, spec, ctx) {
         if (e[0] <= m0min || e[0] >= m1min) return;
         var r0 = xy(e[1], strip ? strip.c1 : spec.cross.c0), r1 = xy(e[1], horizontal ? H : W);
         var edge = svgEl(doc, 'line', { x1: r0[0], y1: r0[1], x2: r1[0], y2: r1[1],
-          'stroke-width': 1 * S, 'stroke-opacity': 0.22 });
+          'stroke-width': 1 * S, 'stroke-opacity': 0.3 });
         edge.style.stroke = INK;
         put(edge, 'night');
       });

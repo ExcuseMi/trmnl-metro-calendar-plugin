@@ -519,7 +519,13 @@ function draw(board, spec, ctx) {
       var q0 = xy(a0n, strip ? strip.c1 : spec.cross.c0), q1 = xy(a1n, horizontal ? H : W);
       var shade = svgEl(doc, 'rect', { x: Math.min(q0[0], q1[0]), y: Math.min(q0[1], q1[1]),
         width: Math.abs(q1[0] - q0[0]), height: Math.abs(q1[1] - q0[1]),
-        stroke: 'none', 'fill-opacity': 0.08 });
+        // A SHADE DARKER THAN IT WAS. At eight per cent the night was a
+        // suggestion: on a panel across a room it read as a smudge on the
+        // paper rather than as the dark hours, and on a 1-bit screen it
+        // dithered away to almost nothing. Twelve is still well under the
+        // lightest thing drawn ON it -- a dotted rail is the framework's own
+        // grey -- so nothing that crosses the night gets harder to read.
+        stroke: 'none', 'fill-opacity': 0.12 });
       shade.style.fill = INK;
       put(shade, 'night');
       nights.push([Math.min(a0n, a1n), Math.max(a0n, a1n)]);
@@ -530,7 +536,7 @@ function draw(board, spec, ctx) {
         if (e[0] <= m0min || e[0] >= m1min) return;
         var r0 = xy(e[1], strip ? strip.c1 : spec.cross.c0), r1 = xy(e[1], horizontal ? H : W);
         var edge = svgEl(doc, 'line', { x1: r0[0], y1: r0[1], x2: r1[0], y2: r1[1],
-          'stroke-width': 1 * S, 'stroke-opacity': 0.22 });
+          'stroke-width': 1 * S, 'stroke-opacity': 0.3 });
         edge.style.stroke = INK;
         put(edge, 'night');
       });

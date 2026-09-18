@@ -275,9 +275,23 @@ function travel(moves, baseC, axis, room, minLift, leadCap, share) {
 // corner the trunk has just turned: a 45 degree lead that would have to
 // leave from the corner departs upright instead, and an upright departure
 // may leave from the floor itself.
+// ...AND NEVER SPENDS MORE CLOCK ARRIVING THAN THE EVENT ITSELF LASTS.
+//
+// The lead is as long as the shelf is deep, because it is drawn at 45 degrees
+// and nothing here is drawn at any other angle. On a board with few lines the
+// bands are deep, so the shelves are deep, so the approach is long -- and a
+// fifteen-minute meeting was reached by a slope twice its own width, reading
+// as a solid hour of somebody's morning: "that cpoe one now looks like it's
+// busy but it's not".
+//
+// There is no shorter slope to take, only no slope: past this the shelf
+// leaves upright at the event's own minute, which is what the leadCap
+// branch already does for one that is too deep. So the rule is the same
+// rule, measured against the event instead of against the board.
 function branch(key, trunk, a0, a1, dist, dir, axis, leadCap, pre, floor, corner) {
   leadCap = leadCap == null ? 1e9 : leadCap;
   var lead = dist <= leadCap ? dist : 0;
+  if (lead > Math.max(0, a1 - a0)) lead = 0;
   var run = Math.max(0, pre || 0);
   var lo = floor == null ? axis.a0 : Math.max(axis.a0, floor);
   var loC = lo + Math.max(0, corner || 0);
