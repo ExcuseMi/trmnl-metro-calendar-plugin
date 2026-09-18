@@ -85,14 +85,16 @@ module.exports = function (test, h) {
       const open = {};
       for (const w of rep.spec.wants || []) if (w._rail) open[w._rail] = [!!w.open0, !!w.open1];
       const bad = [];
-      // ...EXCEPT THE ONE THAT RUNS ON OUT OF A CONNECTOR IN THE COLUMN. The
-      // event the board opened inside is drawn leaving the connector at the
-      // paper's edge and running the whole way in, so its leading end is the
-      // bar and not the paper: nothing is cut off there to put dots on.
-      const e0 = rep.spec.axis.edge0 == null ? axis.a0 : rep.spec.axis.edge0;
+      // ...EXCEPT ONE THAT RUNS ON OUT ACROSS THE LEGEND'S COLUMN. On a board
+      // with a column, a shelf that was already out when the board opened is
+      // drawn leaving its line out at the paper's edge -- from the connector
+      // where its line is in one -- and running the whole way in, so its
+      // leading end is its line and not the paper: nothing is cut off there
+      // to put dots on. Not beside a name set level with its rail.
+      const level = new Set(rep.spec.fixed.filter((x) => x.kind === 'terminus' && x.level).map((x) => x.line));
       const movedOut = new Set();
-      for (const r of rep.circles.filter((c) => c.role === 'ring-edge')) {
-        if (r.x + r.w / 2 < e0 + r.w * 1.5) movedOut.add(r.owner);
+      if (rep.spec.nameGutter) {
+        for (const ln of rep.board.lines.filter((l) => !l.branchOf && !level.has(l.key))) movedOut.add(ln.key);
       }
       for (const ln of (rep.board.lines || []).filter((l) => l.branchOf && l.pts.length > 1)) {
         const op = open[ln.key] || [false, false];

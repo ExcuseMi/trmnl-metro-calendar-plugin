@@ -79,6 +79,32 @@ module.exports = function (test, h) {
     });
   }
 
+  // ...AND A SHELF THAT PREDATES THE BOARD LEAVES ITS LINE THERE. "That top
+  // one should be a shelf from the start": arriving from off the paper at the
+  // first minute it needed a half dot, three dots and a dotted drop to its
+  // rail to be read as that rail's. Where the line runs out across a column
+  // the shelf just leaves it out there, so none of those marks is left.
+  for (const v of ['x-landscape', 'og-landscape']) {
+    test('a shelf already out when the board opened leaves its line in the column: ' + v, () => {
+      const bad = [];
+      for (const f of fixtures) {
+        const rep = layout(f, v);
+        if (!rep.spec.nameGutter) continue;
+        const level = new Set(rep.spec.fixed.filter((x) => x.kind === 'terminus' && x.level).map((x) => x.line));
+        // (a SHELF's marks: an event drawn on the rail itself keeps its half
+        // dot at the first minute, which is where its visible part begins)
+        for (const q of rep.paths.filter((x) => (x.role === 'edge-drop' || x.role === 'stop-from')
+                                              && /\//.test(x.owner || ''))) {
+          const trunk = (q.owner || '').split('/')[0];
+          if (level.has(trunk)) continue;
+          if (Math.min(...q.pts.map((t) => t[0])) > rep.spec.axis.a0 + 2) continue;
+          bad.push(f.name + ': ' + q.owner + ' still arrives at the first minute (' + q.role + ')');
+        }
+      }
+      assert(!bad.length, bad.slice(0, 4).join('; '));
+    });
+  }
+
   // THE SPLIT IS AT THE BADGE'S OWN BREAK, where it splits at all.
   test('a badge splits between its state and its day, or between two states', () => {
     const Day = require('../../../solver/day');

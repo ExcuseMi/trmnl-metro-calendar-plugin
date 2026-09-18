@@ -8013,6 +8013,31 @@ function draw(board, spec, ctx) {
     if (pl.a - eE <= eR.r * 2 + eR.gap * 2) return;
     (pl.lines || []).forEach(function (k) { edgeTieAt[k] = eE + eR.r; });
   });
+  // WHERE A BRANCH THAT PREDATES THE BOARD LEAVES ITS LINE, by branch key.
+  //
+  // A shelf already out when the board opened was drawn arriving from off
+  // the paper at the first minute -- a half dot, three dots, and a dotted
+  // drop to its rail so the two could be seen to belong together. With the
+  // legend's column the line itself now runs out to the paper's edge, so the
+  // shelf can simply leave it there and run in the whole way: "that top one
+  // should be a shelf from the start". Out of the connector where its line
+  // is in one; otherwise just past the line's own leading mark at the edge.
+  // Not beside a name set level with its rail, which is what the column
+  // holds on a flat slot.
+  var shelfFrom = {};
+  if (spec.nameGutter && spec.axis.edge0 != null) {
+    var levelOn = {};
+    (spec.fixed || []).forEach(function (fx) { if (fx.kind === 'terminus' && fx.level) levelOn[fx.line] = true; });
+    var openAt0 = {};
+    (spec.wants || []).forEach(function (w) { if (w._rail && w.open0) openAt0[w._rail] = true; });
+    var cv0 = 4 * S * 1.6;   // chevron(): how far the leading arrow reaches
+    board.lines.forEach(function (ln) {
+      if (!ln.branchOf || !ln.pts.length || ln.pts[0][0] > spec.axis.a0 + 1) return;
+      if (edgeTieAt[ln.branchOf] != null) { shelfFrom[ln.key] = edgeTieAt[ln.branchOf]; return; }
+      if (!openAt0[ln.key] || levelOn[ln.branchOf]) return;
+      shelfFrom[ln.key] = spec.axis.edge0 + cv0 * 2.5;
+    });
+  }
 
   // ONE HOLLOW, for the bar and the branch that continues it: the same width
   // and the same walls, "the connector and the branch don't use the exact same
@@ -8768,12 +8793,12 @@ function draw(board, spec, ctx) {
       // minute because that is the first minute the board HAS; drawn from
       // there it hangs a ring's width clear of the bar it belongs to, with
       // the dotted approach passing under it.
-      if (edgeTieAt[ln.branchOf] != null && lpts.length && lpts[0][0] <= spec.axis.a0 + 1) {
+      if (shelfFrom[ln.key] != null && lpts.length && lpts[0][0] <= spec.axis.a0 + 1) {
         // Off the bar and along: down from its own rail at the connector to
         // the row the shelf runs in, then into the day. Started at the shelf's
         // own row it ran out of the column with nothing above it, which reads
         // as a second line rather than as this one's event.
-        var tA = edgeTieAt[ln.branchOf];
+        var tA = shelfFrom[ln.key];
         var rc = trunk ? trunk.cAt(spec.axis.a0) : lpts[0][1];
         var pre = [[tA, rc]];
         if (Math.abs(rc - lpts[0][1]) > 1) pre.push([tA, lpts[0][1]]);
@@ -9632,7 +9657,7 @@ function draw(board, spec, ctx) {
     // did, which is two marks for a fact the shape already states.
     if (st.kind === 'from') {
       var ownB = board.lineByKey(st.line);
-      if (ownB && ownB.branchOf && edgeTieAt[ownB.branchOf] != null
+      if (ownB && ownB.branchOf && shelfFrom[ownB.key] != null
           && Math.abs(st.a - spec.axis.a0) < NODE_R) return;
     }
     if (st.kind === 'from') {
@@ -9772,7 +9797,7 @@ function draw(board, spec, ctx) {
         if (!bOpen[end]) return;
         // (not where the branch now runs on out of a connector in the
         // column: those dots were left standing halfway along it)
-        if (!end && edgeTieAt[ln.branchOf] != null && Math.abs(p[0] - axisA0) <= 1) return;
+        if (!end && shelfFrom[ln.key] != null && Math.abs(p[0] - axisA0) <= 1) return;
         // ...AND CUT HERE. The payload says the event runs past the window;
         // this says the branch drawn for it really does reach the paper's
         // edge, so the dots are put where the ink stops.
