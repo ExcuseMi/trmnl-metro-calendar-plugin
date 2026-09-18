@@ -8257,6 +8257,23 @@ function draw(board, spec, ctx) {
   // shade, and a textured rail is wider than its core.
   // (a tie's hollow spur is ink already and gets no edge)
   function tube_(ln) { return !!(ln && ln.branchOf && ln.ink); }
+  // A PAPER-FILLED MARK ON A SHADED RAIL WEARS THE RAIL'S EDGE TOO. The
+  // stop's ring is the shade alone, and beside an edged rail it read as a
+  // grey washer ("and the dot?"). An ink twin goes under it -- the same
+  // shape, paper inside, ink at the mark's full weight -- and the mark's own
+  // ring is inset a pixel inside that, so it is edged outside and in.
+  // (Under an ink mark, and on a 1-bit panel, the twin is invisible; it is
+  // drawn anyway so the drawing has the same parts at every bit depth.)
+  function edgeMark(el, line, role) {
+    var sw = parseFloat(el.getAttribute('stroke-width'));
+    if (!(sw > 3 * EDGE_W)) return;
+    var twin = el.cloneNode(false);
+    twin.style.stroke = INK; twin.style.fill = PAPER;
+    twin.setAttribute('data-metro-role', role + '-edge');
+    svg.insertBefore(twin, el);
+    el.setAttribute('stroke-width', sw - 2 * EDGE_W);
+    el.style.fill = 'none';
+  }
   function railStroke(ln, key) {
     if (!ln) return { ink: inkOf(key), width: RAIL_W };
     var w = ln.branchOf ? RAIL_W * 0.8 : RAIL_W;
@@ -9853,6 +9870,7 @@ function draw(board, spec, ctx) {
         'stroke-width': NODE_STROKE * 0.8, 'stroke-linejoin': 'round' });
       arc.style.stroke = inkOf(st.line); arc.style.fill = PAPER;
       put(arc, 'stop-from', st.line);
+      edgeMark(arc, st.line, 'stop-from');
       return;
     }
     // A TASK IS A SQUARE: "use a square for todos". A dot says something
@@ -9863,6 +9881,7 @@ function draw(board, spec, ctx) {
       : svgEl(doc, 'circle', { cx: p[0], cy: p[1], r: r, 'stroke-width': NODE_STROKE * 0.8 });
     dot.style.stroke = inkOf(st.line); dot.style.fill = PAPER;
     put(dot, 'stop-start', st.line);
+    edgeMark(dot, st.line, 'stop-start');
   });
 
   // THE MERGE DIAMOND OVER THE MARKS: a spur leaving a group just after it
