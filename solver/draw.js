@@ -512,6 +512,38 @@ function draw(board, spec, ctx) {
       else darks.push([lights[li - 1][1], l[0]]);
       if (li === lights.length - 1) darks.push([l[1], l[2] + 1440]);
     });
+    // DUSK AND DAWN ARE NOT A LINE, THEY ARE A WHILE.
+    //
+    // Sunset is one minute in the payload and the dark began at it, so the
+    // board went from daylight to night between two pixels. It does not: the
+    // half hour after the sun goes down is neither, and a household reads it
+    // as "getting dark" rather than as night. So a dark span is drawn twice
+    // -- once whole and light, and once again inset by a twilight at each
+    // end, which puts the deep of the night in the middle and leaves the
+    // shoulders pale.
+    //
+    // HOW LONG, FROM THE PAYLOAD, WHICH WORKED IT OUT. Civil twilight is
+    // about twenty minutes at the equator, three quarters of an hour in
+    // Belgium in June and near two hours in Shetland, so a flat half hour is
+    // wrong almost everywhere. The forecast carries no twilight of any kind
+    // -- Open-Meteo's daily block is sunrise, sunset, daylight_duration and
+    // sunshine_duration -- so transform.js computes it from the latitude and
+    // the date (`twilightMin`). Thirty-five minutes is what is used when a
+    // payload predates that, which is Brussels in spring and wrong elsewhere.
+    //
+    // A SHADE DARKER THAN IT WAS, while we are here: the deep was eight per
+    // cent and read as a smudge on the paper from across a room, and on a
+    // 1-bit panel it dithered away to almost nothing. Six and six is twelve
+    // where they overlap, still well under the lightest thing drawn ON the
+    // night -- a dotted rail is the framework's own grey -- so nothing that
+    // crosses it got harder to read.
+    var TWILIGHT_FALLBACK = 35;
+    var twi = TWILIGHT_FALLBACK;
+    dayList.forEach(function (d) {
+      if (d.weather && typeof d.weather.twilight_min === 'number' && d.weather.twilight_min > 0) {
+        twi = d.weather.twilight_min;
+      }
+    });
     darks.forEach(function (span) {
       var f = Math.max(span[0], m0min), t = Math.min(span[1], m1min);
       if (!(t > f)) return;
@@ -519,27 +551,31 @@ function draw(board, spec, ctx) {
       var q0 = xy(a0n, strip ? strip.c1 : spec.cross.c0), q1 = xy(a1n, horizontal ? H : W);
       var shade = svgEl(doc, 'rect', { x: Math.min(q0[0], q1[0]), y: Math.min(q0[1], q1[1]),
         width: Math.abs(q1[0] - q0[0]), height: Math.abs(q1[1] - q0[1]),
-        // A SHADE DARKER THAN IT WAS. At eight per cent the night was a
-        // suggestion: on a panel across a room it read as a smudge on the
-        // paper rather than as the dark hours, and on a 1-bit screen it
-        // dithered away to almost nothing. Twelve is still well under the
-        // lightest thing drawn ON it -- a dotted rail is the framework's own
-        // grey -- so nothing that crosses the night gets harder to read.
-        stroke: 'none', 'fill-opacity': 0.12 });
+        stroke: 'none', 'fill-opacity': 0.06 });
       shade.style.fill = INK;
       put(shade, 'night');
+      // ...and the deep of it, inside the two twilights. A night shorter than
+      // two of them is all shoulder, which is what midsummer looks like.
+      var d0 = Math.max(f, Math.min(t, span[0] + twi));
+      var d1 = Math.min(t, Math.max(f, span[1] - twi));
+      if (d1 > d0) {
+        var b0 = d0 <= m0min ? 0 : spec.scale.at(d0);
+        var b1 = d1 >= m1min ? (horizontal ? W : H) : spec.scale.at(d1);
+        var p0 = xy(b0, strip ? strip.c1 : spec.cross.c0), p1 = xy(b1, horizontal ? H : W);
+        var deep = svgEl(doc, 'rect', { x: Math.min(p0[0], p1[0]), y: Math.min(p0[1], p1[1]),
+          width: Math.abs(p1[0] - p0[0]), height: Math.abs(p1[1] - p0[1]),
+          stroke: 'none', 'fill-opacity': 0.06 });
+        deep.style.fill = INK;
+        put(deep, 'night');
+      }
       nights.push([Math.min(a0n, a1n), Math.max(a0n, a1n)]);
-      // ...EDGED A TAD DARKER where the dark begins and ends, so the night
-      // has an outline rather than fading in: sunset and sunrise, drawn as
-      // the two sides of the shade and not at the paper's own edges.
-      [[f, a0n], [t, a1n]].forEach(function (e) {
-        if (e[0] <= m0min || e[0] >= m1min) return;
-        var r0 = xy(e[1], strip ? strip.c1 : spec.cross.c0), r1 = xy(e[1], horizontal ? H : W);
-        var edge = svgEl(doc, 'line', { x1: r0[0], y1: r0[1], x2: r1[0], y2: r1[1],
-          'stroke-width': 1 * S, 'stroke-opacity': 0.3 });
-        edge.style.stroke = INK;
-        put(edge, 'night');
-      });
+      // NO LINE AT THE EDGE ANY MORE. There was one at each end -- sunset
+      // and sunrise, a shade darker than the shade -- put there so the night
+      // "has an outline rather than fading in". It fades in on purpose now:
+      // the twilight shoulders above ARE the edge, and a hard rule drawn
+      // across the front of them says the sky changed at one minute, which
+      // is the thing they exist to stop saying. Two marks for one boundary,
+      // and they disagreed.
     });
   }
 

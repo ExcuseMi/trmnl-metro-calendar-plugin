@@ -85,18 +85,51 @@ module.exports = function (test, h) {
     return impl;
   }
 
-  function input(fields, locale, state) {
+  function input(fields, locale, state, over) {
     const i = baseInput(NOW, Object.assign({
       use_demo_data: 'false',
       lat_lon: '51.05,3.72',
       config_json: JSON.stringify({ calendars: [{ url: 'https://example.com/a.ics', name: 'Cal' }] }),
-    }, fields));
+    }, fields, over || {}));
     if (locale) i.trmnl.user.locale = locale;
     if (state !== undefined) i.trmnl.state = state;
     return i;
   }
 
   const ON = { alert_enabled: 'true', alert_rain_threshold: '70' };
+
+  // ----------------------------------------------------------- the twilight
+  //
+  // Sunset is one minute -- the instant the sun's upper limb crosses the
+  // horizon -- so the board was going from daylight to night between two
+  // pixels. What a household reads as "getting dark" is civil twilight, and
+  // the forecast carries none: Open-Meteo's daily block is sunrise, sunset,
+  // daylight_duration and sunshine_duration. It is astronomy, so it is worked
+  // out here from the two things the board already has.
+  test('how long dusk lasts is computed for the place and the day, not assumed', async () => {
+    const { run } = runTransform(net(forecast()), NOW);
+    const r = await run(input(ON));
+    const d = (r.data.days || [])[0];
+    assert(d && d.weather, 'no weather on the first day');
+    assert(typeof d.weather.twilight_min === 'number' && d.weather.twilight_min > 0,
+      'the board was told nothing about dusk: ' + JSON.stringify(d.weather.twilight_min));
+    // 51N in September: a little over half an hour, and nothing like the
+    // twenty minutes it would be on the equator or the two hours it would be
+    // in Shetland in June.
+    assert(d.weather.twilight_min > 25 && d.weather.twilight_min < 45,
+      'dusk at 51 degrees north in September came out as ' + d.weather.twilight_min + ' minutes');
+  });
+
+  test('...and it follows the latitude, which is the whole point of computing it', async () => {
+    async function duskAt(latLon, when) {
+      const r = await runTransform(net(forecast()), Date.parse(when)).run(input(ON, null, undefined, { lat_lon: latLon }));
+      return ((r.data.days || [])[0] || {}).weather.twilight_min;
+    }
+    const equator = await duskAt('-0.2,-78.5', '2026-09-09T09:00:00Z');
+    const far = await duskAt('60.15,-1.15', '2026-09-09T09:00:00Z');
+    assert(equator < far - 5, 'dusk on the equator (' + equator + ') is not shorter than dusk '
+      + 'at sixty north (' + far + '), so the latitude is not reaching the sum');
+  });
 
   test('no alert settings, no banner: service_alert is null', async () => {
     // The field must exist and be null rather than be absent, so the

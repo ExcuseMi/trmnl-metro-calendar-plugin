@@ -288,11 +288,19 @@ function travel(moves, baseC, axis, room, minLift, leadCap, share) {
 // leaves upright at the event's own minute, which is what the leadCap
 // branch already does for one that is too deep. So the rule is the same
 // rule, measured against the event instead of against the board.
+//
+// THREE QUARTERS OF THE EVENT, AND THE WHOLE APPROACH COUNTS. The slope is
+// not the only thing in front of the dot: `pre` (bands.js) puts a flat run
+// there too, so the dot lands on shelf rather than on the bend. Measured
+// separately each was inside its own share and together they were not --
+// "Design Review", a forty-two unit slope and a twenty-five unit run for a
+// seventy-three unit event, ninety-two per cent of it spent arriving. What a
+// reader sees is the whole shape, so the whole shape is what is bounded.
 function branch(key, trunk, a0, a1, dist, dir, axis, leadCap, pre, floor, corner) {
   leadCap = leadCap == null ? 1e9 : leadCap;
   var lead = dist <= leadCap ? dist : 0;
-  if (lead > Math.max(0, a1 - a0)) lead = 0;
   var run = Math.max(0, pre || 0);
+  if (lead + run > Math.max(0, a1 - a0) * 0.75) lead = 0;
   var lo = floor == null ? axis.a0 : Math.max(axis.a0, floor);
   var loC = lo + Math.max(0, corner || 0);
   if (loC + lead > a0) lead = 0;

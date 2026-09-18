@@ -1445,6 +1445,8 @@ function materializeWeather(snap, strings, unit) {
             set: typeof d.sunset_min === 'number' ? d.sunset_min : null }),
         sunrise_min: typeof d.sunrise_min === 'number' ? d.sunrise_min : null,
         sunset_min: typeof d.sunset_min === 'number' ? d.sunset_min : null,
+        // How long the sky takes to cross between the two (see twilightMin).
+        twilight_min: typeof d.twilight_min === 'number' ? d.twilight_min : null,
       };
     }),
   };
@@ -1521,6 +1523,63 @@ function feedUrl(url) {
 // Minutes into `dayKey`'s day, so a sunset after midnight is 1504 and not
 // 64: a location far from the board's own zone sets its sun on the next day
 // of that zone ("why is night stopping at 12am").
+// HOW LONG DUSK LASTS, WORKED OUT RATHER THAN GUESSED.
+//
+// The board shades the dark hours, and it was going from full daylight to
+// full night between two pixels because sunset is ONE MINUTE: it is the
+// instant the sun's upper limb crosses the horizon, not a period. The period
+// is twilight -- civil twilight, which ends when the sun is six degrees
+// below -- and that is the half hour a household actually reads as "getting
+// dark".
+//
+// The forecast does not carry it. Open-Meteo's daily block offers sunrise,
+// sunset, daylight_duration and sunshine_duration, and no twilight of any
+// kind, so there is nothing to ask for. It does not need asking for: it is
+// astronomy, and the two things it depends on are the latitude, which the
+// board is configured with, and the date, which it has.
+//
+// Thirty-five minutes flat was the first answer and it is wrong everywhere
+// except the middle of Europe in spring. Dusk is about twenty minutes at the
+// equator and over an hour in Scotland in June, and a board that shades half
+// an hour of a Shetland midsummer evening as night is telling a household
+// something false about their own window.
+//
+//   cos H = (sin a - sin lat . sin dec) / (cos lat . cos dec)
+//
+// is the hour angle at which the sun stands at altitude `a`. Sunrise and
+// sunset are taken at -0.833 degrees (the sun's own width plus how much the
+// atmosphere bends its light), civil twilight at -6, and the gap between the
+// two hour angles is the length of the dusk. Four minutes to the degree,
+// because the sky turns fifteen degrees an hour.
+//
+// The declination is the standard one-term approximation, good to about a
+// quarter of a degree, which is a minute or so of twilight -- well inside
+// what anybody can see on a shaded band.
+var SUN_HORIZON_DEG = -0.833;
+var SUN_CIVIL_DEG = -6;
+function twilightMin(lat, dayKey) {
+  if (typeof lat !== 'number' || !isFinite(lat)) return null;
+  var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(dayKey || ''));
+  if (!m) return null;
+  var d = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  var doy = Math.floor((d - Date.UTC(+m[1], 0, 0)) / 86400000);
+  var rad = Math.PI / 180;
+  var dec = -23.44 * Math.cos(rad * (360 / 365) * (doy + 10));
+  function hourAngle(altDeg) {
+    var c = (Math.sin(rad * altDeg) - Math.sin(rad * lat) * Math.sin(rad * dec))
+          / (Math.cos(rad * lat) * Math.cos(rad * dec));
+    // Past the poles the sun never reaches that altitude: the day never ends
+    // (c < -1) or never begins (c > 1). Either way there is no crossing to
+    // measure a twilight from, so the caller is told nothing rather than a
+    // number out of a domain error.
+    if (c < -1 || c > 1) return null;
+    return Math.acos(c) / rad;
+  }
+  var h0 = hourAngle(SUN_HORIZON_DEG), h1 = hourAngle(SUN_CIVIL_DEG);
+  if (h0 == null || h1 == null) return null;
+  return Math.max(1, Math.round((h1 - h0) * 4));
+}
+
 function clockMin(iso, dayKey) {
   var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(iso || ''));
   if (!m) return null;
@@ -1646,6 +1705,13 @@ async function fetchWeather(latLonRaw, tz, deadline, unit, opts) {
         // the dark either side of it. Null where the service did not say.
         sunrise_min: clockMin((daily.sunrise || [])[pd], (daily.time || [])[pd]),
         sunset_min: clockMin((daily.sunset || [])[pd], (daily.time || [])[pd]),
+        // ...and how long the sky takes to get there, for this latitude on
+        // this date (see twilightMin). The board shades the shoulders of the
+        // night lighter than its middle.
+        // The day's own key, or the sunrise's, which carries the same date:
+        // `daily.time` is always there in a real answer and this does not
+        // need to depend on that.
+        twilight_min: twilightMin(latlon[0], (daily.time || [])[pd] || (daily.sunrise || [])[pd]),
         peak: wettestHour(dayHours[pd], null),
         milestones: milestonesFor(dayHours[pd]),
       });
