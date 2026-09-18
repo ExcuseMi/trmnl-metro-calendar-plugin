@@ -1340,7 +1340,20 @@ function draw(board, spec, ctx) {
         // mark, quieter, and gives the row above it back to the names.
         var eR = edgeRing(S), eRingR = eR.r, eGap = eR.gap;
         var eDr = Math.max(1.2 * S, RAIL_W * 0.42);
-        var eFrom = pl.a + eRingR + eGap * 4;
+        // WHICH SIDE OF THE RING THE DOTS GO, WHICH IS WHERE THE PAPER IS.
+        //
+        // They were put past the ring, between it and the track: "the 3 dots
+        // go between the Hollow Dot with letter and the track", said of a
+        // board whose first minute was its first pixel, where past the ring
+        // was the only side there was. A board with a legend column has the
+        // other side, and that side is the one the dots MEAN -- they say the
+        // event was already running before the board opened, which is what
+        // the column is: the time before the first minute. Put there they
+        // cost the morning nothing and the column stops being blank paper.
+        // As many as it holds, at their own spacing, rather than three.
+        var eLane = pl.a - eRingR - (spec.axis.edge0 == null ? pl.a : spec.axis.edge0);
+        var eBack = eLane > eGap * 3 + eDr;
+        var eFrom = eBack ? pl.a + eRingR : pl.a + eRingR + eGap * 4;
         members.forEach(function (k5) {
           var l5 = board.lineByKey(k5);
           if (!l5) return;
@@ -1360,8 +1373,12 @@ function draw(board, spec, ctx) {
             'stroke-width': w5, 'stroke-linecap': 'butt' });
           wipe5.style.stroke = PAPER;
           put(wipe5, 'edge-clear', k5);
-          for (var d5 = 1; d5 <= 3; d5++) {
-            var t5 = xy(pl.a + eRingR + eGap * d5, c5);
+          // ...and never through a name set LEVEL with its rail, which is
+          // what the column holds on a flat slot.
+          var eN = eBack && !nameLevel[k5] ? Math.max(3, Math.floor((eLane - eDr) / eGap)) : 3;
+          var eDir = eBack && !nameLevel[k5] ? -1 : 1;
+          for (var d5 = 1; d5 <= eN; d5++) {
+            var t5 = xy(pl.a + eDir * (eRingR + eGap * d5), c5);
             var dot5 = svgEl(doc, 'circle', { cx: t5[0], cy: t5[1], r: eDr, stroke: 'none' });
             dot5.style.fill = inkOf(k5);
             put(dot5, 'terminal-more', k5);

@@ -959,6 +959,8 @@ function framed(metro, view, opts) {
 // is FINE, never that it is doomed. That is enough: it is asked in order to
 // skip the work, not to do it.
 var CROWD_SAFE = 0.27;
+// The most of a panel's own length the legend's column may take.
+var GUTTER_MAX = 0.15;
 function crowding(spec) {
   var lines = (spec.lines || []).length || 1;
   var axis = spec.axis.a1 - spec.axis.a0;
@@ -1021,25 +1023,31 @@ function specFor(metro, view, opts) {
   // is rebuilt with the gutter (`regut`) and that is the board. Measured over
   // the fixture matrix, 18 boards of 76 need it.
   var nameRoom = opts.nameRoom != null ? opts.nameRoom : Math.round(cell);
+  var tookGutter = false;
   if (opts.nameRoom == null && opts.nameGutter) {
     var wName = 0;
     (metro.legend || []).forEach(function (p) {
       wName = Math.max(wName, (opts.nameW && opts.nameW[p.key]) || String(p.name || p.key).length * cell);
     });
-    // The widest word, a hair, and the radius of the mark the rail opens
-    // with: a ring at the first minute is centred ON the axis and so reaches
-    // back into the gutter, and a name cut to the word alone was written
-    // across it ("Kids" over its own ring, busy-day x-landscape).
-    // ...ON EVERY PANEL, AND IT IS PAID FOR IN CAPTIONS. Measured over the
-    // 216 boards of the households corpus, a gutter everywhere costs three
-    // shed captions and thirteen muddled ones, and buys four whole lines
-    // that were being left off small panels altogether -- the row each name
-    // used to take above its rail is a row the bands get back. A person
-    // missing from the board is the worse of the two, so the cap that was
-    // tried here (a tenth of the day, names above the rails below that) is
-    // not: dropped 24 against 28, and no faults either way.
-    if (wName > 0) nameRoom = Math.ceil(wName + Math.max(cell * 0.5, NAME_CLEAR)
-                                        + (opts.markR || 8));
+    // THE WIDEST WORD AND A HAIR, and nothing for the mark the rail opens
+    // with. A ring at the first minute is centred ON the axis and reaches
+    // back a radius into the column, so the column was cut to hold that too
+    // -- twelve pixels of every board for a mark that is drawn on some lines
+    // of some of them, and a name sits in the row BESIDE its rail, not on
+    // it: the ring passes under the word rather than through it. Where one
+    // really is under a name, bands.js slides that name along the column
+    // until it is not, which costs the day nothing. "The column itself is
+    // too wide."
+    // ...AND NEVER AT THE PRICE OF A PERSON. A column is the same width
+    // whatever the panel is, so on a standing half it was a fifth of the
+    // day: the board that bought one there dropped a line to pay for it,
+    // and a legend nobody is missing from is worth more than a tidy one.
+    // Above the cap the names go back to the paper's edge and take their
+    // chances with the first minute, which is what every board did before.
+    if (wName > 0) {
+      var want = Math.ceil(wName + Math.max(cell * 0.5, NAME_CLEAR) + ringRoom(metro, opts) + 1);
+      if (want <= (view.w - pad * 2) * GUTTER_MAX) { nameRoom = want; tookGutter = true; }
+    }
   }
   // ...EXCEPT WHERE THERE IS NO ROW ABOVE A RAIL TO SET IT IN. A flat slot
   // five lines deep in two hundred pixels has forty per line, and a name
@@ -1172,7 +1180,7 @@ function specFor(metro, view, opts) {
                          segments: opts.evenTime ? null : segmentsFor(metro) });
   var got = wantsFrom(metro, scale, measure, opts);
   var states = statesFor(metro);
-  opts = Object.assign({}, opts, { states: states });
+  opts = Object.assign({}, opts, { states: states, gutter: tookGutter });
   got.wants.sort(function (p, q) { return p.a0 - q.a0; });
   var lines = linesFrom(metro);
   // WHERE ONE DAY ENDS AND THE NEXT BEGINS, on the axis: a name may not
@@ -1189,7 +1197,7 @@ function specFor(metro, view, opts) {
            // board with it, which is how the decision is made (see fit.js):
            // solve, look at where the names landed, and buy the column only
            // for a board whose names could not stay at the edge without it.
-           nameGutter: !!(opts.nameRoom == null && opts.nameGutter),
+           nameGutter: tookGutter,
            regut: opts.nameRoom != null || opts.nameGutter ? null : function () {
              return specFor(asked, view, Object.assign({}, askedOpts, { nameGutter: true }));
            },
@@ -1205,6 +1213,7 @@ function specFor(metro, view, opts) {
            // clear of that ring rather than moved clear of it afterwards.
            // `Draw.edgeRing` is where the number is (draw.js).
            edgeRing: opts && opts.edgeRing != null ? opts.edgeRing : undefined,
+           edgeRingR: opts && opts.edgeRingR != null ? opts.edgeRingR : undefined,
            // THE BOARD'S OWN INK, DECLARED BEFORE THE SOLVE. See Furniture.
            // Everything here takes paper and cannot move, so the caption
            // search has to be told about it up front rather than have it
@@ -1233,12 +1242,34 @@ function specFor(metro, view, opts) {
 // cannot be placed there -- in the engine this replaces they were placed
 // last, against a board that was already full, and a line's own name was
 // regularly the thing that had nowhere to go.
+// WHAT THE FIRST MINUTE'S OWN MARK REACHES BACK, where the board has one.
+//
+// A line whose day opened inside a shared event is drawn with a ring on its
+// rail's first point, centred there, so it reaches a radius back into the
+// legend's column -- and a name set flush against that first minute has the
+// ring under its last letters, a pixel below them. The column holds it where
+// there is one to hold: a board with nothing already running when it opens
+// has no ring anywhere and pays nothing. What draws the ring is a tie, and a
+// tie is a shared event, so that is what is asked.
+function ringRoom(metro, opts) {
+  var lo = metro.day_start_min;
+  var any = (metro.events || []).some(function (ev) {
+    if (ev.type && ev.type !== 'event') return false;
+    if (!((ev.co_owners || []).length)) return false;
+    return ev.start_min < lo && ev.end_min > lo;
+  });
+  return any ? ((opts && opts.edgeRingR) || (opts && opts.markR) || 8) : 0;
+}
+
 // A few pixels clear of the caption that ends against it: measured flush,
 // "Moe's Tavern" standing up ran six pixels into "Homer" on the panel. The
 // gutter is cut to hold it (see nameRoom), so the widest name plus this is
 // what a line's name is given, and the first ring stands clear of the word.
 var NAME_CLEAR = 4;
 function fixedFor(metro, scale, axis, cross, opts) {
+  // Whether the legend has a column of its own, which decides where in it a
+  // name sits (see the head names below).
+  var gutter = !!(opts && opts.gutter);
   var out = [];
   var rowH = (opts && opts.rowH) || 12;
   var cell = (opts && opts.cell) || 7;
@@ -1340,9 +1371,35 @@ function fixedFor(metro, scale, axis, cross, opts) {
                align: 'right', at: axis.a1, a0: e1 - Math.max(w, rw1) - NAME_CLEAR, a1: e1,
                c0: 0, c1: 0 });   // c is filled in once the bands are solved
     var rw = routes[0] ? routes[0].length * cell * 0.85 + rowH : 0;
+    // FLUSH AGAINST THE RAIL IT NAMES, where there is a column to be flush
+    // in. Every name starting at the paper's edge leaves the short ones a
+    // name's width of blank between the word and the line -- "there a lot of
+    // wasted space here" -- and the eye has to cross it to find out whose
+    // rail this is. Set to END at the first minute instead, the words hug
+    // their own lines and the slack goes to the paper's edge, which is where
+    // the dots that say "there was more before this" live (draw.js).
+    //
+    // WITH NO COLUMN there is nowhere to be flush: the name starts at the
+    // paper's edge as it always did, because a word set to end at the first
+    // minute would begin off the board.
+    var headClear = NAME_CLEAR + ringRoom(metro, opts);
+    // ...AND THE WORD ALONE IS WHAT GOES FLUSH. A head carrying a badge is
+    // as wide as the BADGE, and both its rows start together, so a block
+    // pushed up against the first minute pushes its badge that much further
+    // into the morning -- which is paper the first caption of the day was
+    // leaning into. Those keep the paper's edge, where they have always
+    // begun; it is the plain names, which are most of them, that hug their
+    // rails.
+    // ...AND NOT QUITE TOUCHING THE FIRST MINUTE. Flush means up against the
+    // rail, not on it: a box that ends exactly ON the first minute is a box
+    // every branch leaving at that minute crosses, and the name then steps
+    // out of the way along the rail and takes the morning's first caption
+    // with it ("School Run" sixteen pixels from its own event). A pixel of
+    // daylight, and the branch leaves past the end of the word.
+    var head = gutter && !rw ? Math.max(e0, axis.a0 - 1 - headClear - w) : e0;
     out.push({ id: 'name0:' + p.key, kind: 'terminus', line: p.key, text: t, level: lv,
                route: routes[0], rows: routes[0] ? 2 : 1, nameW: w + NAME_CLEAR, routeW: rw,
-               at: axis.a0, a0: e0, a1: e0 + Math.max(w, rw) + NAME_CLEAR,
+               at: axis.a0, a0: head, a1: head + Math.max(w, rw) + headClear,
                c0: 0, c1: 0 });
   });
 

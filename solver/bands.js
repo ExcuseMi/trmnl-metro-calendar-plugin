@@ -865,8 +865,21 @@ function boardFor(spec, st) {
         var wordA1 = fx.nameW != null ? f.a0 + fx.nameW : f.a1;
         if (ringA != null && f.align !== 'right'
             && f.a0 < ringA + spec.edgeRing && wordA1 > ringA) {
-          var over = ringA + spec.edgeRing - f.a0;
-          f.a0 += over; f.a1 += over;
+          // BACK ALONG THE COLUMN, WHERE THERE IS ONE. A name flush against
+          // the first minute has a ring drawn under its last letters, and
+          // the legend's own column is paper to the LEFT of it that nothing
+          // else uses: sliding the word back to end before the ring costs
+          // the day nothing, where stepping it past the ring costs a ring's
+          // width of morning. Only as far as the paper, and only if the
+          // whole word still fits behind the ring.
+          var edge0 = spec.axis.edge0 == null ? spec.axis.a0 : spec.axis.edge0;
+          var back = wordA1 - (ringA - spec.markR * 0.5);
+          if (back > 0 && f.a0 - back >= edge0 - 0.5) {
+            f.a0 -= back; f.a1 -= back;
+          } else {
+            var over = ringA + spec.edgeRing - f.a0;
+            f.a0 += over; f.a1 += over;
+          }
         }
       }
       // ABOVE ITS RAIL, NOT ON IT.

@@ -142,7 +142,7 @@ function specOf(metro, v, o, extra) {
     standing: !o.horiz, stripThick: stripThick,
     nameH: nameH, nameW: nameW,
     markR: Math.round(6 * 1.15 * o.S), corner: Math.round(13 * o.S),
-    edgeRing: Draw.edgeRing(o.S).reach,
+    edgeRing: Draw.edgeRing(o.S).reach, edgeRingR: Draw.edgeRing(o.S).r,
     pad: Math.round(4 * o.S), rowH: o.rowH, cell: Math.round(o.base * 0.55),
     alert: null, measure: measure, oneName: !!v.slot,
   }, extra || {}));
@@ -231,7 +231,12 @@ function report(built) {
     // and the badge, added BELOW the booking, was reported over its own rail.
     var nc1 = f.route ? f.c0 + (f.c1 - f.c0) / 1.85 : f.c1;
     var na0 = f.a0, na1 = f.a1;
-    if (f.route && f.nameW != null) {
+    // THE WORD, WHATEVER ELSE THE BOOKING HOLDS. A head's box is the widest
+    // of its two rows plus the clearance the legend's column keeps between
+    // the last letter and the rail's first mark; reported whole, the word
+    // measured fifteen pixels wider than it is drawn and every rule about
+    // what it touches was asking about paper it is not on.
+    if (f.nameW != null) {
       if (f.align === 'right') na0 = f.a1 - f.nameW; else na1 = f.a0 + f.nameW;
     }
     labels.push(Object.assign(box(na0, na1, f.c0, nc1), { cls: cls, text: f.text, line: f.line, id: f.id }));

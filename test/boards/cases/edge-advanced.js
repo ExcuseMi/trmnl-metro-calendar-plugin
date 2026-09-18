@@ -28,12 +28,31 @@ module.exports = function (test, h) {
         const horiz = rep.debug.horizontal;
         const rings = rep.circles.filter((c) => c.role === 'ring-edge');
         if (!rings.length) return;
+        // WHICH SIDE, WHICH IS WHERE THE PAPER IS. Past the ring on a board
+        // whose first minute is its first pixel, because that is the only
+        // side there is; into the legend's column where there is one, which
+        // is the side they MEAN -- the column is the time before the board
+        // opened, which is what "there was more" is about -- and there are as
+        // many as it holds rather than three.
+        const a0 = rep.spec.axis.a0;
+        const e0 = rep.spec.axis.edge0 == null ? a0 : rep.spec.axis.edge0;
+        const column = a0 - e0 > (rep.spec.markR || 8) * 2;
         const bad = [];
         for (const r of rings) {
           const cx = horiz ? r.x + r.w / 2 : r.y + r.h / 2;
           const edge = cx + r.w / 2;
           const dots = rep.circles.filter((c) => c.role === 'terminal-more' && c.owner === r.owner)
             .map((c) => (horiz ? c.x + c.w / 2 : c.y + c.h / 2));
+          if (column) {
+            if (dots.length < 3) { bad.push(r.owner + ' has ' + dots.length + ' dot(s), wanted 3 or more'); continue; }
+            for (const d of dots) {
+              if (d >= cx) bad.push(r.owner + ': a dot at ' + Math.round(d)
+                + ' is not back of its ring at ' + Math.round(cx));
+              if (d < e0 - 1) bad.push(r.owner + ': a dot at ' + Math.round(d) + ' is off the paper');
+            }
+            assert(!bad.length, bad.slice(0, 4).join('; '));
+            continue;
+          }
           if (dots.length !== 3) { bad.push(r.owner + ' has ' + dots.length + ' dot(s), wanted 3'); continue; }
           // Past the ring, not inside it and not out in the gutter beyond it.
           for (const d of dots) {

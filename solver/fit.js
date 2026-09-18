@@ -166,14 +166,14 @@ var EVAL_POOL = 72000;
 // wrong place.
 var PROBE_POOL = 2000;
 function namesMoved(spec, b) {
-  var e0 = spec.axis.edge0 == null ? spec.axis.a0 : spec.axis.edge0, dec = {};
+  var dec = {};
   (spec.fixed || []).forEach(function (f) { if (f.kind === 'terminus') dec[f.id] = f; });
   var shoved = (b.fixed || []).some(function (f) {
-    if (f.kind !== 'terminus') return false;
-    // Moved along the rail, out of the corner it belongs in...
-    if (f.a0 > e0 + 0.5) return true;
+    if (f.kind !== 'terminus' || !dec[f.id]) return false;
+    // Moved along the rail, out of the place the legend booked for it...
+    if (Math.abs(f.a0 - dec[f.id].a0) > 0.5) return true;
     // ...or still there because it gave up saying what the line is today.
-    return !!(dec[f.id] && dec[f.id].route && !f.route);
+    return !!(dec[f.id].route && !f.route);
   });
   return shoved || cutNames(b);
 }

@@ -229,11 +229,14 @@ module.exports = function (test, h) {
     const late = names.filter((l) => l.x > mid);
     assert(!late.length, late.length + ' name(s) past halfway: '
       + late.map((l) => '"' + l.text + '" at ' + Math.round(l.x)).join(', '));
-    // ...AND ALL FROM ONE EDGE. A gutter's worth of ragged is the whole
-    // complaint it answers: "Bart looks squished here on the left".
-    const x0 = Math.min(...names.map((l) => l.x));
-    const ragged = names.filter((l) => l.x > x0 + 4);
-    assert(!ragged.length, ragged.length + ' name(s) not at the gutter edge ' + Math.round(x0)
-      + ': ' + ragged.map((l) => '"' + l.text + '" at ' + Math.round(l.x)).join(', '));
+    // ...AND ALL ENDING TOGETHER, against the rails they name. A column of
+    // words that start together and stop wherever they happen to stop leaves
+    // the short ones a name's width from their own line -- "there a lot of
+    // wasted space here" -- and a ragged legend is the whole complaint the
+    // column answers: "Bart looks squished here on the left".
+    const x1 = Math.max(...names.map((l) => l.x + l.w));
+    const ragged = names.filter((l) => l.x + l.w < x1 - 4);
+    assert(!ragged.length, ragged.length + ' name(s) not flush at ' + Math.round(x1)
+      + ': ' + ragged.map((l) => '"' + l.text + '" ends at ' + Math.round(l.x + l.w)).join(', '));
   });
 };
