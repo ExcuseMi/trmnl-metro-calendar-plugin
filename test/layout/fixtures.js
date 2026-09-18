@@ -369,7 +369,9 @@ const SEVEN = [
 ];
 const CREW_KEYS = ['fry', 'leela', 'bender', 'amy', 'prof'];
 const sevenLines = Object.assign(base({
-  day_start_min: 360, day_end_min: 1380, window_label: '6am 11pm', now_min: 683,
+  // half past nine: read before the window's first step, so the whole day
+  // is on the board (the edge-tie case is run-already-going's)
+  day_start_min: 360, day_end_min: 1380, window_label: '6am 11pm', now_min: 570,
   events: [
     longs(SEVEN)('amy', 'Lab Rotation', 570, 690, { location: 'Mars University' }),
     longs(SEVEN)(CREW_KEYS[0], 'Delivery Run', 540, 960, { location: 'Chapek 9', co_owners: CREW_KEYS.slice(1) }),

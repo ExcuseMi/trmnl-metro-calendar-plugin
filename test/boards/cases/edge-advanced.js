@@ -44,6 +44,16 @@ module.exports = function (test, h) {
           const edge = cx + r.w / 2;
           const dots = rep.circles.filter((c) => c.role === 'terminal-more' && c.owner === r.owner)
             .map((c) => (horiz ? c.x + c.w / 2 : c.y + c.h / 2));
+          // A HEAD SET LEVEL WITH ITS RAIL is the roundels' column, and the
+          // connector stands at the first minute after them (day.js,
+          // levelNames): a bar between labelled stations, no approach.
+          const level = (rep.spec.fixed || []).some((x) => x.kind === 'terminus' && x.level && x.line === r.owner);
+          if (level) {
+            if (Math.abs(cx - a0) > r.w) bad.push(r.owner + ': its connector is at ' + Math.round(cx)
+              + ', not at the first minute ' + Math.round(a0));
+            assert(!bad.length, bad.slice(0, 4).join('; '));
+            continue;
+          }
           if (column) {
             // the ring stands in the column, not at the first minute
             if (cx > e0 + r.w) bad.push(r.owner + ': its connector is at ' + Math.round(cx)

@@ -56,20 +56,23 @@ applies when something changes.
    gone: it reached tomorrow by DELETING today, at an hour that was wrong for
    any day but the one it was tuned on. Four because noon is the middle of a working day and not of a
    family's: at 12:01 most of what a household does is still ahead of it.
-   What falls before the window is not lost, it is counted at the leading
-   edge as "+N earlier" -- on the hour strip at that end, among the hours
-   ("we can have +earlier & +more in the header"), on the same terms as the
-   date marker, which is to
-   say the clock badge has first claim on that spot and the count appears
-   once the badge has moved along. The one shape change this allows is a gain; losing
+   What falls before the window is not counted: the past is washed grey up
+   to the clock's line, which says the day began before the paper, and a
+   count of things nobody can attend any more was the one note on the strip
+   a reader never acted on ("don't show earlier"). What falls past the far
+   end is counted there as "+N more", among the hours, on the same terms as
+   the date marker, which is to say the clock badge has first claim on that
+   spot and the count appears once the badge has moved along. The one shape change this allows is a gain; losing
    today, which the evening switch-over does, is a different rule and a
    blunter one.
 2e. **How much of the day is on the board is the DRAWING's question.** The
    payload carries both days it gathered, from the shown day's own midnight,
    and the board takes what it can hold.
 
-   WHERE IT OPENS steps, at ten, one, four and seven, each looking two hours
-   back; before the first step it is six in the morning. Stepping rather than
+   WHERE IT OPENS steps, on the hour from ten, each looking one hour back
+   (it was four steps a day and two hours back, which left the clock a
+   third of the way along the board through most of the afternoon); before
+   the first step it is six in the morning. Stepping rather than
    following the clock is the whole point: a panel refreshes about four times
    an hour, and a window keyed to the minute slides left under whoever is
    reading it. Nothing remembers the last refresh -- the step is a function of
@@ -119,11 +122,13 @@ applies when something changes.
    their own rows, and the merge diamond -- which spans the rows the event
    names whatever the rails did -- came out as a 280px spindle between two
    lines that never met.
-2h. **"+N earlier" and "+N more" are about the day the board is on.** They say
-   the day continues past the edge of the paper, which is only true within a
-   day: tomorrow is not more of today, and it has its own date badge to say
-   so. Unbounded, they counted tomorrow's twelve entries as nine more things
-   tonight on a board that already ran to the end of the evening.
+2h. **"+N more" is about the day the board is on.** It says the day
+   continues past the edge of the paper, which is only true within a day:
+   tomorrow is not more of today, and it has its own date badge to say so.
+   Unbounded, it counted tomorrow's twelve entries as nine more things
+   tonight on a board that already ran to the end of the evening. ("+N
+   earlier" was its twin at the leading edge and is no longer drawn; the
+   wash over the past says it.)
 
 2b. **The night is not drawn.** It was, for a long time: ten at night to
    six in the morning as a corridor of upright hairlines the depth of the

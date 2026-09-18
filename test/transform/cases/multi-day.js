@@ -229,13 +229,14 @@ module.exports = function (test, h) {
       'the evening board dropped today to get there: ' + JSON.stringify(titles));
 
     // ...AND MOSTLY TOMORROW ONCE TODAY IS SPENT. Read at ten at night the
-    // board opens at five in the afternoon, so almost everything left in
+    // board opens at eight in the evening (the nine o'clock step, an hour
+    // back, with nothing of today left to hold it open), so everything in
     // front of it belongs to the next day.
     const late = await board('2026-09-09T22:00:00Z');
-    assertEqual(h.opened(late), 17 * 60, 'a board read late should have shed the day behind it');
+    assertEqual(h.opened(late), 20 * 60, 'a board read late should have shed the day behind it');
     assertEqual(late.day_end_min, 48 * 60, 'the payload should carry the whole run it gathered');
     assert(late.events.some((e) => e.title === 'Tomorrow Meeting' && e.start_min >= 24 * 60),
-      'tomorrow\'s meeting should be in front of a board opened at five');
+      'tomorrow\'s meeting should be in front of a board opened at eight');
 
     // A board somebody had already set to "auto" is read as today rather than
     // refused: rolling is what they were asking for.

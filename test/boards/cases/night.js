@@ -39,7 +39,11 @@ module.exports = function (test, h) {
       const overnight = shades.slice().sort((p, q) => (q.a1 - q.a0) - (p.a1 - p.a0))[0];
       const end = rep.debug.horizontal ? rep.canvas.w : rep.canvas.h;
       if (overnight.a1 - overnight.a0 > end * 0.06) {
-        assert(deeps.some((d) => d.a0 > overnight.a0 + 0.5 && d.a1 < overnight.a1 - 0.5),
+        // ...inside a shoulder at each end the SUN made; an end the paper
+        // cut (a window opening after sunset) has none, and the deep runs out
+        const cut0 = overnight.a0 <= 0.5, cut1 = overnight.a1 >= end - 0.5;
+        assert(deeps.some((d) => (cut0 ? d.a0 <= overnight.a0 + 0.5 : d.a0 > overnight.a0 + 0.5)
+          && (cut1 ? d.a1 >= overnight.a1 - 0.5 : d.a1 < overnight.a1 - 0.5)),
           'the night between the two days has no deep inside its shoulders');
       }
       for (const d of deeps) {

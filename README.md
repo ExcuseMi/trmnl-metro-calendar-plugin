@@ -15,10 +15,10 @@ No server of your own.
 
 ## What it shows
 
-- Today from six in the morning, stepping forward as the day goes (at 10:00,
-  13:00, 16:00 and 19:00, each looking two hours back) and rolling on into
-  tomorrow as the day runs out. What falls off either end is counted on the
-  hour strip ("+4 earlier", "+9 more"). Only the night is compressed: from
+- Today from six in the morning, stepping forward on the hour from 10:00
+  (each step looking an hour back, with the past washed grey) and rolling on
+  into tomorrow as the day runs out. What falls off the far end is counted
+  on the hour strip ("+9 more"). Only the night is compressed: from
   midnight to a day's first event and from its last event to midnight.
 - The hour strip is the header: each day's date, holiday, forecast and moon
   phase, the time now, and on a full view what is on now and next.

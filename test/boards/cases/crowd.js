@@ -15,6 +15,9 @@ module.exports = function (test, h) {
     const who = m.legend[0].key;
     m.events = starts.map((s, i) => ({ type: 'event', title: 'Meeting ' + (i + 1), start_min: s, end_min: s + len, owner: who, co_owners: [] }));
     m.all_day = [];
+    // before the first meeting: these cases are about grouping, and a clock
+    // past the first one would open the board (day.js) with it already gone
+    m.now_min = starts[0] - 30;
     return { m, who };
   }
 

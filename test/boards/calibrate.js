@@ -49,7 +49,7 @@ const CLASSES = {
   large: 'metro-title-text text--large text--bold',
   strip: 'metro-hour label text--bold',
   small: 'metro-title-text text--small text--bold',
-  name: 'metro-terminus label label--base text--bold text--black',
+  name: 'metro-terminus metro-pill label label--base text--bold',
   // a line's badge, in the type it is drawn in (draw.js, the route row)
   route: 'metro-route label label--small text--bold text--black',
 };

@@ -92,7 +92,8 @@ module.exports = function (test, h) {
 
   test('the clock is stated as a badge on the scale', () => {
     const rep = layout(busy, ROOMY);
-    const pills = textLabels(rep).filter((l) => (' ' + l.cls + ' ').indexOf(' metro-pill ') >= 0);
+    // the clock's pill, not a line name's roundel (also a pill, on the map)
+    const pills = textLabels(rep).filter((l) => (' ' + l.cls + ' ').indexOf(' metro-pill ') >= 0 && / metro-axis-note /.test(' ' + l.cls + ' '));
     assert(pills.length === 1, 'expected one clock badge on the scale, found ' + pills.length);
     assert(/\d/.test(pills[0].text), 'the clock badge says "' + pills[0].text + '"');
   });

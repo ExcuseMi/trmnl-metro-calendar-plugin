@@ -432,10 +432,7 @@ module.exports = function (test, h) {
   // Recorded rather than fixed, because it is Bart and Lisa leaving School
   // Day, and what to do about two rails that genuinely part at one minute is
   // a question about the convergence, not about this fixture.
-  const COLUMN_KNOWN = {
-    'badge-and-branch': 'Bart and Lisa drop out of School Day on one column; '
-      + 'pre-existing on the example day, uncovered by this fixture',
-  };
+  const COLUMN_KNOWN = {};
   for (const f of fixtures) {
     test('no two lines turn on the same column: ' + f.name, () => {
       const rep = layout(f, 'x-landscape');

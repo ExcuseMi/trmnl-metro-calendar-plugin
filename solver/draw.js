@@ -56,7 +56,9 @@ var SVG_NS = 'http://www.w3.org/2000/svg';
 // to be the same width". Every rail, plain or textured, is drawn `WIDEN` wider
 // than its weight, so the envelope is the same whatever is inside it, and the
 // cores are set in proportion to that envelope. (The thin rail went with it.)
-var WIDEN = 2.4;
+// (2.4 before the rail itself went from 3 to 4: the rail is heavier, the
+// texture's extra is smaller, and two rails a gap apart keep their paper)
+var WIDEN = 1.9;
 function treatment(style, S, w) {
   var thin = Math.max(1 * S, 1.4 * S);
   if (style === 'dashed') return { widen: WIDEN * S, core: Math.max(thin, w * 0.3), cap: 'butt' };
@@ -139,8 +141,19 @@ function draw(board, spec, ctx) {
   var S = ctx.S || 1, horizontal = ctx.horizontal !== false;
   var W = ctx.W, H = ctx.H;
   // The constants the old engine tuned, at the panel's own scale.
-  var NODE_R = 6 * S, NODE_STROKE = 3 * S, LINE_GAP = 6 * S, CORNER = 13 * S;
-  var RAIL_W = 3 * S;
+  // THE RAIL IS THE HEAVIEST INK ON THE BOARD. A transit map is read by its
+  // lines first and its words second, and at 3 the rails were the thinnest
+  // thing on the paper, under captions set bold. 4 puts the line back on
+  // top; the ring's wall grows with it so a stop is outlined at the weight
+  // of the rail it sits on (Mini Metro's rule). (The corner was opened to 17
+  // with it and put back: the solver books turns by it, and the wider turn
+  // moved captions on boards the suites pin.)
+  var NODE_R = 6 * S, NODE_STROKE = 3.5 * S, LINE_GAP = 6 * S, CORNER = 13 * S;
+  var RAIL_W = 4 * S;
+  // the ink edge of a shaded rail: one pixel, and INSIDE the rail's width,
+  // so the rail is no taller for it ("1 pixel outline in the darkest colour
+  // of the track style, not making the track taller")
+  var EDGE_W = 1;
 
   // WHERE A CONNECTOR THAT PREDATES THE BOARD IS DRAWN, by line.
   //
@@ -153,12 +166,18 @@ function draw(board, spec, ctx) {
   // connector". Worked out here because the rails are drawn before the
   // connectors and both have to agree about where it is.
   var edgeTieAt = {};
+  // ...NOT WHERE THE NAMES ARE LEVEL WITH THEIR RAILS: there the column at
+  // the head is the roundels', and the connector stands at the first minute
+  // after them, a bar between labelled stations.
+  var levelHead = {};
+  (spec.fixed || []).forEach(function (fx) { if (fx.kind === 'terminus' && fx.level) levelHead[fx.line] = true; });
   // (`spec.axis.a0` by name: the rails are drawn well before this file's own
   // `axisA0` is set, and read early it is quietly undefined -- which reads as
   // "no", so the branch the connector belongs to went on starting at the
   // first minute while the connector itself stood at the edge.)
   (board.pills || []).forEach(function (pl) {
     if (!pl.tie || !pl.open0 || pl.a > spec.axis.a0 + 1) return;
+    if ((pl.lines || []).some(function (k) { return levelHead[k]; })) return;
     var eR = edgeRing(S), eE = spec.axis.edge0 == null ? pl.a : spec.axis.edge0;
     // only where the column can hold a lettered ring and a step of approach
     if (pl.a - eE <= eR.r * 2 + eR.gap * 2) return;
@@ -536,6 +555,9 @@ function draw(board, spec, ctx) {
   // night shade is under it, the shade goes back over the cut.
   var nights = [];
   function groundOver(node, a) {
+    // (the washes lie over the map now, see the end of draw(): a cut is
+    // tinted by the night it is in without any help)
+    return;
     if (!nights.some(function (n) { return a >= n[0] - 0.5 && a <= n[1] + 0.5; })) return;
     var g = node.cloneNode(false);
     if (g.style.fill && g.style.fill !== 'none') { g.style.fill = INK; g.setAttribute('fill-opacity', 0.08); }
@@ -633,8 +655,10 @@ function draw(board, spec, ctx) {
       // forecast stops at, and at a window that opens or closes inside a
       // night. At an end like that the deep runs to the edge and the night
       // is simply cut off, which is what has happened to it.
-      var d0 = span[2] ? Math.max(f, Math.min(t, span[0] + twi)) : f;
-      var d1 = span[3] ? Math.min(t, Math.max(f, span[1] - twi)) : t;
+      // (...and a window that opens or closes inside the night is such an
+      // end: the sunset is off the paper, so the deep runs from the edge)
+      var d0 = span[2] && f <= span[0] ? Math.max(f, Math.min(t, span[0] + twi)) : f;
+      var d1 = span[3] && t >= span[1] ? Math.min(t, Math.max(f, span[1] - twi)) : t;
       if (d1 > d0) {
         var b0 = d0 <= m0min ? 0 : spec.scale.at(d0);
         var b1 = d1 >= m1min ? (horizontal ? W : H) : spec.scale.at(d1);
@@ -673,8 +697,23 @@ function draw(board, spec, ctx) {
     // cross the weather icon bar". It is the clock's line, and that row is on
     // the clock too.
     var p0 = xy(a, strip ? strip.c1 : fx.c0), p1 = xy(a, fx.c1);
+    // WHAT IS OVER IS WASHED. Everything before the clock's line goes a shade
+    // grey, the way the night does, so the board reads as "this is done,
+    // this is coming" from across the room and the eye lands on now without
+    // looking for it: "make the now more visible", "focus more on the now
+    // and future". A wash and not ink, so nothing written in the past gets
+    // harder to read; over the night's own wash it simply deepens.
+    var w0 = xy(0, strip ? strip.c1 : fx.c0);
+    var past = svgEl(doc, 'rect', { x: Math.min(w0[0], p1[0]), y: Math.min(w0[1], p1[1]),
+      width: Math.abs(p1[0] - w0[0]), height: Math.abs(p1[1] - w0[1]),
+      stroke: 'none', 'fill-opacity': 0.08 });
+    past.style.fill = INK;
+    put(past, 'past');
+    // ...AND THE LINE ITSELF IS A LINE, not a row of dots: a dotted hairline
+    // was one more texture on a board made of textures, and the one mark
+    // that says "you are here" was the faintest thing on it.
     var n = svgEl(doc, 'line', { x1: p0[0], y1: p0[1], x2: p1[0], y2: p1[1],
-      'stroke-width': 1.2 * S, 'stroke-dasharray': (1 * S) + ' ' + (3 * S) });
+      'stroke-width': 2 * S });
     n.style.stroke = INK;
     put(n, 'now');
   });
@@ -933,6 +972,15 @@ function draw(board, spec, ctx) {
   // a black block behind the arrowhead.
   function chevron() { var d = 4 * S * 1.6; return { back: d, out: d }; }
 
+  // EVERY RAIL'S EDGE, UNDER EVERY RAIL. The edges go in one group before
+  // the rails, so a spur's edge meets its trunk under the trunk's own fill
+  // rather than as a dark notch painted across it. Every rail gets one, on
+  // every panel -- under a plain ink rail it is invisible, and a drawing
+  // that has the same parts at every bit depth is one the suites can hold
+  // still.
+  var edgesG = svgEl(doc, 'g', { 'data-metro-role': 'edges' });
+  svg.appendChild(edgesG);
+
   board.lines.forEach(function (ln, li) {
     var lpts = ln.pts;
     if (ln.branchOf && lpts.length) {
@@ -952,7 +1000,14 @@ function draw(board, spec, ctx) {
         var tA = shelfFrom[ln.key];
         var rc = trunk ? trunk.cAt(spec.axis.a0) : lpts[0][1];
         var pre = [[tA, rc]];
-        if (Math.abs(rc - lpts[0][1]) > 1) pre.push([tA, lpts[0][1]]);
+        // AT 45, LIKE EVERY OTHER SPUR. Straight down and then along, the
+        // drop to a shelf one gap below its rail was too short for the
+        // corner to round, and the branch left the connector at a square
+        // right angle: "we have to be consistent on our angles". The
+        // diagonal is as long as the drop is deep, and no longer than the
+        // column it has to happen in.
+        var dropC = lpts[0][1] - rc;
+        if (Math.abs(dropC) > 1) pre.push([tA + Math.min(Math.abs(dropC), Math.max(1, lpts[0][0] - tA)), lpts[0][1]]);
         lpts = pre.concat(lpts);
       }
     }
@@ -1018,15 +1073,31 @@ function draw(board, spec, ctx) {
     // "looked poorly"; at the bar's own outline it reads as the bar going on).
     var tube = !!(ln.branchOf && ln.ink);
     if (tube) { w = TUBE_W; tr = { widen: 0, core: BAR_CORE, cap: 'butt' }; }
-    var rail = svgEl(doc, 'path', { d: d, 'stroke-width': tube ? w : w + WIDEN * S, fill: 'none',
+    var edged = !tube;
+    var rail = svgEl(doc, 'path', { d: d, 'stroke-width': tube ? w : w + WIDEN * S - (edged ? 2 * EDGE_W : 0), fill: 'none',
       'stroke-linejoin': 'round',
       // BUTT-ENDED, every rail: a round cap put half the rail's width past its
       // last point, and at the edge that half-disc stuck out behind the start
       // slash -- "start symbol has the line peeking out".
       'stroke-linecap': 'butt' });
+    // A SHADED RAIL IS EDGED IN INK. The ladder of greys is what tells five
+    // lines apart on a grey panel, and its light end all but vanished on the
+    // paper: "should we just outline the tracks, so they are more visible".
+    // A hairline of ink round the shade, under it, is how a printed map
+    // keeps a pale line readable; the plain ink rail and a 1-bit panel (where
+    // every rail is ink already) need none.
+    if (edged) {
+      var edge = svgEl(doc, 'path', { d: d, 'stroke-width': w + WIDEN * S, fill: 'none',
+        'stroke-linejoin': 'round', 'stroke-linecap': 'butt' });
+      edge.style.stroke = INK;
+      // The edge is the rail's true outline, at the rail's full width, so it
+      // carries the rail's role: what asks for a rail's width gets one answer.
+      put(edge, ln.branchOf ? 'spur' : 'track', ln.branchOf || ln.key);
+      edgesG.appendChild(edge);
+    }
     rail.style.stroke = tube ? INK : inkOf(ln.key);
     rail.style.fill = 'none';
-    put(rail, ln.branchOf ? 'spur' : 'track', ln.branchOf || ln.key);
+    put(rail, edged ? (ln.branchOf ? 'spur-fill' : 'track-fill') : (ln.branchOf ? 'spur' : 'track'), ln.branchOf || ln.key);
 
     var t = tr;
     if (t) {
@@ -1249,41 +1320,8 @@ function draw(board, spec, ctx) {
   // out whose turn it is for taxi duty": on a full view each ring of a shared
   // event carries its person's initial -- two letters where two people start
   // with the same one. A slot keeps its rings plain.
-  var initials = {};
-  (function () {
-    var legend = (spec.metro && spec.metro.legend) || [], first = {};
-    legend.forEach(function (p) {
-      var f = String(p.name || p.key).trim().charAt(0).toUpperCase();
-      first[f] = (first[f] || 0) + 1;
-    });
-    // ...and the second letter is one that TELLS THEM APART: "Ma" for Maggie
-    // and "Ma" for Marge said nothing, so it is the first letter along where
-    // this name differs from every other name with the same first letter
-    // (Maggie Mg, Marge Mr).
-    var used = {};
-    legend.forEach(function (p) {
-      var nm = String(p.name || p.key).trim();
-      var f = nm.charAt(0).toUpperCase();
-      if (!(first[f] > 1)) { initials[p.key] = f; return; }
-      var others = legend.filter(function (q) {
-        return q !== p && String(q.name || q.key).trim().charAt(0).toUpperCase() === f;
-      }).map(function (q) { return String(q.name || q.key).trim().toLowerCase(); });
-      var low = nm.toLowerCase(), pick = null;
-      for (var j = 1; j < low.length && !pick; j++) {
-        var ch = low.charAt(j);
-        if (!/[a-z0-9\u00c0-\u024f]/.test(ch) || used[f + ch]) continue;
-        if (others.every(function (o) { return o.charAt(j) !== ch; })) pick = ch;
-      }
-      if (!pick) pick = low.charAt(1);
-      used[f + pick] = true;
-      // BOTH LETTERS ARE CAPITALS, because the badge is a badge and not a
-      // word. "Mr" and "Mg" beside a rail whose own name now reads MARGE and
-      // MAGGIE read as an abbreviation of something -- Mr, a title -- rather
-      // than as the same mark in a smaller place. "Letter badges should have
-      // the same style."
-      initials[p.key] = (f + pick).toUpperCase();
-    });
-  })();
+  // (the ring letters, from the one place that spells them: board.js)
+  var initials = B.initialsFor((spec.metro && spec.metro.legend) || []);
   var ringFace = null;
   // THE MOON AS AN ADAPTIVE IMAGE (after the night sky plugin): the dark of
   // the moon as ink with the lit part cut out of it, and a ring round the
@@ -1309,7 +1347,12 @@ function draw(board, spec, ctx) {
     var svgText = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' shape-rendering='"
       + (ONE_BIT ? 'crispEdges' : 'geometricPrecision') + "'>"
       + "<circle cx='12' cy='12' r='11' fill='" + (illum >= 98 ? 'white' : 'black') + "'/>"
-      + (lit ? "<path fill='white' d='" + lit + "'/>" : '') + '</svg>';
+      + (lit ? "<path fill='white' d='" + lit + "'/>" : '')
+      // ...AND A RIM, so the lit half and the dark half are one disc: without
+      // it a half moon on the light panel was a black D beside a white D, and
+      // read as a glyph rather than as the moon.
+      + "<circle cx='12' cy='12' r='10.25' fill='none' stroke='black' stroke-width='1.5'/>"
+      + '</svg>';
     var im = doc.createElement('img');
     // outlined by the framework in white, so the dark
     // of the moon has an edge on the black panel and the grey one alike
@@ -2045,7 +2088,9 @@ function draw(board, spec, ctx) {
       // the line's name)
       // (heavy enough to cover the square end of the rail it stands on: a
       // butt end's corners sit 0.35 of its width off the slash's middle)
-      var sw = railStroke(ln, ln.key).width, rr = Math.max(r, sw * 0.9);
+      // (0.7 of the width: at 0.9 the heavier rail's slash reached the name
+      // set a row above it)
+      var sw = railStroke(ln, ln.key).width, rr = Math.max(r, sw * 0.7);
       markLine(xy(p[0] - rr, p[1] + rr), xy(p[0] + rr, p[1] - rr), ln, ln.key, 'terminal', false, sw * 0.8);
     });
   });
@@ -2249,7 +2294,9 @@ function draw(board, spec, ctx) {
       var multiDay = ((spec.metro && spec.metro.days) || []).length > 1;
       var badgeC = titleRoom ? titleRoom / 2 + 2 : c;
       if (titleRoom && multiDay) badgeC = Math.max(badge.offsetHeight / 2 + 4 * S, (titleRoom - rowH - 4) / 2 + 2);
-      var br = place(badge, fx.a0 + (dayIx ? 10 * S : 0), badgeC, "left");
+      // in from the edge on both days: with no legend column the first day's
+      // title stood hard against the paper's edge
+      var br = place(badge, fx.a0 + 10 * S, badgeC, "left");
       taken.push(br);
       dayBadges[dayIx] = { r: br, band: titleRoom };
       return;
@@ -2337,16 +2384,48 @@ function draw(board, spec, ctx) {
         // under it, not into it, where the badge sits in the band's top row
         if (underDate) c = Math.max(c, underDate[3] + rowH / 2 + 2 * S);
       }
-      var tx = doc.createElement('span');
-      tx.className = 'metro-hour label' + STRIP_SM + ' text--bold text-stroke';
-      tx.textContent = fx.text;
-      box.appendChild(tx);
+      // THE SHORT DAY'S FORECAST IS SET LIKE THE LONG DAY'S: the high as a
+      // headline number, the low and the sky after it in the strip's type.
+      // As one line of small print under a title-sized "Today" it was the
+      // one thing in the header nobody could read from across the room,
+      // while tomorrow's, a panel away, was the biggest thing on it.
+      if (richRoom && wx && wx.hi != null) {
+        if (ic) { ic.style.width = Math.round(rowH * 1.35) + 'px'; ic.style.height = Math.round(rowH * 1.35) + 'px'; }
+        var hi1 = doc.createElement('span');
+        hi1.className = 'metro-wx-hi label' + STRIP_SM + ' text--bold text-stroke';
+        hi1.style.fontSize = '1.35em';
+        hi1.textContent = Math.round(wx.hi) + '\u00b0'
+          + (wx.unit || (spec.metro.header_weather && spec.metro.header_weather.unit) || '');
+        box.appendChild(hi1);
+        var rest = doc.createElement('span');
+        rest.className = 'metro-hour label' + STRIP_SM + ' text--bold text-stroke' + QUIET;
+        var rain1 = wx.rain_chance >= 30 ? wx.rain_chance + '%' : null;
+        rest.textContent = [Math.round(wx.lo) + '\u00b0', wx.condition, rain1].filter(Boolean).join(' \u00b7 ');
+        box.appendChild(rest);
+      } else {
+        var tx = doc.createElement('span');
+        tx.className = 'metro-hour label' + STRIP_SM + ' text--bold text-stroke';
+        tx.textContent = fx.text;
+        box.appendChild(tx);
+      }
       canvas.appendChild(box);
       // Standing up the forecast is a sentence at the column's far end, and
       // level it ran across the last line's name.
       turn(box);
       var rc = underDate ? place(box, underDate[0], c, 'left') : place(box, wxEnd, c, 'right');
       if (underDate && !(rc[1] <= wxEnd && fitsDay(rc))) rc = place(box, wxEnd, c, 'right');
+      // ...and where the headline form is still too wide for its day, the
+      // one line of small print, which is better than no forecast at all.
+      if (!fitsDay(rc) && box.querySelector('.metro-wx-hi')) {
+        while (box.lastChild && box.lastChild !== ic) box.removeChild(box.lastChild);
+        if (ic) { ic.style.width = rowH + 'px'; ic.style.height = rowH + 'px'; }
+        var tx2 = doc.createElement('span');
+        tx2.className = 'metro-hour label' + STRIP_SM + ' text--bold text-stroke';
+        tx2.textContent = fx.text;
+        box.appendChild(tx2);
+        rc = underDate ? place(box, underDate[0], c, 'left') : place(box, wxEnd, c, 'right');
+        if (underDate && !(rc[1] <= wxEnd && fitsDay(rc))) rc = place(box, wxEnd, c, 'right');
+      }
       // A day too short for it at its end has it under its date, where that
       // leaves the row free.
       if (!fitsDay(rc) && !underDate && horizontal && dayBadges[di] && dayBadges[di].band) {
@@ -2410,7 +2489,12 @@ function draw(board, spec, ctx) {
       // board has always reserved this much paper for a name -- and a legend
       // in the smallest type on the board is the one thing on it a reader
       // looks for from across the room.
-      var tn = turn(html('metro-terminus label label--base text--bold text--black text-stroke', fx.text));
+      // A ROUNDEL, NOT A WORD ON PAPER: the line's name is set as a solid ink
+      // badge with the letters knocked out, the way a transit map names a
+      // line, so the legend is the one thing on the board that is not a
+      // caption. Its own colours, so no paper outline (a white outline on
+      // white letters is a blob, see the stylesheet).
+      var tn = turn(html('metro-terminus metro-pill label label--base text--bold', fx.text));
       // ONE LINE, NO WIDER THAN THE SOLVER BOOKED IT: a name longer than a
       // share of the panel is cut with an ellipsis (the stylesheet) rather
       // than pushing the legend's column out over the day (day.js nameMax).
@@ -2846,10 +2930,23 @@ function draw(board, spec, ctx) {
       var nc = hoursFx ? hoursFx.c1 - (horizontal ? rowH : nt.offsetWidth) / 2 : (fx.c0 + fx.c1) / 2;
       var right = fx.align === 'right', at0 = right ? fx.a1 : fx.a0;
       if (ni >= forms.length) {
+        // ...past what is on ITS row only: judged along the axis alone it
+        // slid past the day's title and the now-and-next card in the row
+        // above and landed in the middle of tomorrow's hours. And not far:
+        // a count that has to travel more than a few hours to be said is
+        // better left off than said somewhere it is not true.
+        var from0 = at0;
         taken.forEach(function (t) {
+          if (t.length > 3 && !(nc - rowH / 2 < t[3] && t[2] < nc + rowH / 2)) return;
           if (right ? t[1] >= at0 - 60 * S : t[0] <= at0 + 60 * S) at0 = right ? Math.min(at0, t[0] - 2 * S) : Math.max(at0, t[1] + 2 * S);
         });
+        if (Math.abs(at0 - from0) > 90 * S) { nt.remove(); continue; }
       }
+      // ...AND NEVER ONTO ANOTHER DAY'S PANEL: "+17 earlier" is about today, and
+      // slid past the clock on a two-hour sliver of it, it was written at the
+      // head of tomorrow's hours, where it is not true.
+      var ntLen = horizontal ? nt.offsetWidth : nt.offsetHeight;
+      if (!right && dayCuts.length && at0 + ntLen > dayCuts[0] - 4 * S) { nt.remove(); continue; }
       var nr = place(nt, at0, nc, right ? 'right' : 'left');
       if (free(nr)) { taken.push(nr); done = true; break; }
       nt.remove();
@@ -2950,6 +3047,16 @@ function draw(board, spec, ctx) {
   }
 
   intoPanels();
+
+  // THE WASHES GO OVER THE MAP. Drawn under it, every paper-filled mark --
+  // a stop's ring, a bridge's cut, a texture's core -- punched a white hole
+  // in the night and in the past ("the dot here has a white background
+  // instead of the actual night bg"). Lifted to the top of the drawing, a
+  // wash tints whatever it lies on, ink included, which at six per cent is
+  // the difference between nothing and a night. The words are HTML above
+  // the drawing either way.
+  Array.prototype.slice.call(svg.querySelectorAll('[data-metro-role="night"],[data-metro-role="night-deep"],[data-metro-role="past"]'))
+    .forEach(function (n) { svg.appendChild(n); });
 
   // ---- leaders -----------------------------------------------------------
   //

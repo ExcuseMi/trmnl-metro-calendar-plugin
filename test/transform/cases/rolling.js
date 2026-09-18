@@ -89,14 +89,15 @@ module.exports = function (test, h) {
     // stretched is that it carries no window, so the span stays the day's.
     assertEqual(morning.days.length, 2, 'both days should be sent, whatever gets drawn');
     assertEqual(h.opened(morning), 6 * 60, 'a morning board opens at six, before the first step');
-    // At eleven the ten o'clock step has passed: the window opens at seven
-    // (the Standup at nine is kept, and LEAD_MIN of board in front of it is
-    // what pulls it back that far) and reaches tomorrow's review. The lead
-    // does not cost the far end: the 24 hours are counted from where the day
-    // starts, so the review at nine tomorrow is still inside it.
+    // At eleven the eleven o'clock step has passed: the window opens at ten
+    // (an hour back), and LEAD_MIN of board in front of the Workshop at
+    // eleven pulls it back to nine; the Standup at nine is over and off the
+    // board. The lead does not cost the far end: the 24 hours are counted
+    // from where the day starts, so the review at nine tomorrow is still
+    // inside it.
     const busy = await boardAt('11:00', busyRows);
     assertEqual(busy.days.length, 2, 'both days should be sent, whatever gets drawn');
-    assertEqual(h.opened(busy), 7 * 60, 'the board should open two hours before the first thing it draws');
+    assertEqual(h.opened(busy), 9 * 60, 'the board should open two hours before the first thing it draws');
     assertEqual(busy.events.map((e) => e.title).sort(),
       ['Dentist', 'Sprint Review', 'Standup', 'Workshop'], 'the rolled board drew the wrong events');
     // ...but a busy day with nothing tomorrow keeps its paper for itself:
@@ -107,7 +108,7 @@ module.exports = function (test, h) {
     // simply gives `framed()` nothing to reach for.
     assertEqual(alone.days.length, 2, 'both days should be sent, whatever gets drawn');
     assert(!alone.events.some((e) => e.start_min >= DAY), 'an empty tomorrow brought events with it');
-    assertEqual(h.opened(alone), 7 * 60, 'a day with an empty tomorrow should still step');
+    assertEqual(h.opened(alone), 9 * 60, 'a day with an empty tomorrow should still step');
     assertEqual(alone.day_end_min, 2 * DAY, 'the payload should carry the whole run it gathered');
   });
 
@@ -197,14 +198,17 @@ module.exports = function (test, h) {
       ['20260909', '0430', '0530', 'Early Shift'],
       ['20260910', '0700', '0800', 'Sprint Review'],
     ]);
-    assertEqual(h.opened(gone), 8 * 60,
+    assertEqual(h.opened(gone), 10 * 60,
       'an event already over pulled the morning back onto the board');
+    // ...and so is one that ended in the hour before the opening: the
+    // lookback is an hour, and a shift over by half past nine is not on an
+    // eleven o'clock board.
     const kept = await boardAt('11:00', [
       ['20260909', '0830', '0930', 'Late Shift'],
       ['20260910', '0600', '0700', 'Sprint Review'],
     ]);
-    assertEqual(h.opened(kept), 6 * 60,
-      'the board should open LEAD_MIN before the first thing it draws');
+    assertEqual(h.opened(kept), 10 * 60,
+      'the board should open at the step, an hour back');
     // ...and the borrowed morning's event is sent at its own time, for a view
     // with the room to reach it.
     const late = await board([
@@ -285,9 +289,10 @@ module.exports = function (test, h) {
   test('the board changes shape only at the steps, on the hour, and never gives tomorrow back', async () => {
     // THE STABILITY CASE. An e-ink panel refreshes every fifteen minutes,
     // and a window keyed to the clock would slide under whoever is reading
-    // it four times an hour. The window steps instead, at ten, one, four
-    // and seven, and between two steps every quarter of an hour lays out
-    // the same board.
+    // it four times an hour. The window steps instead, on the hour from
+    // ten, and between two steps every quarter of an hour lays out the same
+    // board. (A step whose opening lands where the last one did is not a
+    // change of shape, so not every hour flips.)
     const rows = [
       ['20260909', '0900', '0915', 'Standup'],
       ['20260909', '1100', '1200', 'Workshop'],
@@ -314,14 +319,17 @@ module.exports = function (test, h) {
     const flips = seen.filter((s, i) => i > 0 && s.shape !== seen[i - 1].shape);
     // Before the morning opening the window opens no later than the clock,
     // in three-hour steps, so the time is on the board at night too.
-    assertEqual(flips.map((f) => f.at), ['0300', '0600', '1000', '1300', '1600', '1900'],
+    assertEqual(flips.map((f) => f.at), ['0300', '0600', '1000', '1100', '1300', '1600', '1700', '1800', '2100'],
       'the board changed shape at ' + flips.map((f) => f.at + ' -> ' + f.shape).join(' | '));
-    // Each step opens the window two hours before itself, or LEAD_MIN before
-    // an event still running then, whichever is earlier: the Standup at nine
-    // holds ten's window at seven, the Workshop at eleven holds one's at
-    // nine, the Dentist at two holds four's at twelve, and the Book Club at
-    // seven holds seven's at five.
-    assertEqual(flips.map((f) => f.start), [3 * 60, 6 * 60, 7 * 60, 9 * 60, 12 * 60, 17 * 60],
+    // Each step opens the window an hour before itself, or LEAD_MIN before
+    // the first thing at or after that, whichever is earlier: the Standup at
+    // nine holds ten's window at seven, the Workshop at eleven holds eleven's
+    // and twelve's at nine, the Dentist at two holds one's, two's and three's
+    // at twelve, the Book Club at seven holds six's, seven's and eight's at
+    // three, four and five, and nine's, ten's and eleven's at five, and at
+    // nine in the evening nothing of today is left and the window opens at
+    // eight.
+    assertEqual(flips.map((f) => f.start), [3 * 60, 6 * 60, 7 * 60, 9 * 60, 12 * 60, 15 * 60, 16 * 60, 17 * 60, 20 * 60],
       'a step opened the window somewhere other than LEAD_MIN before what it keeps');
     // ...and it only ever moves forwards. The opening is a step function of
     // the clock, so it cannot walk back into a morning it has shed.
@@ -347,18 +355,16 @@ module.exports = function (test, h) {
         config_json: JSON.stringify({ calendars: [{ url: 'https://example.com/a.ics', name: 'Cal' }] }),
       }))).data;
     };
-    // Half past five: the four o'clock step has passed, so the window opens
-    // at twelve -- LEAD_MIN before the Reactor Core Check, still running at
-    // four's lookback -- tomorrow is on, and the morning is counted rather
-    // than drawn.
+    // Half past five: the five o'clock step has passed, so the window opens
+    // at three -- LEAD_MIN before the Skate Park at five, the first thing at
+    // or after four -- tomorrow is on, and the morning has rolled off.
     const evening = await at('17:30');
-    assertEqual(h.opened(evening), 12 * 60, 'the board should open LEAD_MIN before the event kept');
+    assertEqual(h.opened(evening), 15 * 60, 'the board should open LEAD_MIN before the event kept');
     const titles = evening.events.map((e) => e.title);
     assert(titles.indexOf('Sunday Swim') >= 0, 'tomorrow never arrived: ' + JSON.stringify(titles));
     assert(titles.indexOf('Family Dinner') >= 0, 'tonight was thrown away to get there');
-    // The morning is still in the payload -- the board counts it at the
-    // window's leading edge as "+N earlier" -- but it is before the window,
-    // so it is not drawn.
+    // The morning is still in the payload, but it is before the window, so
+    // it is not drawn.
     const club = evening.events.find((e) => e.title === 'Book Club');
     assert(club && club.end_min <= h.opened(evening),
       'the morning is still inside the window on an evening board');

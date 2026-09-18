@@ -692,7 +692,11 @@ test('a small panel leaves a person out rather than half of everyone', function 
   assert(b.shown >= a.shown || b.lost < a.lost,
     'fitting made the board worse: ' + a.shown + ' readable with everyone, '
     + b.shown + ' with ' + fitted.dropped.length + ' line(s) left out');
-  assert(fitted.dropped.length > 0 || !a.lost,
+  // ...or keeps everyone at the price of a few names: a person off the
+  // board is the worst loss there is, so a name or two is the better trade
+  // ("at the end of the day it's a caption"); only losing half of everyone's
+  // names is worse than losing one of everyone.
+  assert(fitted.dropped.length > 0 || a.lost * 2 < a.shown + a.lost,
     'a panel this small kept every line and lost ' + a.lost + ' name(s) doing it');
 });
 
@@ -739,7 +743,9 @@ test('a small view shows fewer hours than a large one, and no more events than i
   var cap = Day.frameFor({ w: 330, h: 240 }, opts);
   var bigSpan = big.metro.day_end_min - big.metro.day_start_min;
   var smallSpan = small.metro.day_end_min - small.metro.day_start_min;
-  assert(smallSpan < bigSpan, 'the small view shows as much of the day as the large one: ' + smallSpan + ' vs ' + bigSpan);
+  // (no more than the large one: a day the window has already cut short
+  // can fit a small view whole)
+  assert(smallSpan <= bigSpan, 'the small view shows more of the day than the large one: ' + smallSpan + ' vs ' + bigSpan);
   assert(smallSpan <= cap.hours * 60 + 30, 'the small view shows ' + smallSpan + ' minutes, over its ' + cap.hours + ' hours');
   var shown = small.metro.events.filter(function (ev) {
     return ev.start_min >= small.metro.day_start_min && ev.start_min < small.metro.day_end_min;
@@ -798,8 +804,10 @@ test('the opening never sheds the whole day', function () {
   var later = Object.assign({}, metro, { events: metro.events.concat([
     { type: 'event', title: 'C', owner: 'p0', start_min: 16 * 60, end_min: 17 * 60 }]) });
   var stepped = Day.opened(later).day_start_min;
-  assert(stepped === 11 * 60,
-    'a day with something still to come should open at eleven, opened at ' + stepped);
+  // (half past two: the two o'clock step, an hour back, is one; C at four
+  // is more than LEAD_MIN past that, so it holds nothing open)
+  assert(stepped === 13 * 60,
+    'a day with something still to come should open at one, opened at ' + stepped);
 });
 
 // ...AND NEVER ON TOP OF SOMETHING'S FIRST MINUTE.
@@ -827,7 +835,9 @@ test('the opening never lands on an event\'s start', function () {
     return e.title; }).join(', '));
   var pill = spec.pills.filter(function (p) { return !p.tie; })[0];
   assert(pill && pill.open0, 'the school day should be running when the board opens');
-  assert(lo < 9 * 60, 'the book club lost its room: the board opened at ' + lo);
+  // Ten past two: the two o'clock step opens the board at one, the school
+  // day is running across it, and the book club (over at ten) is behind it.
+  assert(lo === 13 * 60, 'the board opened at ' + lo + ', not at the step');
 });
 
 // AN ALL-DAY STATE IS NAMED AT A HEAD, FOR THE DAYS THE BOARD DRAWS.

@@ -79,7 +79,7 @@ const VIEWPORTS = {
 // ahead of it, the middle of the day has a window cutting both ways, and late
 // evening has most of it behind -- which is when an event already running, a
 // clipped branch and a shed name all show up.
-const DEMO_TIMES = ['07:30', '13:40', '21:30'];
+const DEMO_TIMES = ['07:30', '12:00', '13:40', '21:30'];
 const DEMO_SETS = ['simpsons', 'futurama', 'friends'];
 
 function served(url) {
@@ -241,6 +241,8 @@ const noBuild = process.argv.indexOf('--no-build') > 0;
       const html = path.join(dir, vn + '.html');
       const png = path.join(dest, v.file + '.png');
       fs.writeFileSync(html, pageFor(metro, v));
+      // SHEET_KEEP=<dir>: keep the page beside the picture, for reading its DOM
+      if (process.env.SHEET_KEEP) fs.copyFileSync(html, path.join(process.env.SHEET_KEEP, v.file + '.html'));
       try {
         execFileSync(CHROME, ['--headless=new', '--disable-gpu', '--hide-scrollbars',
           '--force-device-scale-factor=1', '--virtual-time-budget=8000',
@@ -263,6 +265,7 @@ const noBuild = process.argv.indexOf('--no-build') > 0;
     const file = path.join(dir, b.name.replace(/[^a-z0-9]+/gi, '-') + '.html');
     const png = file.replace(/\.html$/, '.png');
     fs.writeFileSync(file, pageFor(metro, vp));
+    if (process.env.SHEET_KEEP) fs.copyFileSync(file, path.join(process.env.SHEET_KEEP, path.basename(file)));
     try {
       execFileSync(CHROME, ['--headless=new', '--disable-gpu', '--hide-scrollbars',
         '--force-device-scale-factor=1', '--virtual-time-budget=8000',

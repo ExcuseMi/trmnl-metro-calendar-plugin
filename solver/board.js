@@ -640,7 +640,40 @@ function ringHit(board, pl, b) {
   });
 }
 
-module.exports = { CAP_CLEAR: CAP_CLEAR, ringHit: ringHit, ringClashes: ringClashes,
+// A LINE'S LETTERS: the first, and where two lines share it, the first
+// letter along where this name differs from every other name with that
+// first letter (Maggie MG, Marge MR). The badge the rings carry, and the
+// name a line gets where its whole name will not fit (day.js).
+function initialsFor(legend) {
+  var initials = {}, first = {};
+  legend = legend || [];
+  legend.forEach(function (p) {
+    var f = String(p.name || p.key).trim().charAt(0).toUpperCase();
+    first[f] = (first[f] || 0) + 1;
+  });
+  var used = {};
+  legend.forEach(function (p) {
+    var nm = String(p.name || p.key).trim();
+    var f = nm.charAt(0).toUpperCase();
+    if (!(first[f] > 1)) { initials[p.key] = f; return; }
+    var others = legend.filter(function (q) {
+      return q !== p && String(q.name || q.key).trim().charAt(0).toUpperCase() === f;
+    }).map(function (q) { return String(q.name || q.key).trim().toLowerCase(); });
+    var low = nm.toLowerCase(), pick = null;
+    for (var j = 1; j < low.length && !pick; j++) {
+      var ch = low.charAt(j);
+      if (!/[a-z0-9\u00c0-\u024f]/.test(ch) || used[f + ch]) continue;
+      if (others.every(function (o) { return o.charAt(j) !== ch; })) pick = ch;
+    }
+    if (!pick) pick = low.charAt(1);
+    used[f + pick] = true;
+    // Both letters capitals, because the badge is a badge and not a word.
+    initials[p.key] = (f + pick).toUpperCase();
+  });
+  return initials;
+}
+
+module.exports = { CAP_CLEAR: CAP_CLEAR, ringHit: ringHit, ringClashes: ringClashes, initialsFor: initialsFor,
                    Board: Board, Caption: Caption, Line: Line, Stop: Stop, Pill: Pill,
                    Furniture: Furniture,
                    check: check, ascii: ascii, report: report, pairing: pairing,

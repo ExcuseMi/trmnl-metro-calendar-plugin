@@ -20,6 +20,7 @@
 
 var C = require('./captions');
 var Order = require('./order');
+var B = require('./board');
 
 // ---------------------------------------------------------------- the scale
 //
@@ -777,8 +778,16 @@ function frameFor(view, opts) {
 // clock the payload already carries. Two refreshes fifteen minutes apart get
 // the same answer because they fall in the same step, not because anything
 // remembered the first one.
-var ROLL_STEPS_MIN = [10 * 60, 13 * 60, 16 * 60, 19 * 60];
-var ROLL_LOOKBACK_MIN = 2 * 60;
+// EVERY HOUR FROM TEN, AN HOUR BACK. Four steps a day, each two hours back,
+// left the clock a third of the way along the board for most of the
+// afternoon and the paper spent on a morning nobody could attend any more:
+// "focus more on the now and future". Stepping on the hour keeps the shape
+// still across a refresh (four to the hour) and keeps now within an hour or
+// two of the leading edge, which is where a board about what is coming
+// wants it.
+var ROLL_STEPS_MIN = [];
+for (var rs = 10 * 60; rs <= 21 * 60; rs += 60) ROLL_STEPS_MIN.push(rs);
+var ROLL_LOOKBACK_MIN = 60;
 // Before the first step the board is the whole day from six, which is when a
 // household's day starts being worth drawing.
 var ROLL_START_MIN = 6 * 60;
@@ -1038,7 +1047,22 @@ function specFor(metro, view, opts) {
   var nameMax = Math.max(Math.round(cell * 5), Math.round((view.w - pad * 2) * NAME_SHARE));
   var nameRoom = opts.nameRoom != null ? opts.nameRoom : Math.round(cell);
   var tookGutter = false, headLead = 0;
-  if (opts.nameRoom == null && opts.nameGutter) {
+  // NO LEGEND COLUMN. The names go back to the paper's edge, above their
+  // rails, and the rails run out to the edge under them: a column of paper
+  // in front of every line, with a dotted approach across it, was "wasted
+  // space" on a board whose whole point is the hours, and the roundel the
+  // name is set in now makes it read as the line's own label wherever it
+  // stands. What the column bought -- a name clear of the first minute's
+  // marks -- the band search still prices (a branch through a name costs).
+  // ...EXCEPT STANDING UP, where a name is set beside its rail at the head
+  // rather than above it, and a bar crossing the first minutes ran through
+  // it ("Lisa" on a five-line half): there the column stays, a row of
+  // roundels across the top of the board.
+  var LEGEND_COLUMN = !!opts.standing;
+  var ringLead = opts.nameRoom == null ? ringRoom(metro, opts) : 0;
+  // (a board that opens INSIDE a shared event is the level case below: the
+  // names in a column at the head and the connector standing after them)
+  if (LEGEND_COLUMN && opts.nameRoom == null && opts.nameGutter) {
     var wName = 0;
     (metro.legend || []).forEach(function (p) {
       wName = Math.max(wName, Math.min(nameMax,
@@ -1081,7 +1105,15 @@ function specFor(metro, view, opts) {
   // each end: width is what a flat slot has, and depth is what it has not.
   var legendN = (metro.legend || []).length;
   var nameH0 = opts.nameH != null ? opts.nameH : (opts.rowH || 12) + 6;
-  var levelNames = !opts.standing && legendN > 1 && view.h / legendN < nameH0 * 2.6;
+  // ...AND WHERE THE BOARD OPENS INSIDE A SHARED EVENT. Set above their
+  // rails at the edge, the names had to be shoved along to clear the
+  // connector's rings, and the connector itself stood hard on the paper's
+  // edge with its spur cramped against it: "I don't like the left part,
+  // especially the label position". Level, the roundels make a column at
+  // the head and the connector stands at the first minute after them, a
+  // bar between labelled stations, which is what a transit map draws.
+  var flatSlot = !opts.standing && legendN > 1 && view.h / legendN < nameH0 * 2.6;
+  var levelNames = flatSlot || (!opts.standing && legendN > 1 && ringLead > 0);
   if (levelNames && opts.nameRoom == null) {
     var widest = 0;
     (metro.legend || []).forEach(function (p) {
@@ -1090,7 +1122,9 @@ function specFor(metro, view, opts) {
     // ...and room for the " +1" a name carries when one of its captions is
     // shed, which is only known once the board is solved: "Sam +1" ran into
     // the first ring.
-    nameRoom = Math.round(widest + cell * 2.5);
+    // (tight where the column exists only for a connector: the rings stand
+    // at the first minute and need no room in it)
+    nameRoom = Math.round(widest + cell * (flatSlot ? 2.5 : 1));
   }
   // ONE NAME A LINE ON A SMALLER VIEW: "quadrant shouldn't show the track
   // labels twice". Both ends is for a board read from across the room; a
@@ -1404,9 +1438,18 @@ function fixedFor(metro, scale, axis, cross, opts) {
   // Room for a name and a row under it, on every line the board carries.
   var nameH1 = (opts && opts.nameH) || (rowH + 6);
   var deepEnough = (cross.c1 - cross.c0) / Math.max(1, (metro.legend || []).length) >= nameH1 * 2 + 6;
+  // A NAME THAT WILL NOT FIT IS ITS LETTERS. Cut with an ellipsis, "Maggie"
+  // and "Marge" on a quadrant were both "M...", which names nobody; the
+  // letters the rings already carry (MG, MR) fit in a third of the room
+  // and say who it is.
+  var letters = B.initialsFor(metro.legend || []);
   (metro.legend || []).forEach(function (p) {
     var nameMax = (opts && opts.nameMax) || Infinity;
-    var t = p.name || p.key, w = Math.min(nameMax, wide[p.key] || t.length * cell);
+    var t = p.name || p.key;
+    var tw = wide[p.key] || t.length * cell;
+    // (the letters' own width, with the roundel's inset round them)
+    if (tw > nameMax && letters[p.key]) { t = letters[p.key]; tw = Math.round(t.length * cell * 1.2) + 16; }
+    var w = Math.min(nameMax, tw);
     // INSIDE THE MAP AND ABOVE THE RAIL, reading INWARD from each edge, so
     // the words are over the line they name and the last minute of the day is
     // still on the board. `at` says which end of the rail to take the level
@@ -1598,7 +1641,12 @@ function fixedFor(metro, scale, axis, cross, opts) {
   // header". The day continuing past the paper is a fact about the scale, so
   // it is written on the scale, among the hours, and the map gets back the
   // row along its bottom edge it used to give up for two words.
-  if (early) {
+  // NOT "+N EARLIER". What is over is over: the wash over the past says the
+  // day began before the paper, and a count of things nobody can attend any
+  // more is the one note on the strip a reader never acts on ("don't show
+  // earlier"). Written on a two-hour sliver of today it landed at the head
+  // of tomorrow's hours, which settled it.
+  if (early && false) {
     var et = (i18n.earlier || '+{n} earlier').replace('{n}', early);
     out.push({ id: 'earlier', kind: 'note', text: et, align: 'left',
                a0: axis.a0, a1: axis.a0 + et.length * cell,
