@@ -1667,7 +1667,7 @@ function positions(want, board, opts, ownLine) {
           // changes no answer, only how V8 stores it.
           out.push({ want: want, a: pa, c: pc, side: pside, row: pr,
                      off: undefined, slide: slides[pk] * want.w,
-                     railC: pside > 0 ? pill.c1 : pill.c0, pbox: pbox, beside: false });
+                     railC: pside > 0 ? pill.c1 : pill.c0, pbox: pbox, beside: false, _bx: null });
         }
       }
     }
@@ -1688,7 +1688,7 @@ function positions(want, board, opts, ownLine) {
         if (ei && Math.abs(ec - pbox.c0) < 1) return;   // a short box: one row is all of them
         out.push({ want: want, a: ea, c: ec, side: 0, row: 0,
                    off: undefined, slide: 0,
-                   railC: eside > 0 ? pill.c1 : pill.c0, pbox: pbox, beside: eside });
+                   railC: eside > 0 ? pill.c1 : pill.c0, pbox: pbox, beside: eside, _bx: null });
       });
     }
     return out;
@@ -1789,7 +1789,7 @@ function positions(want, board, opts, ownLine) {
                      // In rows, and zero while the words are as close as a
                      // caption is allowed to get, so row 0 is still free.
                      off: Math.max(0, (near - want.gap) / step),
-                     slide: sl[k] * want.w, railC: railC, pbox: null, beside: false });
+                     slide: sl[k] * want.w, railC: railC, pbox: null, beside: false, _bx: null });
         }
       }
     }
@@ -1807,16 +1807,28 @@ function positions(want, board, opts, ownLine) {
       // bottom row sits level with it, which is the mockup exactly.
       [bs[1] - want.h / 2, bs[1] - want.h + want.gap / 2, bs[1] - want.gap / 2].forEach(function (bc) {
         out.push({ want: want, a: bs[0], c: bc, side: 0, row: 0, off: 0, slide: 0,
-                   railC: bs[1], pbox: null, beside: true });
+                   railC: bs[1], pbox: null, beside: true, _bx: null });
       });
     });
   }
   return out;
 }
 
+// A CANDIDATE'S RECTANGLE, WORKED OUT ONCE.
+//
+// It is arithmetic on four numbers that never change for a given candidate --
+// where it sits and how big its words are -- and it was being done afresh on
+// every call, which on a hard board is millions of them, each handing back a
+// new object for the collector to take away again. Kept on the candidate: the
+// same answer, without the allocation.
+//
+// SAFE TO KEEP because the candidates a solve is handed are either built for
+// it or come from the positions cache, whose key already contains the want's
+// form, width, height and padding (see `solve`). A candidate whose rectangle
+// could differ is a candidate from a different entry.
 function posBox(p) {
-  return { a0: p.a - p.want.pad, a1: p.a + p.want.w + p.want.pad,
-           c0: p.c, c1: p.c + p.want.h };
+  return p._bx || (p._bx = { a0: p.a - p.want.pad, a1: p.a + p.want.w + p.want.pad,
+                             c0: p.c, c1: p.c + p.want.h });
 }
 
 // ---------------------------------------------------------------- the facts
@@ -2173,7 +2185,10 @@ function solve(wants, board, opts) {
   var n = wants.length;
   var cache = opts.cache || null;
   var sst = cache ? stateFor(cache) : null;
-  var cands = wants.map(function (w) {
+  // THE ENVELOPE OF EACH CAPTION'S CANDIDATES, kept so that pairs which can
+  // never touch are never priced. See `nbrs` below.
+  var envs = new Array(n);
+  var cands = wants.map(function (w, wIx) {
     // THE PART OF THE BOARD THESE CANDIDATES CAN REACH, once per caption:
     // the rows either side of its own rail (or its bar), a name's width
     // beyond the event at each end. Only what is in it can refuse a
@@ -2237,6 +2252,7 @@ function solve(wants, board, opts) {
       // there touches it.
       if (cache) sigPut(sst.posTab, { ps: ps0, env: env });
     }
+    envs[wIx] = env;
     var m = B.CAP_CLEAR + 1;
     var near = {
       own: own,
@@ -2287,6 +2303,44 @@ function solve(wants, board, opts) {
     }
     return ps0.filter(function (p) { return readable(p, board, near); });
   });
+  // WHICH CAPTIONS CAN REACH EACH OTHER AT ALL.
+  //
+  // `pairCost` is zero for two captions that cannot touch, and almost every
+  // pair on a board cannot: the greedy seed below priced every caption
+  // against every caption placed before it, and `energy` against every
+  // caption after it, so both were quadratic in a board's names while the
+  // answer for most of the pairs was arithmetic on two rectangles that are
+  // nowhere near each other. On the bench set that is the largest single
+  // cost left in a solve.
+  //
+  // A caption's candidates all live inside one envelope (built above), so if
+  // two envelopes cannot come within reach, NO pair of their candidates can,
+  // whatever either one picks. That is a fact about the board rather than
+  // about a placement, so it is worked out once per solve and the loops walk
+  // the neighbours instead of the whole list.
+  //
+  // THE REACH IS NOT THE CLEARANCE. Two boxes that merely stand near each
+  // other cost 30 (eight pixels), but a corridor's name in somebody else's
+  // ROW is mistakable as far as four times a box's height away (`rowMate`),
+  // and pruning at the clearance would silently stop charging for it. The
+  // margin is the larger, per pair, so this cannot change an answer -- it can
+  // only decline to ask a question whose answer is already known to be zero.
+  var envs2 = envs;
+  var nbrs = new Array(n);
+  for (var ni = 0; ni < n; ni++) nbrs[ni] = [];
+  for (var qi = 0; qi < n; qi++) {
+    for (var qj = qi + 1; qj < n; qj++) {
+      var ea = envs2[qi], eb = envs2[qj];
+      var touch = true;
+      if (ea && eb) {
+        var mgn = 8 + 4 * Math.max(wants[qi].h || 0, wants[qj].h || 0);
+        touch = !(ea.a1 + mgn < eb.a0 || eb.a1 + mgn < ea.a0
+               || ea.c1 + 8 < eb.c0 || eb.c1 + 8 < ea.c0);
+      }
+      if (touch) { nbrs[qi].push(qj); nbrs[qj].push(qi); }
+    }
+  }
+
   // Every candidate knows whether a reader could mistake it, before any
   // price is paid.
   var dots = markDots(wants, board);
@@ -2379,7 +2433,8 @@ function solve(wants, board, opts) {
     for (var i = 0; i < n; i++) {
       if (pick[i] < 0) { e += SHED; continue; }
       e += price(cands[i][pick[i]]) + (cands[i][pick[i]].mud ? MUD : 0);
-      for (var j = i + 1; j < n; j++) e += pairCost(i, j);
+      var nb = nbrs[i];
+      for (var jx = 0; jx < nb.length; jx++) if (nb[jx] > i) e += pairCost(i, nb[jx]);
     }
     return e;
   }
@@ -2397,14 +2452,21 @@ function solve(wants, board, opts) {
   order.sort(function (x, y) {
     return (wants[x].a0 - wants[y].a0) || (x - y);
   });
+  // Where each caption sits in that order, so the seed can ask its
+  // neighbours which of them are already down without walking the list.
+  var rank = new Array(n);
+  for (var ri = 0; ri < n; ri++) rank[order[ri]] = ri;
   for (var oi = 0; oi < n; oi++) {
     i = order[oi];
     if (pick[i] < 0) continue;
     var best = -1, bestE = SHED;      // not drawing it is always on the table
+    var nbi = nbrs[i];
     for (var k = 0; k < cands[i].length; k++) {
       pick[i] = k;
       var e = price(cands[i][k]) + (cands[i][k].mud ? MUD : 0);
-      for (var oj = 0; oj < oi; oj++) e += pairCost(i, order[oj]);
+      // ...against the ones already placed that can reach it. The rest are
+      // zero by construction (see nbrs).
+      for (var nj = 0; nj < nbi.length; nj++) if (rank[nbi[nj]] < oi) e += pairCost(i, nbi[nj]);
       if (e < bestE) { bestE = e; best = k; }
     }
     pick[i] = best;
