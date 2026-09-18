@@ -3514,7 +3514,28 @@ function boardFor(spec, st) {
     // Lesson left Lisa's rail on her arc out of the school day. Where the
     // departure would land in a corner, it waits until the corner is over
     // and the dot sits where the spur begins.
+    // ...AND NEVER MORE OF THE CLOCK THAN THE EVENT ITSELF OWNS.
+    //
+    // This run is what puts the dot on flat shelf instead of on the bend the
+    // spur has just turned, so it is a corner's worth plus a mark's. It is
+    // also a FLAT amount, which on a long meeting is a quarter of it and on a
+    // short one is all of it: "Pick Up Kids", twenty-four units of afternoon,
+    // was being approached over twenty-five. The eye reads the whole shape as
+    // the event, so a quarter of an hour drawn like that is an hour of
+    // somebody's day -- "that cpoe one now looks like it's busy but it's
+    // not".
+    //
+    // Held to three quarters of the event where the event is short, and never
+    // below a mark's own radius, which is where the dot would start sitting on
+    // the curve rather than past it. A long event does not notice; a short one
+    // stops announcing itself from a minute it has nothing to do with.
+    //
+    // Three quarters and not a half: the run is also the paper the caption
+    // hangs off, and at a half one of two back-to-back shared events lost its
+    // name entirely (test/boards/cases/shared.js). A shelf that is shorter
+    // than the words it carries has solved the wrong problem.
     var pre = spec.corner * 0.6 + spec.markR;
+    pre = Math.min(pre, Math.max(spec.markR, (w.a1 - w.a0) * 0.75));
     var tp = ln._trunk.pts, dep = w.a0 - pre, lo = dep - dist - spec.corner, level = true;
     for (var vi = 0; vi < tp.length && level; vi++) {
       if (tp[vi][0] > lo && tp[vi][0] <= w.a0 + 0.5) level = false;
