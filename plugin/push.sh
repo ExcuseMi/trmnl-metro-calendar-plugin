@@ -31,10 +31,14 @@ ESBUILD="$ROOT/tools/node_modules/.bin/esbuild"
 # any deploy at all. Checked here rather than left to whoever is typing,
 # because the cost of getting it wrong is a half-built board on the wall and
 # the only way back is another push.
+# A settings.yml carrying any other id (or none: the first push registers
+# a new plugin and writes its id back) is a testing plugin, and a branch is
+# exactly where that belongs.
 BRANCH="$(git -C "$ROOT" branch --show-current 2>/dev/null || true)"
-if [ "$BRANCH" != "main" ]; then
-  echo "push.sh: on '${BRANCH:-a detached HEAD}', not main -- nothing was uploaded." >&2
-  echo "         The panel is fed from main only (AGENTS.md). Merge first." >&2
+PLUGIN_ID="$(sed -n 's/^id: *//p' "$HERE/src/settings.yml" | tr -d "'\"")"
+if [ "$BRANCH" != "main" ] && [ "$PLUGIN_ID" = "471753" ]; then
+  echo "push.sh: on '${BRANCH:-a detached HEAD}', not main, with the live plugin's id -- nothing was uploaded." >&2
+  echo "         The panel is fed from main only (AGENTS.md). Merge first, or blank the id for a testing plugin." >&2
   exit 1
 fi
 
@@ -70,4 +74,11 @@ for v in full half_horizontal half_vertical quadrant; do
 done
 
 (cd "$HERE" && echo "y" | trmnlp push)
+# A first push registers the plugin and writes its id into the squeezed
+# settings.yml; carry it into the copy the trap is about to put back.
+NEW_ID="$(sed -n 's/^id: *//p' "$HERE/src/settings.yml")"
+if [ -n "$NEW_ID" ] && [ -z "$PLUGIN_ID" ]; then
+  sed -i "2i id: $NEW_ID" "$BAK/settings.yml"
+  echo "push: registered as plugin $NEW_ID (written to settings.yml)"
+fi
 echo "push: done $(date '+%H:%M:%S')"
