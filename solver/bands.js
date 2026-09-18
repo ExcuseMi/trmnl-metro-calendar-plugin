@@ -975,6 +975,30 @@ function boardFor(spec, st) {
       } else {
         f.c0 = c + lift; f.c1 = f.c0 + nh;
       }
+      // ...AND NOT BY GOING UNDER IT, WHICH WAS ASKED AND MEASURED. "Why
+      // don't we just allow tunnels, wouldn't that have fixed all the
+      // issues? We did it for shelves, but your examples are connectors --
+      // [they] should already support tunnels."
+      //
+      // The grammar is there: an interchange bar tunnels beneath a rail and
+      // its caption with a hairline at each mouth, and a rail crossing a rail
+      // rubs out the one underneath. Built for a spur crossing a name -- the
+      // spur's ink and texture cut under the word, mouths at each end, the
+      // escapes below skipped -- it drew a board where "Team Standup" floated
+      // over WORK's rail with nothing joining it to the line it belongs to.
+      //
+      // A bar tunnels well because it is LONG: it runs on well past what it
+      // goes under, and the eye picks it up again. A shelf's leg is not long.
+      // It is the rail, one row, and the shelf, and the name is in that row,
+      // so the tunnel eats the junction rather than a crossing. Asked for a
+      // row's height of spur clear at each end of the cut -- the least that
+      // still reads as one shelf passing under a word -- exactly none of the
+      // 76 boards of the fixture matrix could take one. Measured loose, with
+      // the junction allowed to go: the demo sweep kept 17 more caption times
+      // and dropped three more people, because the boards that stopped
+      // needing a legend column stopped getting one.
+      //
+      // So the names move, and the column is what stops them having to.
       // A BRANCH STILL THROUGH THE WORDS, where neither side is clear of one:
       // the name steps in off the edge, past the branch, by no more than its
       // own width and only onto paper nothing else is on. "Work" under its
