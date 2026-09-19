@@ -52,12 +52,22 @@ module.exports = function (test, h) {
     assertEqual(n.items.map((i) => i.source), ['Het Nieuwsblad', 'School Wilgenhoek', 'Het Nieuwsblad', 'School Wilgenhoek']);
   });
 
+  test('"as many as fit on one row" travels as one row with the fit flag', async () => {
+    const { run } = runTransform(net({ 'https://x.example/rss': RSS }), NOW);
+    const r = await run(baseInput(NOW, { config_json: CAL, news_feeds: 'https://x.example/rss', news_count: 'fit' }));
+    assertEqual(r.data.news.max, 1);
+    assertEqual(r.data.news.fit, true);
+    assertEqual(r.data.news.items.length, 2);
+  });
+
   test('a feed that is not a feed, and one that is down, are left out', async () => {
     const { run } = runTransform(net({ 'https://x.example/rss': RSS, 'https://h.example/': '<html><body>hi</body></html>', 'https://d.example/': null }), NOW);
     const r = await run(baseInput(NOW, { config_json: CAL,
       news_feeds: 'https://h.example/\nhttps://d.example/\nhttps://x.example/rss' }));
     assertEqual(r.data.news.items.length, 2);
-    assertEqual(r.data.news.max, 3);
+    // the default is the one row of as many as fit
+    assertEqual(r.data.news.max, 1);
+    assertEqual(r.data.news.fit, true);
   });
 
   test('the last headlines are kept for a refresh on which every feed is down', async () => {

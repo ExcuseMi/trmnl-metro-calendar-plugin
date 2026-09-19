@@ -6605,7 +6605,7 @@ function specFor(metro, view, opts) {
   var footAlert = alert ? (tiny && String(alert.text || '').length > 28 ? 2 : 1) : 0;
   var newsRows = 0;
   if (newsIn) {
-    var newsMax = Math.max(1, Math.min(5, newsIn.max || 3));
+    var newsMax = newsIn.fit ? 1 : Math.max(1, Math.min(5, newsIn.max || 3));
     newsRows = Math.min(newsIn.items.length, tiny ? 1 : view.h >= 600 ? newsMax : Math.min(newsMax, 2));
   }
   function footHeight(nr) { return (footAlert || nr) ? Math.round(footAlert * rowH0 * 2.3 + nr * rowH0 * 1.25 + 8) : 0; }
@@ -6669,7 +6669,7 @@ function specFor(metro, view, opts) {
            edgeRingR: opts && opts.edgeRingR != null ? opts.edgeRingR : undefined,
            railRow: opts && opts.railRow != null ? opts.railRow : 0,
            // THE HEADLINES' BAND: rows and depth, at the foot of the map.
-           news: newsH ? { rows: newsRows, alertRows: footAlert, h: newsH, items: newsIn ? newsIn.items : [] } : null,
+           news: newsH ? { rows: newsRows, alertRows: footAlert, h: newsH, items: newsIn ? newsIn.items : [], fit: !!(newsIn && newsIn.fit) } : null,
            // THE BOARD'S OWN INK, DECLARED BEFORE THE SOLVE. See Furniture.
            // Everything here takes paper and cannot move, so the caption
            // search has to be told about it up front rather than have it
@@ -11746,27 +11746,56 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       cursor += Math.max(ar.offsetHeight, newsSpec.alertRows * rowH * 2.3) + 2 * S;
     }
     var rowStep = newsSpec.rows ? (nbH - cursor - 2 * S) / newsSpec.rows : 0;
-    newsSpec.items.slice(0, newsSpec.rows).forEach(function (it, i) {
-      var row = doc.createElement('div');
-      row.className = 'metro-gen metro-news-row flex flex--row flex--center-y gap--small absolute';
-      if (it.source) {
-        var src = doc.createElement('span');
-        src.className = 'metro-pill metro-pill--quiet label label--small text--bold';
-        // a tighter pill than the strip's: "less room round VRT NWS"
-        src.style.setProperty('--metro-pill-x', Math.round(3 * S) + 'px');
-        src.style.setProperty('--metro-pill-y', '1px');
-        src.textContent = it.source;
-        row.appendChild(src);
-      }
+    // THE SOURCE AS A SOLID PILL: paper with the name knocked out, the way
+    // the clock is on the strip ("invert the news source pill").
+    function sourcePill(it) {
+      var src = doc.createElement('span');
+      src.className = 'metro-pill label label--small text--bold';
+      // a tighter pill than the strip's: "less room round VRT NWS"
+      src.style.setProperty('--metro-pill-x', Math.round(3 * S) + 'px');
+      src.style.setProperty('--metro-pill-y', '1px');
+      src.textContent = it.source;
+      return src;
+    }
+    function headline(it) {
       var tx = doc.createElement('span');
       tx.className = 'metro-hour label' + nbSM + ' text--bold';
       tx.textContent = it.title;
+      return tx;
+    }
+    // ONE ROW, AS MANY AS FIT ("whatever fits into one line with
+    // separators"): the newest first, each with its source, a dot between
+    // them, and the row filled until the next would not fit. The first is
+    // cut to the row if it alone is too long.
+    var rows = newsSpec.fit && newsSpec.rows ? 1 : newsSpec.rows;
+    var itemsFor = newsSpec.fit ? [newsSpec.items] : newsSpec.items.slice(0, rows).map(function (it) { return [it]; });
+    itemsFor.forEach(function (group, i) {
+      var row = doc.createElement('div');
+      row.className = 'metro-gen metro-news-row flex flex--row flex--center-y gap--small absolute';
+      var first = group[0];
+      if (first.source) row.appendChild(sourcePill(first));
+      var tx = headline(first);
       row.appendChild(tx);
       nb.appendChild(row);
+      var it = first;
+      if (newsSpec.fit) {
+        for (var gi = 1; gi < group.length; gi++) {
+          var sep = doc.createElement('span');
+          sep.className = 'metro-hour label' + nbSM + ' text--bold';
+          sep.textContent = '\u00b7';
+          var more = [sep];
+          if (group[gi].source) more.push(sourcePill(group[gi]));
+          more.push(headline(group[gi]));
+          more.forEach(function (n) { row.appendChild(n); });
+          if (row.offsetWidth > nbMaxW) { more.forEach(function (n) { row.removeChild(n); }); break; }
+        }
+      }
       row.style.left = (6 * S) + 'px';
       row.style.top = Math.round(cursor + i * rowStep + (rowStep - row.offsetHeight) / 2) + 'px';
       // cut to the row: a measured width of zero is a ruler that cannot
       // measure (the offline harness), and then the words are left whole
+      // (in the one-row form only the first headline is ever cut: the rest
+      // were dropped whole above)
       var t = it.title, guard = 0;
       while (row.offsetWidth > nbMaxW && t.length > 8 && guard++ < 12) {
         var keep = Math.max(8, Math.floor(t.length * Math.min(0.92, nbMaxW / row.offsetWidth)) - 1);

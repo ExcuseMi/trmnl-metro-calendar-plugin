@@ -1243,7 +1243,7 @@ function specFor(metro, view, opts) {
   var footAlert = alert ? (tiny && String(alert.text || '').length > 28 ? 2 : 1) : 0;
   var newsRows = 0;
   if (newsIn) {
-    var newsMax = Math.max(1, Math.min(5, newsIn.max || 3));
+    var newsMax = newsIn.fit ? 1 : Math.max(1, Math.min(5, newsIn.max || 3));
     newsRows = Math.min(newsIn.items.length, tiny ? 1 : view.h >= 600 ? newsMax : Math.min(newsMax, 2));
   }
   function footHeight(nr) { return (footAlert || nr) ? Math.round(footAlert * rowH0 * 2.3 + nr * rowH0 * 1.25 + 8) : 0; }
@@ -1307,7 +1307,7 @@ function specFor(metro, view, opts) {
            edgeRingR: opts && opts.edgeRingR != null ? opts.edgeRingR : undefined,
            railRow: opts && opts.railRow != null ? opts.railRow : 0,
            // THE HEADLINES' BAND: rows and depth, at the foot of the map.
-           news: newsH ? { rows: newsRows, alertRows: footAlert, h: newsH, items: newsIn ? newsIn.items : [] } : null,
+           news: newsH ? { rows: newsRows, alertRows: footAlert, h: newsH, items: newsIn ? newsIn.items : [], fit: !!(newsIn && newsIn.fit) } : null,
            // THE BOARD'S OWN INK, DECLARED BEFORE THE SOLVE. See Furniture.
            // Everything here takes paper and cannot move, so the caption
            // search has to be told about it up front rather than have it

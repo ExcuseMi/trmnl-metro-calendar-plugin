@@ -82,6 +82,18 @@ module.exports = function (test, h) {
     assert(per >= nameH * 2.4 - 0.5 || rowsOf(crowded) === 0, 'the map is ' + Math.round(per) + 'px a line under ' + rowsOf(crowded) + ' row(s)');
   });
 
+  test('one row, as many as fit: the headlines string along a single row with their sources', () => {
+    const built = build(withNews(Object.assign({}, NEWS, { max: 1, fit: true })), 'x-landscape');
+    assert(built.spec.news && built.spec.news.rows === 1 && built.spec.news.fit, 'rows: ' + JSON.stringify(built.spec.news && [built.spec.news.rows, built.spec.news.fit]));
+    const rows = [...canvasOf(built).querySelector('.metro-news').querySelectorAll('.metro-news-row')];
+    assert(rows.length === 1, rows.length + ' rows');
+    // (the offline ruler measures nothing, so every headline fits)
+    const pills = rows[0].querySelectorAll('.metro-pill');
+    assert(pills.length === NEWS.items.length, pills.length + ' sources on the row');
+    assert(/Citadelpark.*\u00b7.*Pyjamadag/.test(rows[0].textContent), 'the headlines are not separated by a dot');
+    assert(pills[0].className.indexOf('metro-pill--quiet') < 0, 'the source pill is not solid');
+  });
+
   test('no news, no band, and the map keeps its foot', () => {
     const rep = layout(five, 'x-landscape');
     assert(!rep.spec.news, 'rows reserved for nothing');
