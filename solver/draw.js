@@ -3788,10 +3788,11 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       tx.textContent = it.title;
       return tx;
     }
-    // ONE ROW, AS MANY AS FIT ("whatever fits into one line with
-    // separators"): the newest first, each with its source, a dot between
-    // them, and the row filled until the next would not fit. The first is
-    // cut to the row if it alone is too long.
+    // ONE ROW, CLAMPED ("just clamp as many news headlines onto 1 line
+    // with a separator"): the newest first, each with its source, a dot
+    // between them, strung along the row and cut where the row ends. The
+    // last one on it ends in an ellipsis; one that would be left a stub of
+    // a few letters goes whole and the one before it is cut instead.
     var rows = newsSpec.fit && newsSpec.rows ? 1 : newsSpec.rows;
     var itemsFor = newsSpec.fit ? [newsSpec.items] : newsSpec.items.slice(0, rows).map(function (it) { return [it]; });
     // ONE SOURCE NEEDS NO NAMING ("if there's just one source, don't show
@@ -3808,7 +3809,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       var tx = headline(first);
       row.appendChild(tx);
       nb.appendChild(row);
-      var it = first;
+      var tail = [];
       if (newsSpec.fit) {
         for (var gi = 1; gi < group.length; gi++) {
           var sep = doc.createElement('span');
@@ -3816,22 +3817,29 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           sep.textContent = '\u00b7';
           var more = [sep];
           if (namePapers && group[gi].source) more.push(sourcePill(group[gi]));
-          more.push(headline(group[gi]));
+          var htx = headline(group[gi]);
+          more.push(htx);
           more.forEach(function (n) { row.appendChild(n); });
-          if (row.offsetWidth > nbMaxW) { more.forEach(function (n) { row.removeChild(n); }); break; }
+          tail.push({ nodes: more, tx: htx });
         }
       }
       row.style.left = (6 * S) + 'px';
       row.style.top = Math.round(cursor + i * rowStep + (rowStep - row.offsetHeight) / 2) + 'px';
       // cut to the row: a measured width of zero is a ruler that cannot
-      // measure (the offline harness), and then the words are left whole
-      // (in the one-row form only the first headline is ever cut: the rest
-      // were dropped whole above)
-      var t = it.title, guard = 0;
-      while (row.offsetWidth > nbMaxW && t.length > 8 && guard++ < 12) {
-        var keep = Math.max(8, Math.floor(t.length * Math.min(0.92, nbMaxW / row.offsetWidth)) - 1);
-        t = t.slice(0, keep).replace(/[\s\u00b7,:;\u2013-]+$/, '') + '\u2026';
-        tx.textContent = t;
+      // measure (the offline harness), and then the words are left whole.
+      // The cut is the last headline's, by the width it stands to lose; a
+      // stub shorter than eight letters is not worth its pill, so that
+      // headline comes off whole and the cut moves to the one before.
+      var guard = 0;
+      while (row.offsetWidth > nbMaxW && guard++ < 40) {
+        var last = tail.length ? tail[tail.length - 1] : null;
+        var ctx = last ? last.tx : tx, t = ctx.textContent.replace(/\u2026$/, '');
+        var over = row.offsetWidth - nbMaxW, perCh = ctx.offsetWidth / Math.max(1, t.length);
+        var keep = perCh > 0 ? t.length - Math.ceil(over / perCh) - 1 : Math.floor(t.length * 0.92) - 1;
+        if (last && keep < 8) { last.nodes.forEach(function (n) { row.removeChild(n); }); tail.pop(); continue; }
+        keep = Math.max(8, Math.min(t.length - 1, keep));
+        if (!last && t.length <= 8) break;
+        ctx.textContent = t.slice(0, keep).replace(/[\s\u00b7,:;\u2013-]+$/, '') + '\u2026';
       }
     });
   }
