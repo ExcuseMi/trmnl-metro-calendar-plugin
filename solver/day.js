@@ -1155,7 +1155,9 @@ function specFor(metro, view, opts) {
   // took the banner's height a second time as an empty band over the map.
   var alert = opts.alert !== undefined ? opts.alert : (metro.service_alert || null);
   var rowH0 = opts.rowH || 12;
-  var alertH = alert ? rowH0 + 10 : 0;
+  // (the alert takes no band of its own any more: it is the first row of
+  // the box along the foot, with the headlines -- see newsH below)
+  var alertH = 0;
   // THE STRIP IS AS DEEP AS WHAT IS IN IT.
   //
   // This was a number the caller passed, and a caller guessing is a caller
@@ -1223,15 +1225,30 @@ function specFor(metro, view, opts) {
   // none standing up (a band across a standing board's foot would cut the
   // hours, not the cross axis). Reserved here, off the cross extent, so
   // the rails end above it and nothing is drawn under it.
+  // ...AND THE WEATHER ALERT IS ITS FIRST ROW ("can weather alert combine
+  // with news alerts?"): one box at the foot, the alert above the
+  // headlines, on a standing board too, where it comes off the axis
+  // instead. A long translation wraps on a slot, so the alert has two rows
+  // there.
   var newsIn = metro.news && metro.news.items && metro.news.items.length ? metro.news : null;
+  var footAlert = alert ? (tiny && String(alert.text || '').length > 28 ? 2 : 1) : 0;
   var newsRows = 0;
-  if (newsIn && !opts.standing) {
+  if (newsIn) {
     var newsMax = Math.max(1, Math.min(5, newsIn.max || 3));
     newsRows = Math.min(newsIn.items.length, tiny ? 1 : view.h >= 600 ? newsMax : Math.min(newsMax, 2));
   }
-  var newsH = newsRows ? Math.round(newsRows * rowH0 * 1.25 + 8) : 0;
+  function footHeight(nr) { return (footAlert || nr) ? Math.round(footAlert * rowH0 * 2.3 + nr * rowH0 * 1.25 + 8) : 0; }
+  // THE TRACKS COME FIRST ("does the calendar tracks always come first?"):
+  // the headlines give up rows until every line keeps two and a half
+  // names' depth of map, a little more than a flat slot's; the alert keeps
+  // its row, it is about whether the map can be trusted.
+  if (!opts.standing) {
+    while (newsRows > 0 && (view.h - pad - stripH - skyH - footHeight(newsRows)) / Math.max(1, legendN) < nameH0 * 2.4) newsRows--;
+  }
+  var newsH = footHeight(newsRows);
   var cross = { c0: (opts.bandLo != null ? opts.bandLo : stripH) + alertH + skyH,
-                c1: view.h - pad - newsH };
+                c1: view.h - pad - (opts.standing ? 0 : newsH) };
+  if (opts.standing && newsH) { axis.a1 -= newsH; if (axis.edge1 != null) axis.edge1 -= newsH; }
   opts = Object.assign({}, opts, { showWeather: wantWx, stripH: stripH, richWx: richWx, levelNames: levelNames,
                                    skyH: skyH, sky: skyMarks, railRow: railRow });
   var scale = scaleFor({ from: metro.day_start_min, to: metro.day_end_min,
@@ -1278,7 +1295,7 @@ function specFor(metro, view, opts) {
            edgeRingR: opts && opts.edgeRingR != null ? opts.edgeRingR : undefined,
            railRow: opts && opts.railRow != null ? opts.railRow : 0,
            // THE HEADLINES' BAND: rows and depth, at the foot of the map.
-           news: newsRows ? { rows: newsRows, h: newsH, items: newsIn.items } : null,
+           news: newsH ? { rows: newsRows, alertRows: footAlert, h: newsH, items: newsIn ? newsIn.items : [] } : null,
            // THE BOARD'S OWN INK, DECLARED BEFORE THE SOLVE. See Furniture.
            // Everything here takes paper and cannot move, so the caption
            // search has to be told about it up front rather than have it

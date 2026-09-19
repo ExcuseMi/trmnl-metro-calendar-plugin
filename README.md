@@ -25,7 +25,9 @@ No server of your own.
 - Today's panel meets tomorrow's at 45 degrees, the angle the map's own
   branches take.
 - Headlines along the foot of the map, from any RSS or Atom feeds you name
-  in the News setting: the local paper, the school, the club. A free day
+  in the News setting: the local paper, the school, the club. The weather
+  alert, when you switch it on, is the first row of the same box, and the
+  headlines give up rows before the map does. A free day
   says so in the middle of the map, and the clock rides the strip as a
   little train (the metro silhouette is [SVG Repo's](https://www.svgrepo.com/svg/420587/metro-metropolitan-subway),
   CC0).

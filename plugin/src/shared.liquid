@@ -134,64 +134,12 @@
     translations are not the same length and a German banner that would
     not fit on one line should take two rather than be cut.
   {%- endcomment -%}
-  {% if data.service_alert %}
-    <div class="metro-banner title inverse bg--canvas rounded--small flex flex--row flex--left flex--center-y gap--small flex-none w--full px--3 py--1"
-         data-metro-alert="{{ data.service_alert.kind }}">
-      {%- if data.service_alert.icon -%}
-        <img class="metro-banner-icon image--adaptive flex-none" src="{{ data.service_alert.icon }}" alt=""
-             data-adaptive="true" style="--framework-icon-src: url('{{ data.service_alert.icon }}')">
-      {%- elsif data.service_alert.kind == "feed" -%}
-        {%- comment -%}
-          A CALENDAR GONE A DAY TAKES THIS BAND (see FEED_DOWN_LOUD_AFTER_S in
-          transform.js), and it is the one alert with nothing to fetch: the
-          weather's glyphs come off trmnl.com, and a board whose network is
-          what failed is the worst possible moment to want another request.
-          Drawn, in the band's own paper, at the size the glyphs are.
-        {%- endcomment -%}
-        <svg class="metro-banner-icon flex-none" viewBox="0 0 16 16" aria-hidden="true">
-          <path d="M8 1.5 15 14H1z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
-          <path d="M8 6v3.6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-          <circle cx="8" cy="11.9" r="0.95" fill="currentColor"/>
-        </svg>
-      {%- endif -%}
-      {%- comment -%}
-        The same sentence, set in three weights: what is coming in bold, the
-        clock plain, the words between them quiet.
-
-        NO LABEL IN FRONT OF IT. The band used to open with one reading
-        "Weather", which is the one thing about a banner that can only ever
-        be about the weather that nobody has to be told -- there is no other
-        kind of alert, so it named the obvious and spent the width doing it.
-        The weather's own word carries that now, in bold. It was tried as a
-        badge, `.metro-pill`, white with the word knocked out of it: on the
-        hour strip that reads as a different KIND of thing among the numbers,
-        and in a line of running text it reads as a button.
-
-        THE QUIET ONE IS DARKER WHERE THE PANEL CAN SHOW IT. `text--muted` is
-        the framework's context-aware grey and on this inverted banner it
-        computes to #ddd -- thirteen per cent off white, which is a shade a
-        4-bit panel can just about hold and a 1-bit one rounds straight back
-        to white. So the grey is deepened to #aaa on the depths that have the
-        levels for it, and 1-bit is left alone: there, any grey either
-        disappears or dithers into mush at this size, and the bold carries
-        the hierarchy on its own. transform.js splits it at
-        its own placeholders (see `segments`), because which piece is a time
-        and which is a unit differs per sentence and the ORDER of them is the
-        translator's. `text` is still there whole, for anything that wants the
-        line rather than the pieces, and this falls back to it.
-      {%- endcomment -%}
-      <span class="metro-banner-text">
-        {%- if data.service_alert.parts -%}
-          {%- for p in data.service_alert.parts -%}
-            {%- if p.s == "b" -%}<span class="text--bold">{{ p.t }}</span>
-            {%- elsif p.s == "q" -%}<span class="metro-when text--muted 2bit:text--gray-30 4bit:text--gray-30">{{ p.t }}</span>
-            {%- else -%}{{ p.t }}
-            {%- endif -%}
-          {%- endfor -%}
-        {%- else -%}{{ data.service_alert.text }}{%- endif -%}
-      </span>
-    </div>
-  {% endif %}
+  {%- comment -%}
+    THE BANNER IS DRAWN BY THE SCRIPT NOW, as the first row of the box along
+    the foot of the map that the headlines share (solver/draw.js): one box,
+    not a band and a box. Its classes and its pieces are the same, so what
+    measured it still can.
+  {%- endcomment -%}
 
 <style>
   /* The banner's colours, spacing and rounding come from the framework's
@@ -6569,7 +6517,9 @@ function specFor(metro, view, opts) {
   // took the banner's height a second time as an empty band over the map.
   var alert = opts.alert !== undefined ? opts.alert : (metro.service_alert || null);
   var rowH0 = opts.rowH || 12;
-  var alertH = alert ? rowH0 + 10 : 0;
+  // (the alert takes no band of its own any more: it is the first row of
+  // the box along the foot, with the headlines -- see newsH below)
+  var alertH = 0;
   // THE STRIP IS AS DEEP AS WHAT IS IN IT.
   //
   // This was a number the caller passed, and a caller guessing is a caller
@@ -6637,15 +6587,30 @@ function specFor(metro, view, opts) {
   // none standing up (a band across a standing board's foot would cut the
   // hours, not the cross axis). Reserved here, off the cross extent, so
   // the rails end above it and nothing is drawn under it.
+  // ...AND THE WEATHER ALERT IS ITS FIRST ROW ("can weather alert combine
+  // with news alerts?"): one box at the foot, the alert above the
+  // headlines, on a standing board too, where it comes off the axis
+  // instead. A long translation wraps on a slot, so the alert has two rows
+  // there.
   var newsIn = metro.news && metro.news.items && metro.news.items.length ? metro.news : null;
+  var footAlert = alert ? (tiny && String(alert.text || '').length > 28 ? 2 : 1) : 0;
   var newsRows = 0;
-  if (newsIn && !opts.standing) {
+  if (newsIn) {
     var newsMax = Math.max(1, Math.min(5, newsIn.max || 3));
     newsRows = Math.min(newsIn.items.length, tiny ? 1 : view.h >= 600 ? newsMax : Math.min(newsMax, 2));
   }
-  var newsH = newsRows ? Math.round(newsRows * rowH0 * 1.25 + 8) : 0;
+  function footHeight(nr) { return (footAlert || nr) ? Math.round(footAlert * rowH0 * 2.3 + nr * rowH0 * 1.25 + 8) : 0; }
+  // THE TRACKS COME FIRST ("does the calendar tracks always come first?"):
+  // the headlines give up rows until every line keeps two and a half
+  // names' depth of map, a little more than a flat slot's; the alert keeps
+  // its row, it is about whether the map can be trusted.
+  if (!opts.standing) {
+    while (newsRows > 0 && (view.h - pad - stripH - skyH - footHeight(newsRows)) / Math.max(1, legendN) < nameH0 * 2.4) newsRows--;
+  }
+  var newsH = footHeight(newsRows);
   var cross = { c0: (opts.bandLo != null ? opts.bandLo : stripH) + alertH + skyH,
-                c1: view.h - pad - newsH };
+                c1: view.h - pad - (opts.standing ? 0 : newsH) };
+  if (opts.standing && newsH) { axis.a1 -= newsH; if (axis.edge1 != null) axis.edge1 -= newsH; }
   opts = Object.assign({}, opts, { showWeather: wantWx, stripH: stripH, richWx: richWx, levelNames: levelNames,
                                    skyH: skyH, sky: skyMarks, railRow: railRow });
   var scale = scaleFor({ from: metro.day_start_min, to: metro.day_end_min,
@@ -6692,7 +6657,7 @@ function specFor(metro, view, opts) {
            edgeRingR: opts && opts.edgeRingR != null ? opts.edgeRingR : undefined,
            railRow: opts && opts.railRow != null ? opts.railRow : 0,
            // THE HEADLINES' BAND: rows and depth, at the foot of the map.
-           news: newsRows ? { rows: newsRows, h: newsH, items: newsIn.items } : null,
+           news: newsH ? { rows: newsRows, alertRows: footAlert, h: newsH, items: newsIn ? newsIn.items : [] } : null,
            // THE BOARD'S OWN INK, DECLARED BEFORE THE SOLVE. See Furniture.
            // Everything here takes paper and cannot move, so the caption
            // search has to be told about it up front rather than have it
@@ -10494,15 +10459,23 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       var room = stripRun / (STRIP_SM ? 3 : 2.4);
       var dd = ((spec.metro && spec.metro.days) || [])[dayIx];
       if (dd && spec.scale) room = Math.min(room, spec.scale.at(Math.min(dd.end_min, spec.metro.day_end_min)) - fx.a0);
+      // ...and on today's panel the title row runs on over the slope, so a
+      // badge squeezed at the midnight may use that too (see slantAt).
+      if (dayIx === 0 && slantW) room += slantAt(rowH * 1.6 + 4 * S);
       var forms0 = hol ? (hol.day_label ? [2, 1, 0] : [1, 0]) : [0];
       // THE TITLE GIVES WAY FIRST: "Today" is the one part of the badge the
       // strip already says elsewhere (the clock is on it), so a squeezed badge
       // loses the word before it loses which day of a holiday this is.
       var wantTitle = titleRoom && spec.metro && spec.metro.now_min != null && dayIx <= 1;
-      var forms = [], titled = [];
+      // ...AND THE DATE STEPS UP WHEN THE TITLE HAS GONE. Without "Today"
+      // in front of it the small outlined date was "like a secondary label
+      // without a primary one": on a panel too narrow for both, the date is
+      // set in the title's own size, and only then, narrower still, as the
+      // tag.
+      var forms = [], mode = [];
       forms0.forEach(function (fm) {
-        if (wantTitle) { forms.push(fm); titled.push(true); }
-        forms.push(fm); titled.push(false);
+        if (wantTitle) { forms.push(fm); mode.push('title'); forms.push(fm); mode.push('big'); }
+        forms.push(fm); mode.push('pill');
       });
       var badge = null;
       for (var fi = 0; fi < forms.length; fi++) {
@@ -10514,7 +10487,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         // own day, and only when that day is today (it has a clock).
         // ...AND "TOMORROW" on the day a rolling board reaches into, which is
         // the question a board read at nine at night is being asked.
-        if (titled[fi]) {
+        if (mode[fi] === 'title') {
           var tt = doc.createElement('span');
           // a word's space from the date: "Today and the date too pushed together"
           tt.className = 'metro-today value value--small text--bold mr--3';
@@ -10525,7 +10498,8 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         var d = doc.createElement('span');
         // an outlined tag on every day, so the clock's solid pill is the one
         // solid mark on the strip; small beside a title, the strip's size alone
-        d.className = 'metro-axis-note metro-date metro-pill metro-pill--quiet' + (titled[fi] ? ' label label--small' : ' label' + STRIP_SM) + ' text--bold';
+        d.className = mode[fi] === 'big' ? 'metro-today metro-date value value--small text--bold'
+          : 'metro-axis-note metro-date metro-pill metro-pill--quiet' + (mode[fi] === 'title' ? ' label label--small' : ' label' + STRIP_SM) + ' text--bold';
         d.textContent = fx.text;
         badge.appendChild(d);
         if (forms[fi] > 0) {
@@ -11677,7 +11651,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // rows live INSIDE the ink panel, the way the strip's words are moved into
   // theirs, so the framework's `inverse` turns them to paper.
   var newsSpec = spec.news;
-  if (newsSpec && newsSpec.rows && horizontal) {
+  if (newsSpec && (newsSpec.rows || newsSpec.alertRows)) {
     // A ROUNDED BOX, set in a little from the paper's edges ("maybe a
     // rounded--small box for the news"), not a bar flush to them: the
     // display is a thing hung on the wall, not the wall.
@@ -11691,7 +11665,52 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     nbRail.style.fill = INK;
     put(nbRail, 'news');
     var nbSM = (spec.oneName || !horizontal) ? ' label--small' : '';
-    var rowStep = (nbH - 4 * S) / newsSpec.rows, nbMaxW = nbW - 16 * S;
+    var cursor = 2 * S, nbMaxW = nbW - 16 * S;
+    // THE WEATHER ALERT, FIRST. The banner that was a band of its own under
+    // the map is the box's first row: the same classes, icon and pieces
+    // (the thing bold, the clock quiet), and it may wrap where a slot's
+    // width makes it, which the row is deep enough for there.
+    var al = spec.metro && spec.metro.service_alert;
+    if (al && newsSpec.alertRows) {
+      var ar = doc.createElement('div');
+      // (the banner's own size on every panel, a slot included: it is the
+      // one sentence on the board, and the long translations wrap there)
+      ar.className = 'metro-gen metro-banner metro-news-row title inverse bg--canvas rounded--small flex flex--row flex--left flex--center-y gap--small absolute';
+      ar.setAttribute('data-metro-alert', al.kind || '');
+      if (al.icon) {
+        var ai = doc.createElement('img');
+        ai.className = 'metro-banner-icon image--adaptive flex-none';
+        ai.src = al.icon;
+        ai.style.setProperty('--framework-icon-src', 'url("' + al.icon + '")');
+        ai.setAttribute('data-adaptive', 'true');
+        ar.appendChild(ai);
+      } else if (al.kind === 'feed') {
+        // a calendar gone a day: the one alert with nothing to fetch
+        var fs = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-banner-icon flex-none', 'aria-hidden': 'true' });
+        fs.appendChild(svgEl(doc, 'path', { d: 'M8 1.5 15 14H1z', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linejoin': 'round' }));
+        fs.appendChild(svgEl(doc, 'path', { d: 'M8 6v3.6', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }));
+        fs.appendChild(svgEl(doc, 'circle', { cx: 8, cy: 11.9, r: 0.95, fill: 'currentColor' }));
+        ar.appendChild(fs);
+      }
+      var at = doc.createElement('span');
+      at.className = 'metro-banner-text';
+      if (al.parts && al.parts.length) {
+        al.parts.forEach(function (pc) {
+          if (pc.s === 'b' || pc.s === 'q') {
+            var ps = doc.createElement('span');
+            ps.className = pc.s === 'b' ? 'text--bold' : 'metro-when text--muted 2bit:text--gray-30 4bit:text--gray-30';
+            ps.textContent = pc.t;
+            at.appendChild(ps);
+          } else at.appendChild(doc.createTextNode(pc.t));
+        });
+      } else at.textContent = al.text || '';
+      ar.appendChild(at);
+      nb.appendChild(ar);
+      ar.style.left = (8 * S) + 'px'; ar.style.top = cursor + 'px';
+      ar.style.width = nbMaxW + 'px';
+      cursor += Math.max(ar.offsetHeight, newsSpec.alertRows * rowH * 2.3) + 2 * S;
+    }
+    var rowStep = newsSpec.rows ? (nbH - cursor - 2 * S) / newsSpec.rows : 0;
     newsSpec.items.slice(0, newsSpec.rows).forEach(function (it, i) {
       var row = doc.createElement('div');
       row.className = 'metro-gen metro-news-row flex flex--row flex--center-y gap--small absolute';
@@ -11707,7 +11726,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       row.appendChild(tx);
       nb.appendChild(row);
       row.style.left = (8 * S) + 'px';
-      row.style.top = Math.round(2 * S + i * rowStep + (rowStep - row.offsetHeight) / 2) + 'px';
+      row.style.top = Math.round(cursor + i * rowStep + (rowStep - row.offsetHeight) / 2) + 'px';
       // cut to the row: a measured width of zero is a ruler that cannot
       // measure (the offline harness), and then the words are left whole
       var t = it.title, guard = 0;
@@ -11941,9 +11960,6 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
         pad: Math.round(4 * S), rowH: rowH, cell: Math.round(base * 0.55),
         // Named once on a half or a quadrant (1 is the full view).
         oneName: (canvas.getAttribute('data-metro-view') || '1') !== '1',
-        // The alert is a sibling div, so the canvas is already shorter by
-        // its height; reserving room here as well would take it twice.
-        alert: null,
         measure: function (ev) { return measure(ev, { timeText: timeText }); }
       });
       // the badge's ruler has done its measuring, inside specFor

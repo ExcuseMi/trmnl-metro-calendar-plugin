@@ -22,10 +22,12 @@ module.exports = function (test, h) {
   const withNews = (news) => Object.assign({}, five.metro, { news: news || NEWS });
   const canvasOf = (built) => built.doc.querySelector('.metro-canvas');
 
-  for (const [v, rows] of [['x-landscape', 3], ['og-landscape', 2], ['og-quadrant', 1]]) {
+  // (five lines on a quadrant have no row to spare: the tracks come first)
+  for (const [v, rows] of [['x-landscape', 3], ['og-landscape', 2], ['og-quadrant', 0]]) {
     test('the headlines take a band at the foot, ' + rows + ' row(s) on ' + v, () => {
       const built = build(withNews(), v);
       const band = built.spec.news;
+      if (!rows) { assert(!band, 'a box on a panel with no row to spare: ' + JSON.stringify(band)); return; }
       assert(band && band.rows === rows, 'rows: ' + (band && band.rows));
       const top = built.view.H - band.h;
       assert(built.spec.cross.c1 <= top + 0.5, 'the map runs under the band: ' + built.spec.cross.c1 + ' > ' + top);
@@ -49,6 +51,37 @@ module.exports = function (test, h) {
     assert(band.className.indexOf('inverse') >= 0, 'the band is not ink');
   });
 
+  test('a weather alert is the first row of the box, above the headlines', () => {
+    const RAIN = { kind: 'rain', icon: 'https://trmnl.com/images/plugins/weather/wi-rain.svg',
+      text: 'Rain from 14:00 until 17:00 (80%)',
+      parts: [{ t: 'Rain', s: 'b' }, { t: ' from ', s: 'q' }, { t: '14:00', s: '' }, { t: ' until ', s: 'q' }, { t: '17:00', s: '' }, { t: ' (80%)', s: 'q' }] };
+    const built = build(Object.assign(withNews(), { service_alert: RAIN }), 'x-landscape');
+    assert(built.spec.news && built.spec.news.alertRows === 1 && built.spec.news.rows === 3, 'rows: ' + JSON.stringify(built.spec.news && [built.spec.news.alertRows, built.spec.news.rows]));
+    const box = canvasOf(built).querySelector('.metro-news');
+    const rows = [...box.querySelectorAll('.metro-news-row')];
+    assert(rows.length === 4, rows.length + ' rows');
+    assert(rows[0].className.indexOf('metro-banner') >= 0 && rows[0].getAttribute('data-metro-alert') === 'rain', 'the alert is not the first row');
+    assert(rows[0].querySelector('.metro-banner-text').textContent === RAIN.text, 'the alert text is not whole');
+    assert(rows[0].querySelector('.metro-banner-icon'), 'the alert has no icon');
+    // ...and the alert alone still makes a box, with no feeds at all
+    const only = build(Object.assign({}, five.metro, { service_alert: RAIN }), 'x-landscape');
+    assert(only.spec.news && only.spec.news.alertRows === 1 && only.spec.news.rows === 0, 'no box for an alert without news');
+    assert(canvasOf(only).querySelector('.metro-news .metro-banner'), 'the alert was not drawn');
+  });
+
+  test('the tracks come first: the headlines give up rows on a crowded panel', () => {
+    const seven = fixtures.find((f) => f.name === 'seven-lines');
+    const crowded = build(Object.assign({}, seven.metro, { news: NEWS }), 'og-landscape');
+    const roomy = build(withNews(), 'og-landscape');
+    const rowsOf = (b) => (b.spec.news ? b.spec.news.rows : 0);
+    assert(rowsOf(roomy) === 2, 'five lines on an OG should hold two rows, got ' + rowsOf(roomy));
+    assert(rowsOf(crowded) < rowsOf(roomy), 'seven lines on an OG kept ' + rowsOf(crowded) + ' row(s), as many as five');
+    // every line keeps at least three names' depth of map
+    const nameH = crowded.spec.nameH || 18;
+    const per = (crowded.spec.cross.c1 - crowded.spec.cross.c0) / seven.metro.legend.length;
+    assert(per >= nameH * 2.4 - 0.5 || rowsOf(crowded) === 0, 'the map is ' + Math.round(per) + 'px a line under ' + rowsOf(crowded) + ' row(s)');
+  });
+
   test('no news, no band, and the map keeps its foot', () => {
     const rep = layout(five, 'x-landscape');
     assert(!rep.spec.news, 'rows reserved for nothing');
@@ -57,9 +90,13 @@ module.exports = function (test, h) {
     assert(built.spec.cross.c1 >= built.view.H - 12, 'the map lost its foot');
   });
 
-  test('a board standing up draws no band', () => {
+  test('a board standing up draws the box off the end of its axis', () => {
     const built = build(withNews(), 'x-portrait');
-    assert(!built.spec.news && !canvasOf(built).querySelector('.metro-news'), 'a band across a standing board');
+    const box = built.spec.news;
+    assert(box && box.rows >= 1, 'no box on a standing board');
+    assert(canvasOf(built).querySelector('.metro-news'), 'the box was not drawn');
+    // the axis runs down the panel; it ends above the box
+    assert(built.spec.axis.a1 <= built.view.H - box.h + 0.5, 'the axis runs under the box: ' + built.spec.axis.a1 + ' vs ' + (built.view.H - box.h));
   });
 
   test('a free day says so, and a busy one does not', () => {

@@ -2496,15 +2496,23 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       var room = stripRun / (STRIP_SM ? 3 : 2.4);
       var dd = ((spec.metro && spec.metro.days) || [])[dayIx];
       if (dd && spec.scale) room = Math.min(room, spec.scale.at(Math.min(dd.end_min, spec.metro.day_end_min)) - fx.a0);
+      // ...and on today's panel the title row runs on over the slope, so a
+      // badge squeezed at the midnight may use that too (see slantAt).
+      if (dayIx === 0 && slantW) room += slantAt(rowH * 1.6 + 4 * S);
       var forms0 = hol ? (hol.day_label ? [2, 1, 0] : [1, 0]) : [0];
       // THE TITLE GIVES WAY FIRST: "Today" is the one part of the badge the
       // strip already says elsewhere (the clock is on it), so a squeezed badge
       // loses the word before it loses which day of a holiday this is.
       var wantTitle = titleRoom && spec.metro && spec.metro.now_min != null && dayIx <= 1;
-      var forms = [], titled = [];
+      // ...AND THE DATE STEPS UP WHEN THE TITLE HAS GONE. Without "Today"
+      // in front of it the small outlined date was "like a secondary label
+      // without a primary one": on a panel too narrow for both, the date is
+      // set in the title's own size, and only then, narrower still, as the
+      // tag.
+      var forms = [], mode = [];
       forms0.forEach(function (fm) {
-        if (wantTitle) { forms.push(fm); titled.push(true); }
-        forms.push(fm); titled.push(false);
+        if (wantTitle) { forms.push(fm); mode.push('title'); forms.push(fm); mode.push('big'); }
+        forms.push(fm); mode.push('pill');
       });
       var badge = null;
       for (var fi = 0; fi < forms.length; fi++) {
@@ -2516,7 +2524,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         // own day, and only when that day is today (it has a clock).
         // ...AND "TOMORROW" on the day a rolling board reaches into, which is
         // the question a board read at nine at night is being asked.
-        if (titled[fi]) {
+        if (mode[fi] === 'title') {
           var tt = doc.createElement('span');
           // a word's space from the date: "Today and the date too pushed together"
           tt.className = 'metro-today value value--small text--bold mr--3';
@@ -2527,7 +2535,8 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         var d = doc.createElement('span');
         // an outlined tag on every day, so the clock's solid pill is the one
         // solid mark on the strip; small beside a title, the strip's size alone
-        d.className = 'metro-axis-note metro-date metro-pill metro-pill--quiet' + (titled[fi] ? ' label label--small' : ' label' + STRIP_SM) + ' text--bold';
+        d.className = mode[fi] === 'big' ? 'metro-today metro-date value value--small text--bold'
+          : 'metro-axis-note metro-date metro-pill metro-pill--quiet' + (mode[fi] === 'title' ? ' label label--small' : ' label' + STRIP_SM) + ' text--bold';
         d.textContent = fx.text;
         badge.appendChild(d);
         if (forms[fi] > 0) {
@@ -3679,7 +3688,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // rows live INSIDE the ink panel, the way the strip's words are moved into
   // theirs, so the framework's `inverse` turns them to paper.
   var newsSpec = spec.news;
-  if (newsSpec && newsSpec.rows && horizontal) {
+  if (newsSpec && (newsSpec.rows || newsSpec.alertRows)) {
     // A ROUNDED BOX, set in a little from the paper's edges ("maybe a
     // rounded--small box for the news"), not a bar flush to them: the
     // display is a thing hung on the wall, not the wall.
@@ -3693,7 +3702,52 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     nbRail.style.fill = INK;
     put(nbRail, 'news');
     var nbSM = (spec.oneName || !horizontal) ? ' label--small' : '';
-    var rowStep = (nbH - 4 * S) / newsSpec.rows, nbMaxW = nbW - 16 * S;
+    var cursor = 2 * S, nbMaxW = nbW - 16 * S;
+    // THE WEATHER ALERT, FIRST. The banner that was a band of its own under
+    // the map is the box's first row: the same classes, icon and pieces
+    // (the thing bold, the clock quiet), and it may wrap where a slot's
+    // width makes it, which the row is deep enough for there.
+    var al = spec.metro && spec.metro.service_alert;
+    if (al && newsSpec.alertRows) {
+      var ar = doc.createElement('div');
+      // (the banner's own size on every panel, a slot included: it is the
+      // one sentence on the board, and the long translations wrap there)
+      ar.className = 'metro-gen metro-banner metro-news-row title inverse bg--canvas rounded--small flex flex--row flex--left flex--center-y gap--small absolute';
+      ar.setAttribute('data-metro-alert', al.kind || '');
+      if (al.icon) {
+        var ai = doc.createElement('img');
+        ai.className = 'metro-banner-icon image--adaptive flex-none';
+        ai.src = al.icon;
+        ai.style.setProperty('--framework-icon-src', 'url("' + al.icon + '")');
+        ai.setAttribute('data-adaptive', 'true');
+        ar.appendChild(ai);
+      } else if (al.kind === 'feed') {
+        // a calendar gone a day: the one alert with nothing to fetch
+        var fs = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-banner-icon flex-none', 'aria-hidden': 'true' });
+        fs.appendChild(svgEl(doc, 'path', { d: 'M8 1.5 15 14H1z', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linejoin': 'round' }));
+        fs.appendChild(svgEl(doc, 'path', { d: 'M8 6v3.6', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }));
+        fs.appendChild(svgEl(doc, 'circle', { cx: 8, cy: 11.9, r: 0.95, fill: 'currentColor' }));
+        ar.appendChild(fs);
+      }
+      var at = doc.createElement('span');
+      at.className = 'metro-banner-text';
+      if (al.parts && al.parts.length) {
+        al.parts.forEach(function (pc) {
+          if (pc.s === 'b' || pc.s === 'q') {
+            var ps = doc.createElement('span');
+            ps.className = pc.s === 'b' ? 'text--bold' : 'metro-when text--muted 2bit:text--gray-30 4bit:text--gray-30';
+            ps.textContent = pc.t;
+            at.appendChild(ps);
+          } else at.appendChild(doc.createTextNode(pc.t));
+        });
+      } else at.textContent = al.text || '';
+      ar.appendChild(at);
+      nb.appendChild(ar);
+      ar.style.left = (8 * S) + 'px'; ar.style.top = cursor + 'px';
+      ar.style.width = nbMaxW + 'px';
+      cursor += Math.max(ar.offsetHeight, newsSpec.alertRows * rowH * 2.3) + 2 * S;
+    }
+    var rowStep = newsSpec.rows ? (nbH - cursor - 2 * S) / newsSpec.rows : 0;
     newsSpec.items.slice(0, newsSpec.rows).forEach(function (it, i) {
       var row = doc.createElement('div');
       row.className = 'metro-gen metro-news-row flex flex--row flex--center-y gap--small absolute';
@@ -3709,7 +3763,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       row.appendChild(tx);
       nb.appendChild(row);
       row.style.left = (8 * S) + 'px';
-      row.style.top = Math.round(2 * S + i * rowStep + (rowStep - row.offsetHeight) / 2) + 'px';
+      row.style.top = Math.round(cursor + i * rowStep + (rowStep - row.offsetHeight) / 2) + 'px';
       // cut to the row: a measured width of zero is a ruler that cannot
       // measure (the offline harness), and then the words are left whole
       var t = it.title, guard = 0;

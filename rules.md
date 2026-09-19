@@ -130,6 +130,11 @@ applies when something changes.
    earlier" was its twin at the leading edge and is no longer drawn; the
    wash over the past says it.)
 
+2o. **A date without its title steps up.** Without "Today" in front of it
+   the small outlined date read as "a secondary label without a primary
+   one": a badge too wide for its panel with the title tries the date in
+   the title's own size before it falls back to the tag, and on today's
+   panel it may use the slope's room (2l) for the title.
 2l. **The days meet at 45 degrees.** Today's ink panel does not stop square
    at the midnight: its top runs on over tomorrow's paper and its edge comes
    down to the cut at the strip's rail on the diagonal every branch on the
@@ -159,6 +164,13 @@ applies when something changes.
    its row is cut with an ellipsis, never wrapped. The transform reads the
    feeds, newest first and the feeds in turn, and keeps the last good
    headlines for a refresh on which nothing answers.
+   THE WEATHER ALERT IS ITS FIRST ROW: one box, not a band and a box, with
+   the alert's own classes and pieces (the thing bold, the clock quiet), two
+   rows deep on a slot where a long translation wraps. The box is drawn on
+   a standing board too, off the axis there.
+   THE TRACKS COME FIRST: the headlines give up rows until every line keeps
+   three names' depth of map; the alert keeps its row, it is about whether
+   the map can be trusted.
 2j. **The clock's mark on the strip is a little train**: SVG Repo's metro
    silhouette (svgrepo.com/svg/420587, CC0), in paper on the ink panel with
    its floor on the strip's rail under the clock pill, facing the way the
