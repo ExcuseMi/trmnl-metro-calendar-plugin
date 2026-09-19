@@ -149,6 +149,15 @@ applies when something changes.
    a one-row card more room: on a full panel the row under the title was
    empty while the card beside the date cut "Shift Handover" to
    "Shift..." ("restructure header to use all the space").
+2p. **A person keeps their style.** Textures and shades go down a ladder
+   by the legend's order, and the order moves with the day; a board the
+   household had learned to read overnight said one person was another.
+   The transform gives each person a rung once, keeps it in the saved state
+   by name, and hands it back while they are on the board ("as long the
+   tracks didn't change, reuse the once assigned track styles"). Somebody
+   new takes the lowest free rung; a shared calendar's ladder line takes
+   none. The names of the days and months come from the language table
+   too, since the runtime's Intl may know English only.
 2n. **The strip's last hour is labelled only at a regular step from the
    one before it.** A compressed night puts the window's last hour a
    fraction of a step past its neighbour, and "8pm 12am" crowded against

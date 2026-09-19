@@ -115,6 +115,11 @@ var I18N = {
         // A day with nothing timed on it, said the way a child would want to
         // hear it, in the middle of the empty map (draw.js).
         quiet_day: 'Nothing planned. Free day!',
+        // THE NAMES OF THE DAYS AND THE MONTHS, in the table rather than from
+        // Intl: the serverless runtime may carry English locale data only,
+        // and a Dutch board then read "Sat 19 Sep" under "Vandaag". Sunday is
+        // 0, as JavaScript counts; months from 1.
+        wd_0: 'Sun', wdl_0: 'Sunday', wd_1: 'Mon', wdl_1: 'Monday', wd_2: 'Tue', wdl_2: 'Tuesday', wd_3: 'Wed', wdl_3: 'Wednesday', wd_4: 'Thu', wdl_4: 'Thursday', wd_5: 'Fri', wdl_5: 'Friday', wd_6: 'Sat', wdl_6: 'Saturday', mo_1: 'Jan', mo_2: 'Feb', mo_3: 'Mar', mo_4: 'Apr', mo_5: 'May', mo_6: 'Jun', mo_7: 'Jul', mo_8: 'Aug', mo_9: 'Sep', mo_10: 'Oct', mo_11: 'Nov', mo_12: 'Dec',
         // "Day 3 of 5". A week-long half term is a different fact on the
         // Monday than on the Thursday, and the one day the board draws is
         // somewhere inside it. Both numbers are named, because a language
@@ -161,6 +166,10 @@ var I18N = {
 // failed fetch falls back to the cache whatever its age.
 var I18N_BASE = 'https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/i18n/';
 var I18N_TTL_S = 6 * 3600;
+// ...but a table missing a key the built-in English has is from before that
+// key existed, and is asked again after this long rather than after the TTL:
+// "Nothing planned. Free day!" stood in English under "Vandaag" for hours.
+var I18N_STALE_KEYS_S = 30 * 60;
 var I18N_FETCH_MS = 1500;
 
 // The account locale ("nl", "fr-BE", "en-US", ...): the full tag drives
@@ -210,7 +219,9 @@ async function loadStrings(locale, state, deadline) {
   if (lang === 'en') return I18N.en;
   var cached = (state && state.i18n && state.i18n.lang === lang && state.i18n.strings) ? state.i18n : null;
   var nowS = Math.floor(Date.now() / 1000);
-  if (cached && (nowS - (cached.fetchedAt || 0)) < I18N_TTL_S) return mergeStrings(cached.strings);
+  var age = nowS - ((cached && cached.fetchedAt) || 0);
+  var lacks = cached && Object.keys(I18N.en).some(function (k) { return !(k in cached.strings); });
+  if (cached && age < I18N_TTL_S && !(lacks && age >= I18N_STALE_KEYS_S)) return mergeStrings(cached.strings);
   var budget = Math.min(msUntil(deadline), I18N_FETCH_MS);
   if (budget > 0) {
     try {
@@ -474,7 +485,7 @@ function readState(input) {
   }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) raw = {};
 
-  var out = { weather: null, weatherFetchedAt: 0, calendarDown: {}, calendarNames: {}, i18n: null, feedOk: {}, news: null };
+  var out = { weather: null, weatherFetchedAt: 0, calendarDown: {}, calendarNames: {}, i18n: null, feedOk: {}, news: null, lineSlots: {} };
 
   if (raw.weather && typeof raw.weather === 'object' && !Array.isArray(raw.weather)) {
     out.weather = raw.weather;
@@ -499,6 +510,13 @@ function readState(input) {
     Object.keys(raw.feedOk).slice(0, STATE_MAX_URLS).forEach(function (url) {
       var t = raw.feedOk[url];
       if (typeof t === 'number' && isFinite(t) && t > 0) out.feedOk[url] = t;
+    });
+  }
+  // WHICH RUNG OF THE STYLE LADDER EACH PERSON HAS, by name (see lineSlots).
+  if (raw.lineSlots && typeof raw.lineSlots === 'object' && !Array.isArray(raw.lineSlots)) {
+    Object.keys(raw.lineSlots).slice(0, STATE_MAX_URLS).forEach(function (nm) {
+      var sl = raw.lineSlots[nm];
+      if (typeof nm === 'string' && nm.trim() && typeof sl === 'number' && isFinite(sl) && sl >= 0 && sl < 64) out.lineSlots[nm.trim().slice(0, 80)] = Math.floor(sl);
     });
   }
   // THE LAST HEADLINES, for a refresh on which every feed is slow: a few
@@ -575,11 +593,25 @@ function isoDate(civil) {
   if (!civil) return null;
   return civil.y + '-' + pad2(civil.mo) + '-' + pad2(civil.d);
 }
-function dateLabel(civil, locale) {
+// A DAY'S OR A MONTH'S NAME FROM THE TABLE FIRST. Intl was asked, but the
+// serverless runtime may carry English locale data only, and then every
+// language's dates came out "Sat 19 Sep". The table has them (wd_0..6,
+// wdl_0..6, mo_1..12); Intl is the fallback for a table that does not.
+function dateName(strings, locale, width, kind, y, mo, d) {
+  var key = kind === 'month' ? 'mo_' + mo
+    : (width === 'long' ? 'wdl_' : 'wd_') + new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
+  // (a board whose language file could not be had reads English words but
+  // keeps whatever dates its Intl can give: the built-in table is not a
+  // translation of anything)
+  var v = strings && strings !== I18N.en && typeof strings[key] === 'string' && strings[key].trim();
+  if (v) return v.charAt(0).toUpperCase() + v.slice(1);
+  return localeDatePart(locale || 'en', width, kind, y, mo, d);
+}
+function dateLabel(civil, locale, strings) {
   if (!civil) return null;
   var loc = locale || 'en';
-  var wd = localeDatePart(loc, 'short', 'weekday', civil.y, civil.mo, civil.d);
-  var month = localeDatePart(loc, 'short', 'month', civil.y, civil.mo, civil.d);
+  var wd = dateName(strings, loc, 'short', 'weekday', civil.y, civil.mo, civil.d);
+  var month = dateName(strings, loc, 'short', 'month', civil.y, civil.mo, civil.d);
   return wd + ' ' + civil.d + ' ' + month;
 }
 
@@ -2179,6 +2211,43 @@ async function fetchFeedText(url, deadline, headers) {
 }
 
 // ---------------------------------------------------------------------
+// A PERSON KEEPS THEIR STYLE. The page hands out textures and the renderer
+// hands out shades down a ladder, by the legend's order: the first person
+// solid black, then dotted, dashed, beaded... A day on which somebody was
+// dropped, or the feeds answered in another order, restyled everybody, and
+// a board the household had learned to read overnight said Kato was Ward.
+// Each person is given a RUNG once, kept in the saved state by name, and
+// keeps it as long as they are on the board ("as long the tracks didn't
+// change, reuse the once assigned track styles"). Somebody new takes the
+// lowest free rung; a shared calendar's line is a ladder and takes none.
+// ---------------------------------------------------------------------
+function assignLineSlots(lines, state) {
+  var saved = (state && state.lineSlots) || {};
+  var people = (lines || []).filter(function (l) { return !l.shared; });
+  var names = people.map(function (l) { return l.name; });
+  var slots = {}, used = {};
+  people.forEach(function (l) {
+    var sl = saved[l.name];
+    if (typeof sl === 'number' && !used[sl]) { slots[l.name] = sl; used[sl] = true; }
+  });
+  var next = 0;
+  people.forEach(function (l) {
+    if (slots[l.name] != null) return;
+    while (used[next]) next++;
+    slots[l.name] = next; used[next] = true;
+  });
+  people.forEach(function (l) { l.slot = slots[l.name]; });
+  if (state) {
+    // remembered for everybody on the board today; a name gone for good
+    // drops out, and its rung is free again next time
+    var keep = {};
+    names.forEach(function (n) { keep[n] = slots[n]; });
+    state.lineSlots = keep;
+  }
+  return lines;
+}
+
+// ---------------------------------------------------------------------
 // THE NEWS. A few headlines from RSS or Atom feeds the household names --
 // the local paper, the school, the club -- drawn along the foot of the map
 // like the platform display under a station's departure board. Read here,
@@ -2232,9 +2301,10 @@ function xmlText(content) {
 // A feed's name as the band prints it: the site, not its slogan. "VRT NWS -
 // Binnenland" is the section, which the headline already implies.
 function newsSourceName(title) {
-  var t = xmlText(title).replace(/\s*[|\u2013\u2014-]\s*(rss|atom|feed|news|nieuws|actualit\u00e9s|nachrichten|noticias|notizie|wiadomo\u015bci|not\u00edcias)\b.*$/i, '');
+  var t = xmlText(title).replace(/\s*[|>\u2013\u2014-]\s*(rss|atom|feed|news|nieuws|actualit\u00e9s|nachrichten|noticias|notizie|wiadomo\u015bci|not\u00edcias)\b.*$/i, '');
   // ...nor its section after a colon: "VRT NWS: nieuws", "HLN:home"
-  var cut = t.split(/\s+[|\u2013\u2014-]\s+|\s*:\s*/)[0].trim();
+  // (nor after a ">" or a colon: "NYT > Top Stories", "VRT NWS: nieuws")
+  var cut = t.split(/\s+[|>\u2013\u2014-]\s+|\s*:\s*/)[0].trim();
   return (cut || t).slice(0, NEWS_SOURCE_MAX);
 }
 
@@ -4325,9 +4395,9 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
   // able to write a date marker into a strip an hour label wide.
   function dayRow(civil, wx) {
     return {
-      label: dateLabel(civil, extra.locale),
-      weekday: localeDatePart(extra.locale || 'en', 'long', 'weekday', civil.y, civil.mo, civil.d),
-      weekdayShort: localeDatePart(extra.locale || 'en', 'short', 'weekday', civil.y, civil.mo, civil.d),
+      label: dateLabel(civil, extra.locale, extra.strings),
+      weekday: dateName(extra.strings, extra.locale || 'en', 'long', 'weekday', civil.y, civil.mo, civil.d),
+      weekdayShort: dateName(extra.strings, extra.locale || 'en', 'short', 'weekday', civil.y, civil.mo, civil.d),
       weather: wx,
     };
   }
@@ -4343,8 +4413,17 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
     return (snapIx === 0 && weather && Array.isArray(weather[key])) ? weather[key] : [];
   }
 
+  // EACH PERSON'S RUNG OF THE STYLE LADDER, remembered by name in the saved
+  // state (assignLineSlots). "Shared" is decided the way the page decides
+  // it: where the config names its people, a line that is not one of them
+  // is a shared calendar's, and takes no rung.
+  var legendLines = registry.all();
+  var namedAny = legendLines.some(function (l) { return l.configured === true; });
+  legendLines.forEach(function (l) { l.shared = namedAny && l.configured === false; });
+  assignLineSlots(legendLines, state);
+  legendLines.forEach(function (l) { delete l.shared; });
   var metro = buildMetro(
-    registry.all(), events,
+    legendLines, events,
     ofShownDay('milestones'),
     // the forecast for the day being shown, not for today: a board set to
     // tomorrow that carries today's temperature is wrong about the only
@@ -4361,7 +4440,7 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
     timeLabel(DAY_START_MIN) + ' ' + timeLabel(DAY_END_MIN),
     allDayEvents,
     Object.assign({}, extra, {
-      dateLabel: dateLabel(shownDay, extra.locale),
+      dateLabel: dateLabel(shownDay, extra.locale, extra.strings),
       dateIso: isoDate(shownDay),
       // Composed against the day being shown and the clock on it, so it
       // can neither warn about a day nobody is looking at nor about an
@@ -4551,7 +4630,7 @@ async function run(input) {
       var nowTsDemo = (input.trmnl && input.trmnl.system && input.trmnl.system.timestamp_utc) || Math.floor(Date.now() / 1000);
       var demoToday = fromEpoch(nowTsDemo * 1000, demoTz);
       demoNowMin = demoToday.h * 60 + demoToday.mi;
-      demoDate = dateLabel(demoToday, locale);
+      demoDate = dateLabel(demoToday, locale, strings);
     } catch (e) { /* no clock rather than an invented one */ }
     var demoWx = await resolveWeather(latLonRaw, demoTz, deadline, state, tempUnit, strings, wxStarted, wxOpts);
     if (configProblem) {

@@ -235,8 +235,12 @@ function linesFrom(metro) {
     // What DOES come through is identity and order -- a key, a name, which
     // side and how far out -- because that is the household's own
     // arrangement, set once and learned by everyone who reads the board.
+    // ...AND THE RUNG OF THE STYLE LADDER the transform remembered for this
+    // person (assignLineSlots), so a texture and a shade follow the person
+    // and not the day's order.
     return { key: p.key, name: p.name, side: p.side, anchor: p.anchor,
-             line_offset: p.line_offset, shared: named && !person[p.key] };
+             line_offset: p.line_offset, shared: named && !person[p.key],
+             slot: typeof p.slot === 'number' ? p.slot : null };
   }).map(styleLine());
 }
 
@@ -282,7 +286,12 @@ function styleLine() {
   var people = 0;
   return function (p) {
     if (p.shared) p.style = 'ladder';
-    else p.style = people++ === 0 ? 'solid' : TRACK_STYLES[(people - 2) % TRACK_STYLES.length];
+    else {
+      // by the remembered rung where there is one, else by order
+      var rung = typeof p.slot === 'number' ? p.slot : people;
+      people++;
+      p.style = rung === 0 ? 'solid' : TRACK_STYLES[(rung - 1) % TRACK_STYLES.length];
+    }
     p.width = 3;
     return p;
   };
@@ -1246,8 +1255,11 @@ function specFor(metro, view, opts) {
     while (newsRows > 0 && (view.h - pad - stripH - skyH - footHeight(newsRows)) / Math.max(1, legendN) < nameH0 * 2.4) newsRows--;
   }
   var newsH = footHeight(newsRows);
+  // (flush against the box where there is one, the paper's own edge inset
+  // where there is not: "no space between the train schedule and its own
+  // box")
   var cross = { c0: (opts.bandLo != null ? opts.bandLo : stripH) + alertH + skyH,
-                c1: view.h - pad - (opts.standing ? 0 : newsH) };
+                c1: view.h - (opts.standing || !newsH ? pad : newsH) };
   if (opts.standing && newsH) { axis.a1 -= newsH; if (axis.edge1 != null) axis.edge1 -= newsH; }
   opts = Object.assign({}, opts, { showWeather: wantWx, stripH: stripH, richWx: richWx, levelNames: levelNames,
                                    skyH: skyH, sky: skyMarks, railRow: railRow });

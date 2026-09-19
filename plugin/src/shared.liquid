@@ -5597,8 +5597,12 @@ function linesFrom(metro) {
     // What DOES come through is identity and order -- a key, a name, which
     // side and how far out -- because that is the household's own
     // arrangement, set once and learned by everyone who reads the board.
+    // ...AND THE RUNG OF THE STYLE LADDER the transform remembered for this
+    // person (assignLineSlots), so a texture and a shade follow the person
+    // and not the day's order.
     return { key: p.key, name: p.name, side: p.side, anchor: p.anchor,
-             line_offset: p.line_offset, shared: named && !person[p.key] };
+             line_offset: p.line_offset, shared: named && !person[p.key],
+             slot: typeof p.slot === 'number' ? p.slot : null };
   }).map(styleLine());
 }
 
@@ -5644,7 +5648,12 @@ function styleLine() {
   var people = 0;
   return function (p) {
     if (p.shared) p.style = 'ladder';
-    else p.style = people++ === 0 ? 'solid' : TRACK_STYLES[(people - 2) % TRACK_STYLES.length];
+    else {
+      // by the remembered rung where there is one, else by order
+      var rung = typeof p.slot === 'number' ? p.slot : people;
+      people++;
+      p.style = rung === 0 ? 'solid' : TRACK_STYLES[(rung - 1) % TRACK_STYLES.length];
+    }
     p.width = 3;
     return p;
   };
@@ -6608,8 +6617,11 @@ function specFor(metro, view, opts) {
     while (newsRows > 0 && (view.h - pad - stripH - skyH - footHeight(newsRows)) / Math.max(1, legendN) < nameH0 * 2.4) newsRows--;
   }
   var newsH = footHeight(newsRows);
+  // (flush against the box where there is one, the paper's own edge inset
+  // where there is not: "no space between the train schedule and its own
+  // box")
   var cross = { c0: (opts.bandLo != null ? opts.bandLo : stripH) + alertH + skyH,
-                c1: view.h - pad - (opts.standing ? 0 : newsH) };
+                c1: view.h - (opts.standing || !newsH ? pad : newsH) };
   if (opts.standing && newsH) { axis.a1 -= newsH; if (axis.edge1 != null) axis.edge1 -= newsH; }
   opts = Object.assign({}, opts, { showWeather: wantWx, stripH: stripH, richWx: richWx, levelNames: levelNames,
                                    skyH: skyH, sky: skyMarks, railRow: railRow });
@@ -8267,13 +8279,20 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     }
   }
   var shade = {};
+  // BY THE PERSON'S RUNG, where the payload remembered one (line.slot, from
+  // the transform's saved state), so the shade follows the person and not
+  // the day's order; by order where it did not. A shared calendar's ladder
+  // line takes no rung and is inked by its place.
+  var byOrder = 0;
   (spec.lines || []).forEach(function (l, i) {
+    var rung = typeof l.slot === 'number' ? l.slot : byOrder;
+    byOrder++;
     // The anchor -- the one solid rail, which the eye finds first -- is fully
     // inked by definition, so black is spent before the ladder is handed out.
-    if (ONE_BIT || i === 0) { shade[l.key] = INK; return; }
-    var cycle = Math.floor((i - 1) / TONES.length);
-    if (palette) { shade[l.key] = palette[(i - 1 + cycle) % palette.length]; return; }
-    var pct = TONES[(i - 1 + cycle) % TONES.length];
+    if (ONE_BIT || rung === 0) { shade[l.key] = INK; return; }
+    var cycle = Math.floor((rung - 1) / TONES.length);
+    if (palette) { shade[l.key] = palette[(rung - 1 + cycle) % palette.length]; return; }
+    var pct = TONES[(rung - 1 + cycle) % TONES.length];
     shade[l.key] = 'color-mix(in srgb, ' + INK + ' ' + pct + '%, ' + PAPER + ')';
   });
   // A branch wears its trunk's ink, marks included: asked by the spur's own
@@ -9868,7 +9887,11 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           // tube and that tube ends in a tick; ticking each member's own rail
           // as well gave one event four terminators, three of them on rails
           // nobody was riding at the time.
-          if ((quietOn[k] || []).some(function (r2) { return end.to >= r2[0] - NODE_R && end.to <= r2[1] + NODE_R; })) return;
+          // ...unless the end is INSIDE a quiet stretch of this rail. At the
+          // stretch's own end the tick is the mark rule 25a asks for, and
+          // without it a four-way swim had no end at all ("where is the
+          // branch for zwemmen"): the rail simply went dark again.
+          if ((quietOn[k] || []).some(function (r2) { return end.to > r2[0] + NODE_R && end.to < r2[1] - NODE_R; })) return;
           var half = Math.max(NODE_R * 1.05, railStroke(ln2, k).width * 1.25);
           markLine(xy(end.to, c2 - half), xy(end.to, c2 + half), ln2, k, 'stop');
         });
@@ -11240,10 +11263,18 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // whole afternoon loses its clock. Measured at the widest hour, the step
     // suits the stretch that has room and the collision test takes the
     // labels back out where there is not.
-    var perMin = 0;
+    // AT THE RATE MOST OF THE HOURS RUN AT, not the widest one's. The
+    // widest hour is the lead in front of the first thing, drawn at full
+    // rate; a step chosen for it was too fine for the quiet day behind it,
+    // every other label was thinned out below, and a free Saturday showed
+    // three hours in a whole panel ("it could show more times in that
+    // view"). The median hour is the day as it mostly is.
+    var widths = [];
     for (var pm = Math.ceil(from / 60) * 60; pm + 60 <= to; pm += 60) {
-      perMin = Math.max(perMin, (spec.scale.at(pm + 60) - spec.scale.at(pm)) / 60);
+      widths.push((spec.scale.at(pm + 60) - spec.scale.at(pm)) / 60);
     }
+    widths.sort(function (p, q) { return p - q; });
+    var perMin = widths.length ? widths[Math.floor(widths.length / 2)] : 0;
     if (!(perMin > 0)) perMin = (spec.scale.at(from + 60) - spec.scale.at(from)) / 60;
     var probe = html('metro-hour label' + STRIP_SM + ' text--bold text-stroke', ctx.clock(0));
     var room = (horizontal ? probe.offsetWidth : probe.offsetHeight) + 10 * S;
@@ -11253,17 +11284,10 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       if (STEPS[si] * 60 * perMin >= room) { step = STEPS[si]; break; }
     }
     var cHour = hoursFx.c1 - rowH / 2 - RAIL_ROW;
-    // A STRETCH THAT RUNS FAST IS LABELLED FOUR TIMES AS SPARSELY: one step
-    // for the whole strip put five labels in the compressed night where the
-    // busy morning had three -- "we show more hours in speed mode than non
-    // speed mode". The fast stretch runs at a quarter of the rate (QUIET_RATE
-    // in day.js), so four times the step is the same spacing on the paper.
-    function stepAt(hh) {
-      var segs = spec.scale.segments || [];
-      var m = hh * 60, fast = false;
-      segs.forEach(function (sg) { if (m >= sg.from && m < sg.to && sg.rate < 1) fast = true; });
-      return fast ? step * 4 : step;
-    }
+    // (A stretch that runs fast is not labelled by a coarser step any more:
+    // the spacing rule below leaves off any label closer to the last one
+    // than a label is wide, which thins a compressed night by exactly as
+    // much as its compression, and no more.)
     // ...AND NEVER CRAMPED AGAINST THE LAST ONE. A compressed night puts the
     // window's last hour a step of the clock but half a label's width past
     // the one before it: "8pm 12am" crowded against the paper's edge
@@ -11271,7 +11295,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // one than a label is wide is left off; the station stays.
     var lastA = -Infinity;
     for (var h = Math.ceil(from / 60); h * 60 <= to; h++) {
-      if (h % step !== 0 || h % stepAt(h) !== 0) continue;
+      if (h % step !== 0) continue;
       // (the window's last hour asks for most of a regular step: it is the
       // one label with nothing after it to balance a tight gap before it,
       // and a compressed night puts it a fraction of a step past its
@@ -11284,6 +11308,13 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       var lab = html('metro-hour label' + STRIP_SM + ' text--bold text-stroke',
                      ctx.clock((h % 24) * 60));
       lab.setAttribute('data-metro-hour', h);   // the strip's scale, readable back
+      // ...and not half under the slope: the first hours of tomorrow's panel
+      // are covered by today's ink as far as the slope reaches on this row
+      // ("6am" stood with its "6" under the diagonal)
+      if (slantW && horizontal) {
+        var hA = spec.scale.at(h * 60), hHalf = lab.offsetWidth / 2, hReach = slantAt(cHour - rowH / 2);
+        if (dayCuts.some(function (cut) { return hA > cut && hA - hHalf < cut + hReach + 2 * S; })) { lab.remove(); continue; }
+      }
       if (!horizontal) cHour = hoursFx.c1 - lab.offsetWidth / 2 - 2 * S;
       var got = place(lab, spec.scale.at(h * 60), cHour, 'centre');
       if (free(got)) {
@@ -11655,7 +11686,11 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // A ROUNDED BOX, set in a little from the paper's edges ("maybe a
     // rounded--small box for the news"), not a bar flush to them: the
     // display is a thing hung on the wall, not the wall.
-    var nbIn = 5 * S, nbH = newsSpec.h - nbIn, nbTop = H - newsSpec.h + 1 * S, nbW = W - 2 * nbIn;
+    // FULL WIDTH AND FLUSH: to the paper's edges and up against the map
+    // ("news / weather box should take the full width and have no space
+    // between the train schedule and its own box"). The top corners stay
+    // rounded; the bottom ones are the paper's own.
+    var nbIn = 0, nbH = newsSpec.h, nbTop = H - newsSpec.h, nbW = W;
     var nb = doc.createElement('div');
     nb.className = 'metro-strip metro-news absolute inverse bg--canvas rounded--small';
     nb.style.left = nbIn + 'px'; nb.style.top = nbTop + 'px';
@@ -11665,7 +11700,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     nbRail.style.fill = INK;
     put(nbRail, 'news');
     var nbSM = (spec.oneName || !horizontal) ? ' label--small' : '';
-    var cursor = 2 * S, nbMaxW = nbW - 16 * S;
+    var cursor = 2 * S, nbMaxW = nbW - 12 * S;
     // THE WEATHER ALERT, FIRST. The banner that was a band of its own under
     // the map is the box's first row: the same classes, icon and pieces
     // (the thing bold, the clock quiet), and it may wrap where a slot's
@@ -11706,7 +11741,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       } else at.textContent = al.text || '';
       ar.appendChild(at);
       nb.appendChild(ar);
-      ar.style.left = (8 * S) + 'px'; ar.style.top = cursor + 'px';
+      ar.style.left = (6 * S) + 'px'; ar.style.top = cursor + 'px';
       ar.style.width = nbMaxW + 'px';
       cursor += Math.max(ar.offsetHeight, newsSpec.alertRows * rowH * 2.3) + 2 * S;
     }
@@ -11717,6 +11752,9 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       if (it.source) {
         var src = doc.createElement('span');
         src.className = 'metro-pill metro-pill--quiet label label--small text--bold';
+        // a tighter pill than the strip's: "less room round VRT NWS"
+        src.style.setProperty('--metro-pill-x', Math.round(3 * S) + 'px');
+        src.style.setProperty('--metro-pill-y', '1px');
         src.textContent = it.source;
         row.appendChild(src);
       }
@@ -11725,7 +11763,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       tx.textContent = it.title;
       row.appendChild(tx);
       nb.appendChild(row);
-      row.style.left = (8 * S) + 'px';
+      row.style.left = (6 * S) + 'px';
       row.style.top = Math.round(cursor + i * rowStep + (rowStep - row.offsetHeight) / 2) + 'px';
       // cut to the row: a measured width of zero is a ruler that cannot
       // measure (the offline harness), and then the words are left whole

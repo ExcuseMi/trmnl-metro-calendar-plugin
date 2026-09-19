@@ -706,12 +706,13 @@ test('a small panel leaves a person out rather than half of everyone', function 
 // point in showing a quadrant a whole day it cannot draw. The window a
 // panel draws is cut to what the panel can show; what is past the cut is
 // counted as later, not lost.
-// THE PLUGIN'S BANNER IS NOT THE MAP'S TO BOOK. It is a sibling of the
-// canvas, so the canvas is already shorter by it, and the page says so with
-// `alert: null`. Read as "not told", that null fell through to the payload's
-// own `service_alert` and the map lost the banner's height a second time, as
-// an empty band under the strip.
-test('a caller that says alert: null gets no alert band, whatever the payload carries', function () {
+// THE ALERT IS THE FOOT BOX'S FIRST ROW, NOT A BAND UNDER THE STRIP. It used
+// to be a sibling banner the page said `alert: null` about, and a null read
+// as "not told" cost the map an empty band a second time. Now the payload's
+// alert takes a row of the box along the foot -- off the cross extent's far
+// end, never off its near one -- and a caller that says `alert: null` gets
+// no row at all.
+test('the alert takes a row of the foot box, never a band under the strip', function () {
   var Day = require('./day');
   var fixtures;
   try { fixtures = require('../test/layout/fixtures'); } catch (e) { return; }
@@ -721,13 +722,13 @@ test('a caller that says alert: null gets no alert band, whatever the payload ca
   var withAlert = Object.assign({}, f.metro, { service_alert: { kind: 'rain', text: 'Rain until 17:00, 80% chance' } });
   var opts = { pad: 14, cell: 7, rowH: 12 };
   var plain = Day.specFor(f.metro, { w: 780, h: 459 }, opts);
-  var told = Day.specFor(withAlert, { w: 780, h: 459 }, Object.assign({ alert: null }, opts));
-  assert(told.cross.c0 === plain.cross.c0, 'the map booked a band for a banner drawn outside it: starts at '
-    + told.cross.c0 + ' instead of ' + plain.cross.c0);
-  // ...and a caller that says nothing still gets the payload's, which is what
-  // the standalone renderer draws across the top.
   var untold = Day.specFor(withAlert, { w: 780, h: 459 }, opts);
-  assert(untold.cross.c0 > plain.cross.c0, 'the standalone board lost its alert band');
+  assert(untold.cross.c0 === plain.cross.c0, 'the alert took a band under the strip: the map starts at '
+    + untold.cross.c0 + ' instead of ' + plain.cross.c0);
+  assert(untold.news && untold.news.alertRows === 1, 'the alert has no row in the foot box');
+  assert(untold.cross.c1 < plain.cross.c1, 'the map did not give the box its foot');
+  var told = Day.specFor(withAlert, { w: 780, h: 459 }, Object.assign({ alert: null }, opts));
+  assert(!told.news, 'a caller that says alert: null still got a box: ' + JSON.stringify(told.news));
 });
 
 test('a small view shows fewer hours than a large one, and no more events than it holds', function () {

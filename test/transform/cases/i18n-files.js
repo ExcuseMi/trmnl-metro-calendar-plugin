@@ -132,6 +132,29 @@ module.exports = function (test, h) {
     assert(!('evil' in r.trmnl_state.i18n.strings), 'an unknown key was stored in state');
   });
 
+  test('the names of the days and months come from the table, not from Intl', async () => {
+    // The serverless runtime may carry English locale data only: asked for
+    // Dutch, its Intl answered "Sat 19 Sep" under "Vandaag". The table has
+    // the names, and the board reads them from there.
+    const nl = JSON.parse(fs.readFileSync(path.join(I18N_DIR, 'nl.json'), 'utf-8'));
+    const { run } = runTransform(net(() => okText(JSON.stringify(nl))), NOW);
+    const r = await run(input('nl-BE'));
+    const d0 = r.data.days[0];
+    assert(d0.date_label === 'Wo 9 Sep', 'the date label reads ' + d0.date_label);
+    assert(d0.weekday_label === 'Woensdag' && d0.weekday_short === 'Wo', 'the weekday reads ' + d0.weekday_label + ' / ' + d0.weekday_short);
+  });
+
+  test('a cached table from before a key existed is asked again after half an hour', async () => {
+    // "Nothing planned. Free day!" stood in English under "Vandaag": the
+    // device's table was fresh by the TTL and simply predated the key.
+    const fetchImpl = net(() => okText(JSON.stringify(Object.assign({}, SERVED, { quiet_day: 'RUSTIG-SERVED' }))));
+    const { run } = runTransform(fetchImpl, NOW);
+    const old = { i18n: { lang: 'fr', strings: { today: 'CACHED' }, fetchedAt: NOW_S - 45 * 60 } };
+    const r = await run(input('fr-BE', old));
+    assert(fetchImpl.seen.filter((u) => u.indexOf('/i18n/') >= 0).length === 1, 'the incomplete table was not refreshed');
+    assert(r.data.i18n.quiet_day === 'RUSTIG-SERVED', 'the refreshed key did not reach the board: ' + r.data.i18n.quiet_day);
+  });
+
   test('every i18n/<code>.json in the repo is complete and well formed', async () => {
     // The files ARE the translations: a missing key silently reads English
     // on somebody's board, and a broken one turns the whole language off.

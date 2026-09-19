@@ -32,7 +32,9 @@ No server of your own.
   little train (the metro silhouette is [SVG Repo's](https://www.svgrepo.com/svg/420587/metro-metropolitan-subway),
   CC0).
 - Each line has a texture (solid, dotted, dashed, dash-dot) and, on
-  grayscale and colour panels, a shade or colour, all picked for you. A
+  grayscale and colour panels, a shade or colour, all picked for you and
+  then kept: a person keeps their style from one day to the next, whatever
+  order the day puts the lines in, for as long as they are on the board. A
   shared calendar's own line (a "Family" feed) is a ladder.
 - Events as stops with their time and name; tasks (VTODO) as square stops;
   several things at the same minute as one stop captioned as a list.
