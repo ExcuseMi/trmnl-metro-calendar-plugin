@@ -1040,6 +1040,8 @@ function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, win
         // a date marker falls back to where the strip is an hour label wide.
         weekday_short: d.weekdayShort || null,
         weather: d.weather || null,
+        // the moon that night, for the midnight station it ends at
+        moon: d.moon || null,
       };
     }),
     // THE WINDOW INTO THE RUN, on the days a quiet one borrowed the next.
@@ -1535,6 +1537,19 @@ function localeRegion(locale) {
     if (/^[A-Za-z]{2}$/.test(parts[i])) return parts[i].toUpperCase();
   }
   return null;
+}
+
+// THE MOON ON A CIVIL DAY'S NIGHT: how much of it is lit, and whether it is
+// growing, for the station at the midnight that night crosses ("use the
+// trmnl moonphases"). Counted from a known new moon (2000-01-06 18:14 UTC)
+// in synodic months, at that day's late evening, with no network.
+function moonFor(civil) {
+  if (!civil || !civil.y) return null;
+  var t = Date.UTC(civil.y, civil.mo - 1, civil.d, 22, 0);
+  var synodic = 29.530588853 * 86400000;
+  var age = ((t - Date.UTC(2000, 0, 6, 18, 14)) % synodic + synodic) % synodic;
+  var f = age / synodic;
+  return { illumination: Math.round((1 - Math.cos(2 * Math.PI * f)) / 2 * 100), waxing: f < 0.5 };
 }
 
 // THE ADDRESS THE FEED IS READ FROM. webcal:// is https in another coat, and
@@ -4403,6 +4418,7 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       weekday: dateName(extra.strings, extra.locale || 'en', 'long', 'weekday', civil.y, civil.mo, civil.d),
       weekdayShort: dateName(extra.strings, extra.locale || 'en', 'short', 'weekday', civil.y, civil.mo, civil.d),
       weather: wx,
+      moon: moonFor(civil),
     };
   }
   var dayRows = [dayRow(shownDay, shownWx || (snapIx === 0 && weather && weather.header) || null)];

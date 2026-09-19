@@ -5503,6 +5503,19 @@ function busyCells(metro, from, to) {
   return cells;
 }
 
+// TRMNL'S MOON, twenty-eight phases picked by how far round the cycle the
+// lit fraction and its direction put us, in the weather-icons set's
+// outlined form.
+function moonIcon(illum, waxing) {
+  var frac = Math.max(0, Math.min(1, illum / 100));
+  var cycle = waxing ? frac / 2 : 1 - frac / 2;
+  var ix = Math.round(cycle * 28) % 28;
+  var name = ix === 0 ? 'new' : ix < 7 ? 'waxing-crescent-' + ix : ix === 7 ? 'first-quarter'
+    : ix < 14 ? 'waxing-gibbous-' + (ix - 7) : ix === 14 ? 'full' : ix < 21 ? 'waning-gibbous-' + (ix - 14)
+    : ix === 21 ? 'third-quarter' : 'waning-crescent-' + (ix - 21);
+  return 'https://trmnl.com/images/plugins/weather/wi-moon-alt-' + name + '.svg';
+}
+
 function segmentsFor(metro) {
   var from = metro.day_start_min, to = metro.day_end_min;
   if (!(to > from)) return null;
@@ -6590,6 +6603,17 @@ function specFor(metro, view, opts) {
     return w && w.at_min != null && w.label
       && w.at_min >= metro.day_start_min && w.at_min <= metro.day_end_min;
   }) : [];
+  // ...AND TONIGHT'S MOON, in the same row, the way the rain is ("like the
+  // rain icon under the time line"): TRMNL's own phase icon, from the
+  // weather set the rest of the sky is drawn in, just past the midnight
+  // the night crosses. Its outlined form, so the lit part has an edge. Not
+  // in metro.weather, which also says which hours run at full rate: the
+  // moon is a mark, not a reason to stretch the night.
+  if (!tiny) (metro.days || []).forEach(function (d, i) {
+    var mo = i > 0 && metro.days[i - 1].moon;
+    if (!mo || d.start_min == null || d.start_min <= metro.day_start_min || d.start_min >= metro.day_end_min) return;
+    skyMarks.push({ at_min: d.start_min, label: 'Moon ' + mo.illumination + '%', icon: moonIcon(mo.illumination, mo.waxing), moon: true });
+  });
   skyMarks.sort(function (p, q) { return p.at_min - q.at_min; });
   var skyH = skyMarks.length ? rowH0 + 6 : 0;
   // THE PLATFORM DISPLAY along the foot of the map: a row per headline, as

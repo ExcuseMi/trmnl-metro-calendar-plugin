@@ -174,7 +174,13 @@ applies when something changes.
    changes half way ("6am only has 1 dot and it's 10am" was an hourly day
    beside a two-hourly night). The labels' step is rounded up to a
    multiple of the dots'. Where even two hours are too tight a small dot
-   too close to the last is left off; the midnight's dot is kept. The midnight the panels change at has its dot; the train rides
+   too close to the last is left off; the midnight's station is kept.
+   Every hour without words is a dot, night or day. No steam off the
+   train: a metro is electric.
+   TONIGHT'S MOON IS A SKY MARK ("like the rain icon under the time
+   line"): TRMNL's own phase icon, outlined, in the sky row under the
+   strip just past the midnight the night crosses, booked by the solver
+   like the rain; it does not make the night run at full rate. The midnight the panels change at has its dot; the train rides
    over the station it is at. A label a few pixels short of room beside
    the clock pill slides up to a third of its width off its hour instead of
    going; its station stays on the hour.

@@ -25,8 +25,15 @@ module.exports = function (test, h) {
       test('every hour of the step has a station on the rail: ' + f.name + ' / ' + v.name, () => {
         const rep = layout(f, v);
         if (!rep.debug || !rep.debug.horizontal) return;
+        // (a night hour is a star and the midnight a moon: paths, placed
+        // by the middle of their extent)
         const stations = (rep.circles || []).filter((c) => c.role === 'hour-station' || c.role === 'hour-station-minor')
-          .map((c) => c.x + c.w / 2).sort((p, q) => p - q);
+          .map((c) => c.x + c.w / 2)
+          .concat((rep.paths || []).filter((p) => p.role === 'hour-station-minor' && p.pts.length).map((p) => {
+            const xs = p.pts.map((q) => q[0]);
+            return (Math.min.apply(null, xs) + Math.max.apply(null, xs)) / 2;
+          }))
+          .sort((p, q) => p - q);
         // the midnight the panels change at has its station ("missing the
         // 00:00 dot")
         const bands = (rep.rects || []).filter((r) => r.role === 'river').sort((p, q) => p.x - q.x);
