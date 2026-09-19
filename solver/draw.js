@@ -335,11 +335,13 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // ring is inset a pixel inside that, so it is edged outside and in.
   // (Under an ink mark, and on a 1-bit panel, the twin is invisible; it is
   // drawn anyway so the drawing has the same parts at every bit depth.)
-  function edgeMark(el, line, role) {
+  function edgeMark(el, line, role, fill) {
     var sw = parseFloat(el.getAttribute('stroke-width'));
     if (!(sw > 3 * EDGE_W)) return;
     var twin = el.cloneNode(false);
-    twin.style.stroke = INK; twin.style.fill = PAPER;
+    // (the twin carries the mark's own fill: a ticked task is solid, and
+    // everything else is paper, see rule 2q)
+    twin.style.stroke = INK; twin.style.fill = fill || PAPER;
     twin.setAttribute('data-metro-role', role + '-edge');
     svg.insertBefore(twin, el);
     el.setAttribute('stroke-width', sw - 2 * EDGE_W);
@@ -603,6 +605,19 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // the DOM: the panels are read back in the order of the days.)
     if (slantW && panels.length > 1) {
       panels[1].el.style.clipPath = 'polygon(' + slantW + 'px 0, 100% 0, 100% 100%, 0 100%)';
+      // THE CUT IS A TRACK, NOT AN EDGE ("can we make this look more
+      // artistic?"): the diagonal carries a paper stripe a little inside
+      // the ink, the way a shaded rail carries its own, and it runs all the
+      // way down to the strip's rail, where the midnight's station already
+      // stands. So today's panel ends as a branch joining the line at
+      // midnight rather than as a blade laid across the board.
+      var cutA = panels[1].a0, foot = strip.c1 + RAIL_W / 2;
+      var inset = Math.max(3 * S, RAIL_W * 0.9) * 1.6;
+      var st0 = xy(cutA + slantW - inset, 0), st1 = xy(cutA - inset + foot - strip.c1, foot);
+      var stripe = svgEl(doc, 'line', { x1: st0[0], y1: st0[1], x2: st1[0], y2: st1[1],
+        'stroke-width': Math.max(1.5 * S, RAIL_W * 0.45), 'stroke-linecap': 'butt' });
+      stripe.style.stroke = PAPER;
+      put(stripe, 'slope-stripe');
     }
   }
   // WHICH PANEL A STRIP LABEL BELONGS TO, by where it stands along the axis;
@@ -2045,7 +2060,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       return Math.abs(a - st.a) < 1;
     })) return;
     var on = onRail(st);
-    st = { line: st.line, a: on[0], c: on[1], kind: st.kind, todo: st.todo };
+    st = { line: st.line, a: on[0], c: on[1], kind: st.kind, todo: st.todo, done: st.done };
     var p = xy(st.a, st.c);
     // A spur is a lesser rail and wears lesser marks, which is also what
     // lets it leave its group at 45 degrees with the tick clear of the box.
@@ -2160,9 +2175,12 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       ? svgEl(doc, 'rect', { x: p[0] - r * 0.9, y: p[1] - r * 0.9, width: r * 1.8, height: r * 1.8,
           'stroke-width': NODE_STROKE * 0.8 })
       : svgEl(doc, 'circle', { cx: p[0], cy: p[1], r: r, 'stroke-width': NODE_STROKE * 0.8 });
-    dot.style.stroke = inkOf(st.line); dot.style.fill = PAPER;
+    // TICKED: a task done today keeps its square and has it filled in, the
+    // way a box is ticked off (rule 2q).
+    var dotFill = st.todo && st.done ? INK : PAPER;
+    dot.style.stroke = inkOf(st.line); dot.style.fill = dotFill;
     put(dot, 'stop-start', st.line);
-    edgeMark(dot, st.line, 'stop-start');
+    edgeMark(dot, st.line, 'stop-start', dotFill);
   });
 
   // THE MERGE DIAMOND OVER THE MARKS: a spur leaving a group just after it
@@ -3828,7 +3846,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // rows live INSIDE the ink panel, the way the strip's words are moved into
   // theirs, so the framework's `inverse` turns them to paper.
   var newsSpec = spec.news;
-  if (newsSpec && (newsSpec.rows || newsSpec.alertRows)) {
+  if (newsSpec && (newsSpec.rows || newsSpec.alertRows || newsSpec.taskRows)) {
     // A ROUNDED BOX, set in a little from the paper's edges ("maybe a
     // rounded--small box for the news"), not a bar flush to them: the
     // display is a thing hung on the wall, not the wall.
@@ -3891,7 +3909,8 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       ar.style.width = nbMaxW + 'px';
       cursor += Math.max(ar.offsetHeight, newsSpec.alertRows * rowH * 2.3) + 2 * S;
     }
-    var rowStep = newsSpec.rows ? (nbH - cursor - 2 * S) / newsSpec.rows : 0;
+    var taskRows = newsSpec.taskRows || 0;
+    var rowStep = (newsSpec.rows + taskRows) ? (nbH - cursor - 2 * S) / (newsSpec.rows + taskRows) : 0;
     // THE SOURCE AS A SOLID PILL: paper with the name knocked out, the way
     // the clock is on the strip ("invert the news source pill").
     function sourcePill(it) {
@@ -3919,6 +3938,55 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       tx.className = 'metro-hour label' + nbSM + ' text--bold';
       tx.textContent = it.title;
       return tx;
+    }
+    // WHAT IS STILL OWED, ALONG ONE ROW: a tick box in front of each, the
+    // box ticked where it was done today, a dot between them, in the same
+    // clamp the headlines use. A task is a thing with no time, so it says
+    // itself in the display and takes no stop on the map (rule 2q).
+    function tickBox(done) {
+      var z = Math.round(rowH * 0.78), sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-task-box flex-none', 'aria-hidden': 'true' });
+      sv.style.width = z + 'px'; sv.style.height = z + 'px';
+      sv.appendChild(svgEl(doc, 'rect', { x: 2.2, y: 2.2, width: 11.6, height: 11.6, rx: 3,
+        fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6 }));
+      if (done) sv.appendChild(svgEl(doc, 'path', { d: 'M4.8 8.4 7.2 10.9 11.6 5.4', fill: 'none',
+        stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+      return sv;
+    }
+    if (taskRows) {
+      var trow = doc.createElement('div');
+      trow.className = 'metro-gen metro-news-row metro-task-row flex flex--row flex--center-y gap--small absolute';
+      nb.appendChild(trow);
+      var tParts = [];
+      (newsSpec.tasks || []).forEach(function (t, ti) {
+        var group = [];
+        if (ti) {
+          var tsep = doc.createElement('span');
+          tsep.className = 'metro-hour label' + nbSM + ' text--bold';
+          tsep.textContent = '\u00b7';
+          group.push(tsep);
+        }
+        group.push(tickBox(t.done));
+        var ttx = doc.createElement('span');
+        ttx.className = 'metro-hour label' + nbSM + ' text--bold' + (t.done ? ' metro-task-done' + QUIET : '');
+        ttx.textContent = t.title;
+        group.push(ttx);
+        group.forEach(function (n) { trow.appendChild(n); });
+        tParts.push({ nodes: group, tx: ttx });
+      });
+      // as many as the row holds, the last one cut (the offline ruler
+      // measures nothing, and then they are all left whole)
+      var tguard = 0;
+      while (trow.offsetWidth > nbMaxW && tParts.length && tguard++ < 40) {
+        var lastT = tParts[tParts.length - 1], tt = lastT.tx.textContent.replace(/\u2026$/, '');
+        var tOver = trow.offsetWidth - nbMaxW, tPer = lastT.tx.offsetWidth / Math.max(1, tt.length);
+        var tKeep = tPer > 0 ? tt.length - Math.ceil(tOver / tPer) - 1 : Math.floor(tt.length * 0.92) - 1;
+        if (tParts.length > 1 && tKeep < 8) { lastT.nodes.forEach(function (n) { trow.removeChild(n); }); tParts.pop(); continue; }
+        if (tKeep < 1) { lastT.nodes.forEach(function (n) { trow.removeChild(n); }); tParts.pop(); continue; }
+        lastT.tx.textContent = tt.slice(0, Math.max(1, Math.min(tt.length - 1, tKeep))).replace(/[\s\u00b7,:;\u2013-]+$/, '') + '\u2026';
+      }
+      trow.style.left = (6 * S) + 'px';
+      trow.style.top = Math.round(cursor + (rowStep - trow.offsetHeight) / 2) + 'px';
+      cursor += rowStep;
     }
     // ONE ROW, CLAMPED ("just clamp as many news headlines onto 1 line
     // with a separator"): the newest first, each with its source, a dot

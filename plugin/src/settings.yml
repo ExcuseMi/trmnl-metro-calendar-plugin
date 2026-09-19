@@ -140,6 +140,16 @@ custom_fields:
   group: Weather
   description: "In the unit above. Leave it empty to be warned at 30°C / 86°F. For heatwaves only, try 35°C / 95°F."
   optional: true
+- keyname: tasks_show
+  field_type: select
+  group: Tasks
+  name: Tasks
+  description: 'A calendar can carry tasks as well as appointments (<code>VTODO</code>): Nextcloud Tasks, Todoist''s project feed, TickTick, Vikunja, anything that syncs over CalDAV. A task with a due time is a stop with a square; one with no time, or one still owed from an earlier day, is a tick box along the foot. Ticked off today, it stays ticked until tomorrow.'
+  options:
+  - Show them: show
+  - Hide them: hide
+  default: show
+  optional: true
 - keyname: news_feeds
   field_type: text
   group: News

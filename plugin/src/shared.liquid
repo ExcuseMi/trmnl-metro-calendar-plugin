@@ -157,6 +157,9 @@
      size. Size is the honest lever for a glyph.  */
   .metro-banner-icon { width: 1.7em; height: 1.7em; }
   .metro-news-icon { width: 1.45em; height: 1.45em; }
+  /* a task's words are struck through once its box is ticked (the grey
+     comes from the framework's own classes, see draw.js) */
+  .metro-task-done { text-decoration: line-through; }
   .metro-canvas { overflow: hidden; }
   /* THE BOARD'S OWN INK, AND ONLY THE INK.
      Text SIZE is not here: the board's words wear the framework's own label
@@ -533,6 +536,7 @@ function Stop(spec) {
   this.c = spec.c;
   this.kind = spec.kind || 'start';  // 'start' (a dot) or 'end' (a tick)
   this.todo = !!spec.todo;           // a task's start is a square, not a dot
+  this.done = !!spec.done;           // ...ticked where it was done today
 }
 
 // A CONVERGENCE: one event that several lines are at.
@@ -577,6 +581,7 @@ function Pill(spec) {
   this.initials = spec.initials || [];
   this.tie = !!spec.tie;            // one bar at a minute, the lines left where they are
   this.todo = !!spec.todo;          // a task's: its rings are squares
+  this.done = !!spec.done;
   this.joins = spec.joins || [];    // [{line, join:[a,c]|null, leave:[a,c]|null}]
 }
 Pill.prototype.box = function () {
@@ -1613,6 +1618,7 @@ function Want(spec) {
   this.ride = spec.ride || null;
   // a task rather than an appointment: its stop is a square
   this.todo = !!spec.todo;
+  this.done = !!spec.done;
   // A CROWDED STRETCH'S OTHER DOTS, along the axis: the events folded into
   // this one caption (day.js crowdsFrom). Each is still a stop on the rail.
   this.members = spec.members && spec.members.length ? spec.members.slice() : null;
@@ -1677,7 +1683,7 @@ Want.prototype.formCount = function () { return this.forms.length; };
 // needs to do.
 Want.prototype.clone = function () {
   return new Want({ id: this.id, text: this.text, line: this.line, pill: this.pill, tie: this.tie, tieFree: this.tieFree,
-                    endAt: this.endAt, ride: this.ride, todo: this.todo, members: this.members,
+                    endAt: this.endAt, ride: this.ride, todo: this.todo, done: this.done, members: this.members,
                     a0: this.a0, a1: this.a1, gap: this.gap, pad: this.pad,
                     allDay: this.allDay, open0: this.open0, open1: this.open1,
                     forms: this.forms.map(function (f) {
@@ -4260,7 +4266,7 @@ function boardFor(spec, st) {
                 open0: p.open0, open1: p.open1,
                 // and where a long tie stops, so every line in it can be
                 // ticked there
-                to: p.to, ends: p.ends || null, todo: !!p.todo,
+                to: p.to, ends: p.ends || null, todo: !!p.todo, done: !!p.done,
                 c0: Math.min.apply(null, cs), c1: Math.max.apply(null, cs),
                 joins: bd ? bd.moves.map(function (m) {
                   return { line: m.line, join: m.joinAt || null, leave: m.leaveAt || null,
@@ -5287,7 +5293,7 @@ function solve(spec, opts) {
     // ...and a different mark where the board cannot see the minute: an
     // event already running when the window opened gets the half dot, not
     // the dot. See Want.open0 and the renderer.
-    if (!w.tie || w.open0) b.addStop({ line: ln.key, a: sa0, c: ln.cAt(sa0), todo: w.todo,
+    if (!w.tie || w.open0) b.addStop({ line: ln.key, a: sa0, c: ln.cAt(sa0), todo: w.todo, done: w.done,
                                        kind: w.open0 ? 'from' : 'start' });
     // every event in a crowded stretch keeps its own dot
     (w.members || []).forEach(function (a) {
@@ -5882,7 +5888,7 @@ function wantsFrom(metro, scale, measure, opts) {
                    open1: part.end_min > metro.day_end_min };
         });
         pills.push({ id: id + 't', a: a0, a0: a0, a1: a0, to: spanned ? a1 : null, ends: ends,
-                     lines: keys, tie: true, open0: open0, open1: open1, todo: !!ev.todo });
+                     lines: keys, tie: true, open0: open0, open1: open1, todo: !!ev.todo, done: !!ev.done });
         // A BRIEF TIE'S NAME HANGS OFF ITS OWNER'S RAIL, as it always has:
         // dinner is an hour, the owner's line carries a short shelf for it
         // and the name sits against that.
@@ -5926,7 +5932,7 @@ function wantsFrom(metro, scale, measure, opts) {
                               a0: (a0 + a1) / 2, a1: (a0 + a1) / 2, forms: forms }));
       return;
     }
-    wants.push(new C.Want({ id: id, text: ev.title, line: ev.owner, todo: !!ev.todo,
+    wants.push(new C.Want({ id: id, text: ev.title, line: ev.owner, todo: !!ev.todo, done: !!ev.done,
                             open0: open0, open1: open1,
                             members: crowd ? crowd.marks : null,
                             a0: a0, a1: a1, forms: forms, gap: gap }));
@@ -6662,18 +6668,32 @@ function specFor(metro, view, opts) {
   // there.
   var newsIn = metro.news && metro.news.items && metro.news.items.length ? metro.news : null;
   var footAlert = alert ? (tiny && String(alert.text || '').length > 28 ? 2 : 1) : 0;
+  // ...AND WHAT IS STILL OWED, one row of it, above the headlines: a task
+  // with no time on the board is not a stop, and a list down the side is
+  // not this board's way of saying anything (rule 2q). The tasks take
+  // their row before the news takes any: what the household owes outranks
+  // what the world is doing.
+  var taskIn = (metro.tasks || []).filter(function (t) { return t && t.title; });
+  var taskRows = taskIn.length ? 1 : 0;
   var newsRows = 0;
   if (newsIn) {
     var newsMax = newsIn.fit ? 1 : Math.max(1, Math.min(5, newsIn.max || 3));
     newsRows = Math.min(newsIn.items.length, tiny ? 1 : view.h >= 600 ? newsMax : Math.min(newsMax, 2));
   }
-  function footHeight(nr) { return (footAlert || nr) ? Math.round(footAlert * rowH0 * 2.3 + nr * rowH0 * 1.25 + 8) : 0; }
+  function footHeight(nr, tr) {
+    var t = tr == null ? taskRows : tr;
+    return (footAlert || nr || t) ? Math.round(footAlert * rowH0 * 2.3 + (nr + t) * rowH0 * 1.25 + 8) : 0;
+  }
   // THE TRACKS COME FIRST ("does the calendar tracks always come first?"):
   // the headlines give up rows until every line keeps two and a half
   // names' depth of map, a little more than a flat slot's; the alert keeps
   // its row, it is about whether the map can be trusted.
+  // THE TRACKS STILL COME FIRST: the headlines give up their rows, and
+  // then the tasks give up theirs, before the map gives up a name's depth.
   if (!opts.standing) {
-    while (newsRows > 0 && (view.h - pad - stripH - skyH - footHeight(newsRows)) / Math.max(1, legendN) < nameH0 * 2.4) newsRows--;
+    var roomy = function () { return (view.h - pad - stripH - skyH - footHeight(newsRows)) / Math.max(1, legendN) >= nameH0 * 2.4; };
+    while (newsRows > 0 && !roomy()) newsRows--;
+    while (taskRows > 0 && !roomy()) taskRows--;
   }
   var newsH = footHeight(newsRows);
   // (flush against the box where there is one, the paper's own edge inset
@@ -6728,7 +6748,8 @@ function specFor(metro, view, opts) {
            edgeRingR: opts && opts.edgeRingR != null ? opts.edgeRingR : undefined,
            railRow: opts && opts.railRow != null ? opts.railRow : 0,
            // THE HEADLINES' BAND: rows and depth, at the foot of the map.
-           news: newsH ? { rows: newsRows, alertRows: footAlert, h: newsH, items: newsIn ? newsIn.items : [], fit: !!(newsIn && newsIn.fit) } : null,
+           news: newsH ? { rows: newsRows, alertRows: footAlert, h: newsH, items: newsIn ? newsIn.items : [], fit: !!(newsIn && newsIn.fit),
+                           taskRows: taskRows, tasks: taskRows ? taskIn : [] } : null,
            // THE BOARD'S OWN INK, DECLARED BEFORE THE SOLVE. See Furniture.
            // Everything here takes paper and cannot move, so the caption
            // search has to be told about it up front rather than have it
@@ -7693,7 +7714,7 @@ function withoutLines(spec, drop) {
       return { to: e.to, open1: e.open1, lines: e.lines.filter(function (k) { return keep[k]; }) };
     }).filter(function (e) { return e.lines.length; }) : null;
     return mine.length ? { id: p.id, a: p.a, a0: p.a0, a1: p.a1, lines: mine, tie: p.tie,
-                           to: p.to, ends: ends, open0: p.open0, open1: p.open1, todo: p.todo } : null;
+                           to: p.to, ends: ends, open0: p.open0, open1: p.open1, todo: p.todo, done: p.done } : null;
   }).filter(Boolean);
   var out = {};
   Object.keys(spec).forEach(function (k) { out[k] = spec[k]; });
@@ -8400,11 +8421,13 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // ring is inset a pixel inside that, so it is edged outside and in.
   // (Under an ink mark, and on a 1-bit panel, the twin is invisible; it is
   // drawn anyway so the drawing has the same parts at every bit depth.)
-  function edgeMark(el, line, role) {
+  function edgeMark(el, line, role, fill) {
     var sw = parseFloat(el.getAttribute('stroke-width'));
     if (!(sw > 3 * EDGE_W)) return;
     var twin = el.cloneNode(false);
-    twin.style.stroke = INK; twin.style.fill = PAPER;
+    // (the twin carries the mark's own fill: a ticked task is solid, and
+    // everything else is paper, see rule 2q)
+    twin.style.stroke = INK; twin.style.fill = fill || PAPER;
     twin.setAttribute('data-metro-role', role + '-edge');
     svg.insertBefore(twin, el);
     el.setAttribute('stroke-width', sw - 2 * EDGE_W);
@@ -8668,6 +8691,19 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // the DOM: the panels are read back in the order of the days.)
     if (slantW && panels.length > 1) {
       panels[1].el.style.clipPath = 'polygon(' + slantW + 'px 0, 100% 0, 100% 100%, 0 100%)';
+      // THE CUT IS A TRACK, NOT AN EDGE ("can we make this look more
+      // artistic?"): the diagonal carries a paper stripe a little inside
+      // the ink, the way a shaded rail carries its own, and it runs all the
+      // way down to the strip's rail, where the midnight's station already
+      // stands. So today's panel ends as a branch joining the line at
+      // midnight rather than as a blade laid across the board.
+      var cutA = panels[1].a0, foot = strip.c1 + RAIL_W / 2;
+      var inset = Math.max(3 * S, RAIL_W * 0.9) * 1.6;
+      var st0 = xy(cutA + slantW - inset, 0), st1 = xy(cutA - inset + foot - strip.c1, foot);
+      var stripe = svgEl(doc, 'line', { x1: st0[0], y1: st0[1], x2: st1[0], y2: st1[1],
+        'stroke-width': Math.max(1.5 * S, RAIL_W * 0.45), 'stroke-linecap': 'butt' });
+      stripe.style.stroke = PAPER;
+      put(stripe, 'slope-stripe');
     }
   }
   // WHICH PANEL A STRIP LABEL BELONGS TO, by where it stands along the axis;
@@ -10110,7 +10146,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       return Math.abs(a - st.a) < 1;
     })) return;
     var on = onRail(st);
-    st = { line: st.line, a: on[0], c: on[1], kind: st.kind, todo: st.todo };
+    st = { line: st.line, a: on[0], c: on[1], kind: st.kind, todo: st.todo, done: st.done };
     var p = xy(st.a, st.c);
     // A spur is a lesser rail and wears lesser marks, which is also what
     // lets it leave its group at 45 degrees with the tick clear of the box.
@@ -10225,9 +10261,12 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       ? svgEl(doc, 'rect', { x: p[0] - r * 0.9, y: p[1] - r * 0.9, width: r * 1.8, height: r * 1.8,
           'stroke-width': NODE_STROKE * 0.8 })
       : svgEl(doc, 'circle', { cx: p[0], cy: p[1], r: r, 'stroke-width': NODE_STROKE * 0.8 });
-    dot.style.stroke = inkOf(st.line); dot.style.fill = PAPER;
+    // TICKED: a task done today keeps its square and has it filled in, the
+    // way a box is ticked off (rule 2q).
+    var dotFill = st.todo && st.done ? INK : PAPER;
+    dot.style.stroke = inkOf(st.line); dot.style.fill = dotFill;
     put(dot, 'stop-start', st.line);
-    edgeMark(dot, st.line, 'stop-start');
+    edgeMark(dot, st.line, 'stop-start', dotFill);
   });
 
   // THE MERGE DIAMOND OVER THE MARKS: a spur leaving a group just after it
@@ -11893,7 +11932,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // rows live INSIDE the ink panel, the way the strip's words are moved into
   // theirs, so the framework's `inverse` turns them to paper.
   var newsSpec = spec.news;
-  if (newsSpec && (newsSpec.rows || newsSpec.alertRows)) {
+  if (newsSpec && (newsSpec.rows || newsSpec.alertRows || newsSpec.taskRows)) {
     // A ROUNDED BOX, set in a little from the paper's edges ("maybe a
     // rounded--small box for the news"), not a bar flush to them: the
     // display is a thing hung on the wall, not the wall.
@@ -11956,7 +11995,8 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       ar.style.width = nbMaxW + 'px';
       cursor += Math.max(ar.offsetHeight, newsSpec.alertRows * rowH * 2.3) + 2 * S;
     }
-    var rowStep = newsSpec.rows ? (nbH - cursor - 2 * S) / newsSpec.rows : 0;
+    var taskRows = newsSpec.taskRows || 0;
+    var rowStep = (newsSpec.rows + taskRows) ? (nbH - cursor - 2 * S) / (newsSpec.rows + taskRows) : 0;
     // THE SOURCE AS A SOLID PILL: paper with the name knocked out, the way
     // the clock is on the strip ("invert the news source pill").
     function sourcePill(it) {
@@ -11984,6 +12024,55 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       tx.className = 'metro-hour label' + nbSM + ' text--bold';
       tx.textContent = it.title;
       return tx;
+    }
+    // WHAT IS STILL OWED, ALONG ONE ROW: a tick box in front of each, the
+    // box ticked where it was done today, a dot between them, in the same
+    // clamp the headlines use. A task is a thing with no time, so it says
+    // itself in the display and takes no stop on the map (rule 2q).
+    function tickBox(done) {
+      var z = Math.round(rowH * 0.78), sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-task-box flex-none', 'aria-hidden': 'true' });
+      sv.style.width = z + 'px'; sv.style.height = z + 'px';
+      sv.appendChild(svgEl(doc, 'rect', { x: 2.2, y: 2.2, width: 11.6, height: 11.6, rx: 3,
+        fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6 }));
+      if (done) sv.appendChild(svgEl(doc, 'path', { d: 'M4.8 8.4 7.2 10.9 11.6 5.4', fill: 'none',
+        stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+      return sv;
+    }
+    if (taskRows) {
+      var trow = doc.createElement('div');
+      trow.className = 'metro-gen metro-news-row metro-task-row flex flex--row flex--center-y gap--small absolute';
+      nb.appendChild(trow);
+      var tParts = [];
+      (newsSpec.tasks || []).forEach(function (t, ti) {
+        var group = [];
+        if (ti) {
+          var tsep = doc.createElement('span');
+          tsep.className = 'metro-hour label' + nbSM + ' text--bold';
+          tsep.textContent = '\u00b7';
+          group.push(tsep);
+        }
+        group.push(tickBox(t.done));
+        var ttx = doc.createElement('span');
+        ttx.className = 'metro-hour label' + nbSM + ' text--bold' + (t.done ? ' metro-task-done' + QUIET : '');
+        ttx.textContent = t.title;
+        group.push(ttx);
+        group.forEach(function (n) { trow.appendChild(n); });
+        tParts.push({ nodes: group, tx: ttx });
+      });
+      // as many as the row holds, the last one cut (the offline ruler
+      // measures nothing, and then they are all left whole)
+      var tguard = 0;
+      while (trow.offsetWidth > nbMaxW && tParts.length && tguard++ < 40) {
+        var lastT = tParts[tParts.length - 1], tt = lastT.tx.textContent.replace(/\u2026$/, '');
+        var tOver = trow.offsetWidth - nbMaxW, tPer = lastT.tx.offsetWidth / Math.max(1, tt.length);
+        var tKeep = tPer > 0 ? tt.length - Math.ceil(tOver / tPer) - 1 : Math.floor(tt.length * 0.92) - 1;
+        if (tParts.length > 1 && tKeep < 8) { lastT.nodes.forEach(function (n) { trow.removeChild(n); }); tParts.pop(); continue; }
+        if (tKeep < 1) { lastT.nodes.forEach(function (n) { trow.removeChild(n); }); tParts.pop(); continue; }
+        lastT.tx.textContent = tt.slice(0, Math.max(1, Math.min(tt.length - 1, tKeep))).replace(/[\s\u00b7,:;\u2013-]+$/, '') + '\u2026';
+      }
+      trow.style.left = (6 * S) + 'px';
+      trow.style.top = Math.round(cursor + (rowStep - trow.offsetHeight) / 2) + 'px';
+      cursor += rowStep;
     }
     // ONE ROW, CLAMPED ("just clamp as many news headlines onto 1 line
     // with a separator"): the newest first, each with its source, a dot

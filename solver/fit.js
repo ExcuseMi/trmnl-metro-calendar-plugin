@@ -108,7 +108,7 @@ function withoutLines(spec, drop) {
       return { to: e.to, open1: e.open1, lines: e.lines.filter(function (k) { return keep[k]; }) };
     }).filter(function (e) { return e.lines.length; }) : null;
     return mine.length ? { id: p.id, a: p.a, a0: p.a0, a1: p.a1, lines: mine, tie: p.tie,
-                           to: p.to, ends: ends, open0: p.open0, open1: p.open1, todo: p.todo } : null;
+                           to: p.to, ends: ends, open0: p.open0, open1: p.open1, todo: p.todo, done: p.done } : null;
   }).filter(Boolean);
   var out = {};
   Object.keys(spec).forEach(function (k) { out[k] = spec[k]; });

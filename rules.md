@@ -161,6 +161,21 @@ applies when something changes.
    new takes the lowest free rung; a shared calendar's ladder line takes
    none. The names of the days and months come from the language table
    too, since the runtime's Intl may know English only.
+2q. **A task is a thing with no time until it has one.** A calendar can
+   carry tasks as well as appointments, in the same file (`VTODO`):
+   Nextcloud Tasks, a Todoist project feed, anything that syncs over
+   CalDAV. A task due at a minute the board draws is a stop like any
+   other, with a square instead of a dot. One with NO due time, and one
+   still owed from an EARLIER day, is not a stop at all: the board looks
+   forward, and a thing to do is not something that happened. Those are
+   drawn as tick boxes along the foot, one row above the headlines,
+   because what the household owes outranks what the world is doing; that
+   row gives way before the map does, and after the headlines have given
+   up theirs. A task ticked off TODAY stays until the day turns over, its
+   square filled and its words struck through, because seeing it done is
+   the point of having it on the wall; one finished on an earlier day, and
+   one cancelled, is gone. The household can switch the lot off in the
+   settings.
 2n. **The strip's last hour is labelled only at a regular step from the
    one before it.** A compressed night puts the window's last hour a
    fraction of a step past its neighbour, and "8pm 12am" crowded against
