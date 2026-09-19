@@ -3794,11 +3794,17 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // cut to the row if it alone is too long.
     var rows = newsSpec.fit && newsSpec.rows ? 1 : newsSpec.rows;
     var itemsFor = newsSpec.fit ? [newsSpec.items] : newsSpec.items.slice(0, rows).map(function (it) { return [it]; });
+    // ONE SOURCE NEEDS NO NAMING ("if there's just one source, don't show
+    // the source"): the pills say which paper, and with one paper they say
+    // the same thing on every row.
+    var sources = {};
+    newsSpec.items.forEach(function (it) { if (it.source) sources[it.source] = true; });
+    var namePapers = Object.keys(sources).length > 1;
     itemsFor.forEach(function (group, i) {
       var row = doc.createElement('div');
       row.className = 'metro-gen metro-news-row flex flex--row flex--center-y gap--small absolute';
       var first = group[0];
-      if (first.source) row.appendChild(sourcePill(first));
+      if (namePapers && first.source) row.appendChild(sourcePill(first));
       var tx = headline(first);
       row.appendChild(tx);
       nb.appendChild(row);
@@ -3809,7 +3815,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           sep.className = 'metro-hour label' + nbSM + ' text--bold';
           sep.textContent = '\u00b7';
           var more = [sep];
-          if (group[gi].source) more.push(sourcePill(group[gi]));
+          if (namePapers && group[gi].source) more.push(sourcePill(group[gi]));
           more.push(headline(group[gi]));
           more.forEach(function (n) { row.appendChild(n); });
           if (row.offsetWidth > nbMaxW) { more.forEach(function (n) { row.removeChild(n); }); break; }
