@@ -3049,8 +3049,27 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       if (oneRow && (t[2] >= tb.r[3] || t[3] <= tb.r[2])) return;
       if (t[0] >= tb.r[1] && t[0] - 12 * S < to) to = t[0] - 12 * S;
     });
-    if (to - from < 80 * S) return false;
     if (oneRow && rows.length > 1) rows.shift();
+    // THE ROW UNDER THE TITLE, WHERE THAT IS THE WIDER SLOT. Set beside the
+    // date, a one-row card had the stretch between the badge and the
+    // forecast, and on a full panel cut "Shift Handover" to "Shift..." with
+    // the whole row under the title empty ("restructure header to use all
+    // the space"). The second row runs from where the date starts to
+    // whatever reaches down into it, which is the forecast's card or
+    // nothing.
+    var underTitle = false;
+    // (room for the small size at least: on an X the title is a size up and
+    // leaves the second row two thirds of one)
+    if (!oneRow && rows.length === 1 && tb.band - tb.r[3] >= rowH * 0.6) {
+      // (from the title's own left edge: its rect stands a hair proud of it)
+      var fromB = tb.r[0] + 2 * S, toB = (dayCuts.length > dayIx ? dayCuts[dayIx] : (horizontal ? W : H)) - 10 * S;
+      taken.forEach(function (t) {
+        if (t === tb.r || t.length < 4 || t[2] >= tb.band || t[3] <= tb.r[3]) return;
+        if (t[0] >= fromB - 2 * S && t[0] - 12 * S < toB) toB = t[0] - 12 * S;
+      });
+      if (toB - fromB > to - from) { from = fromB; to = toB; underTitle = true; bandH = tb.band - tb.r[3]; }
+    }
+    if (to - from < 80 * S) return false;
     // The base size first, where the band takes two rows of it; small after.
     // "Now and next are hard to read": thin white letters on the black band
     // broke up on the panel. The large size first where the band holds two
@@ -3125,7 +3144,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       spans.forEach(function (sp) { leadW = Math.max(leadW, sp.lead.offsetWidth); });
       spans.forEach(function (sp) { sp.lead.style.display = 'inline-block'; sp.lead.style.minWidth = leadW + 'px'; });
       spans.forEach(cut);
-      if (card.offsetHeight <= bandH - 2 && spans.every(function (sp) { return sp.line.offsetWidth <= to - from; })) break;
+      if (card.offsetHeight <= bandH - (underTitle ? 0 : 2) && spans.every(function (sp) { return sp.line.offsetWidth <= to - from; })) break;
       if (zi === sizes.length - 1) {
         // Two rows where the band is deep enough, else only what is next.
         while (spans.length > 1 && card.offsetHeight > bandH - 2) { spans[0].line.remove(); spans.shift(); }
@@ -3138,7 +3157,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         sp.body.textContent = words.join(' ').replace(/[\s\u00b7,]+$/, '') + '\u2026';
       }
     }
-    if (spans.some(function (sp) { return sp.line.offsetWidth > to - from; }) || card.offsetHeight > bandH - 2) { card.remove(); return false; }
+    if (spans.some(function (sp) { return sp.line.offsetWidth > to - from; }) || card.offsetHeight > bandH - (underTitle ? 0 : 2)) { card.remove(); return false; }
     // ON THE DATE'S OWN ROW WHEN IT IS ONE ROW TALL.
     //
     // A two-row card is centred on the two-row band, which is right. A card of
@@ -3147,7 +3166,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // level with neither, which is exactly how it looked: "Tomorrow  Wed 9 Sep
     // [gap] 08:30 Swim Training" with the second half sitting low.
     var single = spans.length < 2;
-    var r = place(card, from, (oneRow || single) ? (tb.r[2] + tb.r[3]) / 2 : tb.band / 2 + 2, 'left');
+    var r = place(card, from, underTitle ? (tb.r[3] + tb.band) / 2 : (oneRow || single) ? (tb.r[2] + tb.r[3]) / 2 : tb.band / 2 + 2, 'left');
     if (free(r)) { taken.push(r); return true; }
     card.remove();
     return false;
@@ -3273,8 +3292,20 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       segs.forEach(function (sg) { if (m >= sg.from && m < sg.to && sg.rate < 1) fast = true; });
       return fast ? step * 4 : step;
     }
+    // ...AND NEVER CRAMPED AGAINST THE LAST ONE. A compressed night puts the
+    // window's last hour a step of the clock but half a label's width past
+    // the one before it: "8pm 12am" crowded against the paper's edge
+    // ("12am isn't very clean looking"). A label closer to the last placed
+    // one than a label is wide is left off; the station stays.
+    var lastA = -Infinity;
     for (var h = Math.ceil(from / 60); h * 60 <= to; h++) {
       if (h % step !== 0 || h % stepAt(h) !== 0) continue;
+      // (the window's last hour asks for most of a regular step: it is the
+      // one label with nothing after it to balance a tight gap before it,
+      // and a compressed night puts it a fraction of a step past its
+      // neighbour)
+      var need = h * 60 >= to - 59 ? Math.max(room, step * 60 * perMin * 0.85) : room;
+      if (spec.scale.at(h * 60) - lastA < need) continue;
       // Not on a midnight the strip changes panel at: the day's own title
       // names that minute, and the label would be half on each panel.
       if (dayCuts.length && ((spec.metro.days || []).some(function (d, di) { return di && d.start_min === h * 60; }))) continue;
@@ -3285,6 +3316,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       var got = place(lab, spec.scale.at(h * 60), cHour, 'centre');
       if (free(got)) {
         taken.push(got);
+        lastA = spec.scale.at(h * 60);
         // ...and a station on the rail under it: a hollow stop, paper inside
         if (strip && horizontal) {
           var hq = xy(spec.scale.at(h * 60), strip.c1 + RAIL_W / 2);

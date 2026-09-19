@@ -139,6 +139,17 @@ applies when something changes.
    the slope; today's forecast may run onto it. A one-line forecast tries
    its day's title row before the row under the date, so it never stands on
    the hours and takes their labels with it.
+2m. **The next-up card takes the wider slot.** Beside the date on the
+   title row, or under the date starting where it starts, whichever gives
+   a one-row card more room: on a full panel the row under the title was
+   empty while the card beside the date cut "Shift Handover" to
+   "Shift..." ("restructure header to use all the space").
+2n. **The strip's last hour is labelled only at a regular step from the
+   one before it.** A compressed night puts the window's last hour a
+   fraction of a step past its neighbour, and "8pm 12am" crowded against
+   the paper's edge "isn't very clean looking"; the station stays, the
+   label is left off. Elsewhere a label closer to the last one than a
+   label is wide is left off the same way.
 2i. **The headlines are the platform display.** A household that names
    RSS or Atom feeds in the News setting gets a band of ink along the foot
    of the map, one row a headline with its source as a small pill in front

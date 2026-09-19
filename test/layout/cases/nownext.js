@@ -48,6 +48,10 @@ module.exports = function (test, h) {
       const left = badges.filter((b) => b.x <= card.x + 2)
         .sort((p, q) => (card.x - p.x) - (card.x - q.x))[0] || badges[0];
       if (card.h > left.h * 1.6) return;        // a two-row card: centred on the band, correctly
+      // ...OR UNDER THE DATE, starting where it starts, when that row is the
+      // wider slot: beside the date on a full panel the card cut "Shift
+      // Handover" to "Shift..." with the whole row under the title empty.
+      if (Math.abs(card.x - left.x) <= 4 && card.y >= left.y + left.h - 2) return;
       assert(Math.abs(mid(card) - mid(left)) <= Math.max(4, left.h * 0.35),
         'the card sits ' + Math.round(mid(card) - mid(left)) + 'px off the date "' + left.text.slice(0, 14) + '"');
     });
