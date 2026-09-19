@@ -25,6 +25,26 @@ module.exports = function (test, h) {
       });
     }
   }
+  // TONIGHT'S MOON UNDER THE TIME LINE ("like the rain icon under the time
+  // line"): TRMNL's phase icon in the sky row just past the midnight the
+  // night crosses, and the midnight's station a plain dot ("keep dots at
+  // night").
+  test('tonight\'s moon is a sky mark just past the midnight', () => {
+    const f = fixtures.find((x) => x.name === 'two-day');
+    const metro = Object.assign({}, f.metro, { days: f.metro.days.map((d) => Object.assign({}, d, { moon: { illumination: 57, waxing: true } })) });
+    for (const v of ['x-landscape', 'og-landscape']) {
+      const built = build(metro, v);
+      const moons = [...built.doc.querySelectorAll('.metro-sky img')].filter((n) => /wi-moon/.test(n.getAttribute('src')));
+      assert(moons.length === 1, v + ': ' + moons.length + ' moons');
+      assert(/wi-moon-alt-waxing-gibbous-1\.svg$/.test(moons[0].getAttribute('src')), v + ': the phase ' + moons[0].getAttribute('src'));
+      const fx = built.board.fixed.find((x) => x.kind === 'sky' && /wi-moon/.test(x.icon || ''));
+      assert(fx && fx.min === 1440, v + ': the moon is not at the midnight');
+      const mid = built.doc.querySelector('[data-metro-hour="24"]');
+      assert(!mid || mid.tagName.toLowerCase() === 'circle', v + ': the midnight station is not a dot');
+    }
+    // no phase, no moon
+    assert(!build(f.metro, 'x-landscape').board.fixed.some((x) => /wi-moon/.test(x.icon || '')), 'a moon with no phase');
+  });
   for (const name of ['two-day', 'busy-day']) {
     test('the train is drawn over the hour stations: ' + name, () => {
       const f = fixtures.find((x) => x.name === name);
