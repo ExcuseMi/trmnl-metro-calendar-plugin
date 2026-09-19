@@ -1,6 +1,5 @@
 ---
-id: 481781
-name: Metro Calendar (testing)
+id: 471753
 strategy: polling
 no_screen_padding: 'no'
 dark_mode: 'no'
