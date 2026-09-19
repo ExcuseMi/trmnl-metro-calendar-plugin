@@ -51,16 +51,15 @@ module.exports = function (test, h) {
         let step = 0;
         labs.forEach((l, i) => { if (i) step = gcd(step, l.abs - labs[i - 1].abs); });
         if (!step) return;
-        // every word over its own station (a word at the paper's edge is
-        // held inside the canvas's inset, a little over half its width off
-        // its hour)
+        // every word over its own station
         const W = rep.canvas.w;
         const own = labs.map((l) => {
           let best = -1;
           stations.forEach((s, i) => { if (best < 0 || Math.abs(s - l.x) < Math.abs(stations[best] - l.x)) best = i; });
-          const atEdge = l.x - l.w <= 2 || l.x + l.w >= W - 2;
           const off = best < 0 ? Infinity : Math.abs(stations[best] - l.x);
-          assert(off <= (atEdge ? l.w * 0.6 : l.w / 3) + 3, '"' + l.text + '" has no station under it');
+          // (a label may slide up to half its width to clear the clock, and
+          // is never held off its station by the edge)
+          assert(off <= l.w / 2 + 3, '"' + l.text + '" has no station under it');
           return best;
         });
         // and no stretch of the rail is bare: no two neighbouring stations

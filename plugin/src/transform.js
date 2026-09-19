@@ -103,7 +103,7 @@ var I18N = {
         // same thing five times and crowds out the event.
         everyone: 'All',
         clear: 'Clear', partly_cloudy: 'Partly cloudy', cloudy: 'Cloudy', foggy: 'Foggy', rain: 'Rain', snow: 'Snow', storms: 'Storms', ice: 'Freezing rain',
-        rain_starts: 'Rain starts', rain_stops: 'Rain stops',
+        rain_starts: 'Rain starts', rain_stops: 'Rain stops', windy: 'Windy',
         feed_down: '{n} unavailable', weather_stale: 'Forecast may be out of date',
         // When the board has nothing to draw, it says why (see boardNotice).
         notice_config_invalid: 'The Configuration setting could not be read. Copy it again from the setup helper.',
@@ -1406,6 +1406,9 @@ function isoToMinutes(iso) {
 }
 
 var RAIN_THRESHOLD = 50; // %, precipitation_probability crossing this is what draws a "Rain Starts/Stops" milestone
+// km/h of gusts from which the hour is marked windy ("we could add wind as
+// well"): about where an umbrella turns inside out and a bike is hard work.
+var WIND_GUST_KMH = 50;
 
 // A weather SNAPSHOT is language-free and unit-tagged: the condition and
 // every milestone are i18n KEYS, the icon is a filename, and the
@@ -1420,6 +1423,7 @@ var MILESTONE_ICON = {
   snow: 'wi-day-snow.svg',
   storms: 'wi-day-thunderstorm.svg',
   foggy: 'wi-day-fog.svg',
+  windy: 'wi-strong-wind.svg',
 };
 
 function convertTemp(v, from, to) {
@@ -1674,7 +1678,10 @@ async function fetchWeather(latLonRaw, tz, deadline, unit, opts) {
       // ...and the temperature per hour, which is what holds the cold and
       // heat banners to the clock: the daily max is a fact about a day, and
       // a board reads it at eight in the evening.
-      hourly: 'precipitation_probability,weathercode,temperature_2m',
+      // ...and the gusts, in km/h whatever the temperature unit, for the
+      // hour it turns windy
+      hourly: 'precipitation_probability,weathercode,temperature_2m,wind_gusts_10m',
+      wind_speed_unit: 'kmh',
       temperature_unit: unit === 'F' ? 'fahrenheit' : 'celsius',
       timezone: (opts && opts.localSun) ? 'auto' : tz, forecast_days: String(DAY_SPAN),
     });
@@ -1691,6 +1698,7 @@ async function fetchWeather(latLonRaw, tz, deadline, unit, opts) {
     var probs = hourly.precipitation_probability || [];
     var codes = hourly.weathercode || [];
     var degs = hourly.temperature_2m || [];
+    var gusts = hourly.wind_gusts_10m || [];
 
     // Every in-window hour of every day of the run, kept apart BY DAY, out
     // of the SAME hourly array the milestones came from. The service alert
@@ -1720,6 +1728,7 @@ async function fetchWeather(latLonRaw, tz, deadline, unit, opts) {
       var hour = { atMin: pMin, pct: p };
       if (typeof codes[j] === 'number' && isFinite(codes[j])) hour.code = codes[j];
       if (typeof degs[j] === 'number' && isFinite(degs[j])) hour.deg = degs[j];
+      if (typeof gusts[j] === 'number' && isFinite(gusts[j])) hour.gust = gusts[j];
       dayHours[dk].push(hour);
     }
     var peak = wettestHour(dayHours[0], null);
@@ -1744,7 +1753,15 @@ async function fetchWeather(latLonRaw, tz, deadline, unit, opts) {
       });
       return out;
     }
-    var milestones = milestonesFor(dayHours[0]);
+    // ...AND THE HOUR IT TURNS WINDY, once a day, beside the rain's two
+    function windFor(hours) {
+      var first = (hours || []).filter(function (h) { return h.gust != null && h.gust >= WIND_GUST_KMH; })[0];
+      return first ? [{ atMin: first.atMin, kind: 'windy' }] : [];
+    }
+    function skyFor(hours) {
+      return milestonesFor(hours).concat(windFor(hours)).sort(function (p, q) { return p.atMin - q.atMin; });
+    }
+    var milestones = skyFor(dayHours[0]);
 
     var rain = Math.round((daily.precipitation_probability_max || [])[0]);
     var hi = Math.round((daily.temperature_2m_max || [])[0]);
@@ -1778,7 +1795,7 @@ async function fetchWeather(latLonRaw, tz, deadline, unit, opts) {
         // need to depend on that.
         twilight_min: twilightMin(latlon[0], (daily.time || [])[pd] || (daily.sunrise || [])[pd]),
         peak: wettestHour(dayHours[pd], null),
-        milestones: milestonesFor(dayHours[pd]),
+        milestones: skyFor(dayHours[pd]),
       });
     }
     return {

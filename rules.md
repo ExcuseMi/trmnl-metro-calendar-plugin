@@ -189,12 +189,18 @@ applies when something changes.
    minute the weather keeps it, then the moon, then the sunset, and the
    one that gives way stands snug beside it, off the clock's line; it goes
    only where neither side has room.
+   THE HOUR IT TURNS WINDY is one too ("we could add wind as well"): the
+   first hour of a day with gusts at or over 50 km/h, TRMNL's strong-wind
+   glyph, in the weather's rank.
    THE ROW IS THE WEATHER'S: a moon and a sunset alone do not buy a row
    across the board (it cost an evening board every caption's time); they
    stand in their own small boxes at the top of the map instead. The midnight the panels change at has its dot; the train rides
    over the station it is at. A label a few pixels short of room beside
-   the clock pill slides up to a third of its width off its hour instead of
-   going; its station stays on the hour.
+   the clock pill slides off its hour instead of
+   going (as far as keeps it nearer its own station than the next, and
+   never past half its width); its station stays on the hour. Words the
+   paper's edge would hold off their station are left off ("00:00 at the
+   end is still not aligned").
 2i. **The headlines are the platform display.** A household that names
    RSS or Atom feeds in the News setting gets a band of ink along the foot
    of the map, one row a headline with a small newspaper glyph and its
