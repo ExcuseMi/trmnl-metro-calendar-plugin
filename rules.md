@@ -180,7 +180,15 @@ applies when something changes.
    TONIGHT'S MOON IS A SKY MARK ("like the rain icon under the time
    line"): TRMNL's own phase icon, outlined, in the sky row under the
    strip just past the midnight the night crosses, booked by the solver
-   like the rain; it does not make the night run at full rate. The midnight the panels change at has its dot; the train rides
+   like the rain; it does not make the night run at full rate.
+   EACH DAY'S SUNSET IS A SKY MARK too, TRMNL's sunset glyph at its minute,
+   and WHILE IT RAINS THE ROW RAINS: a trail of small drops from the glyph
+   that says it starts to the one that says it stops (or the day's end),
+   clear of every glyph and of the clock's line. Where two glyphs want the
+   same room the weather keeps it, then the moon, then the sunset.
+   THE ROW IS THE WEATHER'S: a moon and a sunset alone do not buy a row
+   across the board (it cost an evening board every caption's time); they
+   stand in their own small boxes at the top of the map instead. The midnight the panels change at has its dot; the train rides
    over the station it is at. A label a few pixels short of room beside
    the clock pill slides up to a third of its width off its hour instead of
    going; its station stays on the hour.

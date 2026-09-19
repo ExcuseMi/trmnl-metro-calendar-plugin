@@ -1251,8 +1251,42 @@ function specFor(metro, view, opts) {
     if (!mo || d.start_min == null || d.start_min <= metro.day_start_min || d.start_min >= metro.day_end_min) return;
     skyMarks.push({ at_min: d.start_min, label: 'Moon ' + mo.illumination + '%', icon: moonIcon(mo.illumination, mo.waxing), moon: true });
   });
+  // ...TOMORROW'S RAIN, which the payload carries on its day's forecast
+  // and not in metro.weather (that list is the shown day's), in the same
+  // row as today's; and EACH DAY'S SUNSET ("sunset under the time line"):
+  // when the light goes, which is when a child's outside ends.
+  // AND WHILE IT RAINS, THE ROW RAINS: every start paired with the stop
+  // after it in its own day (or the day's end), drawn as a trail of drops
+  // between the two glyphs ("rain as a stretch, not a point").
+  var rainSpans = [];
+  var W0 = metro.day_start_min, W1 = metro.day_end_min;
+  if (!tiny) (metro.days || []).forEach(function (d, i) {
+    var wx = d.weather || {}, base = d.start_min != null ? d.start_min : i * 1440;
+    var ms = (wx.milestones || []).filter(function (m) { return m && typeof m.atMin === 'number'; });
+    if (i > 0) ms.forEach(function (m) {
+      var at = base + m.atMin;
+      if (at > W0 && at < W1) skyMarks.push({ at_min: at, label: m.label, icon: m.icon, kind: m.kind });
+    });
+    var open = null;
+    ms.forEach(function (m) {
+      if (m.kind === 'rain_starts' && open == null) open = base + m.atMin;
+      else if (m.kind === 'rain_stops' && open != null) { rainSpans.push([open, base + m.atMin]); open = null; }
+    });
+    if (open != null) rainSpans.push([open, base + 1440]);
+    if (typeof wx.sunset_min === 'number') {
+      var ss = base + wx.sunset_min;
+      if (ss > W0 && ss < W1) skyMarks.push({ at_min: ss, label: ((metro.i18n || {}).sunset || 'Sunset') + ' ' + ('0' + Math.floor((ss % 1440) / 60)).slice(-2) + ':' + ('0' + ss % 60).slice(-2), icon: 'https://trmnl.com/images/plugins/weather/wi-sunset.svg', sunset: true });
+    }
+  });
+  rainSpans = rainSpans.map(function (r) { return [Math.max(W0, r[0]), Math.min(W1, r[1])]; })
+    .filter(function (r) { return r[1] - r[0] >= 30; });
   skyMarks.sort(function (p, q) { return p.at_min - q.at_min; });
-  var skyH = skyMarks.length ? rowH0 + 6 : 0;
+  // THE ROW IS THE WEATHER'S. A moon and a sunset alone do not buy a row
+  // across the whole board: it cost an evening board the times under every
+  // caption. Without rain or storms to share it, each stands in its own
+  // small box at the top of the map, booked like any fixed thing, and costs
+  // only that.
+  var skyH = skyMarks.some(function (w) { return !w.moon && !w.sunset; }) || rainSpans.length ? rowH0 + 6 : 0;
   // THE PLATFORM DISPLAY along the foot of the map: a row per headline, as
   // many as the panel can spare up to the setting, one on a small panel,
   // none standing up (a band across a standing board's foot would cut the
@@ -1286,7 +1320,7 @@ function specFor(metro, view, opts) {
                 c1: view.h - (opts.standing || !newsH ? pad : newsH) };
   if (opts.standing && newsH) { axis.a1 -= newsH; if (axis.edge1 != null) axis.edge1 -= newsH; }
   opts = Object.assign({}, opts, { showWeather: wantWx, stripH: stripH, richWx: richWx, levelNames: levelNames,
-                                   skyH: skyH, sky: skyMarks, railRow: railRow });
+                                   skyH: skyH, sky: skyMarks, rain: rainSpans, railRow: railRow });
   var scale = scaleFor({ from: metro.day_start_min, to: metro.day_end_min,
                          a0: axis.a0, a1: axis.a1,
                          // Off by asking, so a caller that wants the plain
@@ -1464,8 +1498,16 @@ function fixedFor(metro, scale, axis, cross, opts) {
   // over one another, and the later one is the one that goes. Its own time is
   // already in the words ("Rain starts 13:00"), so nothing is lost but the
   // one that could not be read anyway.
-  var cursor = -Infinity;
-  ((opts && opts.sky) || []).forEach(function (w, i) {
+  // WHO GIVES WAY: the weather first (rain, storms, snow change what you
+  // take with you), then the moon, then the sunset; each keeps its minute
+  // and is dropped where a more important glyph already has the room,
+  // rather than the later one going whatever it was.
+  var skyList = ((opts && opts.sky) || []).map(function (w, i) {
+    return { w: w, i: i, rank: w.sunset ? 2 : w.moon ? 1 : 0 };
+  }).sort(function (p, q) { return p.rank - q.rank || p.w.at_min - q.w.at_min; });
+  var skyTaken = [];
+  skyList.forEach(function (sk) {
+    var w = sk.w, i = sk.i;
     var at = scale.at(w.at_min);
     // Room for the glyph in front of the words, which the drawing puts there.
     // THE GLYPH ALONE, CENTRED ON ITS MINUTE: "remove the storm text and just
@@ -1482,10 +1524,17 @@ function fixedFor(metro, scale, axis, cross, opts) {
     var dayStartA = Math.max(axis.a0, scale.at(Math.max(metro.day_start_min, dayEndMin - 1440)));
     var a0 = Math.max(dayStartA, Math.min(at, dayEndA - wide));
     if (a0 + wide > dayEndA + 0.5) return;
-    if (a0 < cursor) return;
-    cursor = a0 + wide + cell;
+    if (skyTaken.some(function (t) { return a0 < t[1] + cell && t[0] < a0 + wide + cell; })) return;
+    skyTaken.push([a0, a0 + wide]);
     out.push({ id: 'sky' + i, kind: 'sky', text: w.label, icon: w.icon, at: at, min: w.at_min,
-               a0: a0, a1: a0 + wide, c0: lip + 2, c1: cross.c0 - 2 });
+               a0: a0, a1: a0 + wide,
+               c0: skyH ? lip + 2 : cross.c0 + 2, c1: skyH ? cross.c0 - 2 : cross.c0 + rowH + 6 });
+  });
+  // ...and the rain between its glyphs, in the same row
+  ((opts && opts.rain) || []).forEach(function (r, i) {
+    var r0 = scale.at(r[0]), r1 = scale.at(r[1]);
+    if (r1 - r0 < rowH) return;
+    out.push({ id: 'rain' + i, kind: 'rain', text: 'rain', min: r[0], a0: r0, a1: r1, c0: lip + 2, c1: cross.c0 - 2 });
   });
   // NAMED AT BOTH ENDS. A reader comes to the board from whichever side they
   // are standing on, and a name only on the right is a name half of them
