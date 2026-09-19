@@ -144,6 +144,9 @@ applies when something changes.
    the slope; today's forecast may run onto it. A one-line forecast tries
    its day's title row before the row under the date, so it never stands on
    the hours and takes their labels with it.
+   Tomorrow's words start where the slope ends on their own row: a title
+   is measured against its day minus the slope at its top, and steps down
+   a form rather than being held back under the ink ("orrow").
 2m. **The next-up card takes the wider slot.** Beside the date on the
    title row, or under the date starting where it starts, whichever gives
    a one-row card more room: on a full panel the row under the title was
@@ -164,13 +167,15 @@ applies when something changes.
    the paper's edge "isn't very clean looking"; the station stays, the
    label is left off. Elsewhere a label closer to the last one than a
    label is wide is left off the same way.
-   EVERY HOUR OF THE STEP KEEPS A STATION ("hours on the timeline are not
-   very consistent, many are missing"): an hour whose words were left off
-   gets a smaller station on the rail, so a squeezed night reads as stops
-   close together rather than hours gone. None at the midnight the panels
-   change at, under the slope, or under the train. A label a few pixels
-   short of room beside the clock pill slides up to a third of its width
-   off its hour instead of going; its station stays on the hour.
+   A STATION EVERY HOUR OR TWO, BIG WITH WORDS AND SMALL WITHOUT ("have
+   the dots every 2 or 1 hours"): the stations run on the finest clock step
+   that divides the labels' step and leaves them a few dots apart at the
+   day's rate. In a squeezed night a small one too close to the last is
+   left off, so the night reads as stops close together rather than hours
+   gone. The midnight the panels change at has its dot; the train rides
+   over the station it is at. A label a few pixels short of room beside
+   the clock pill slides up to a third of its width off its hour instead of
+   going; its station stays on the hour.
 2i. **The headlines are the platform display.** A household that names
    RSS or Atom feeds in the News setting gets a band of ink along the foot
    of the map, one row a headline with a small newspaper glyph and its

@@ -8508,7 +8508,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // nicer and in theme"). As far across as the strip is deep, or less
   // where tomorrow's panel is a sliver; the reach at any row is what
   // `slantAt` says, and tomorrow's title and today's forecast use it.
-  var slantW = 0;
+  var slantW = 0, trainEl = null;
   function slantAt(cBottom) { return slantW ? Math.max(0, strip.c1 - cBottom - 2 * S) : 0; }
   if (strip) {
     var along1 = horizontal ? W : H, gapHalf = 0;
@@ -8615,8 +8615,12 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // "weird header alignment for today".
       if (horizontal && !/metro-pill/.test(n.className) && Math.abs(a0 - spec.axis.a0) < 2
           && home.a0 < spec.axis.a0 - inset) a0 = home.a0;
-      var fit = Math.max(home.a0 + inset, Math.min(a0, homeA1 - len - inset));
-      if (len > homeA1 - home.a0 - 2 * inset) { n.remove(); return; }
+      // ...and nothing on the panel after the ink one is held back under
+      // its slope, which covers the start of each row by as much as the row
+      // is high (measured at the row's top, where it reaches furthest)
+      var cover = horizontal && slantW && panels.length > 1 && home === panels[1] ? slantAt(c0) : 0;
+      var fit = Math.max(home.a0 + inset + cover, Math.min(a0, homeA1 - len - inset));
+      if (len > homeA1 - home.a0 - 2 * inset - cover) { n.remove(); return; }
       if (horizontal) left = fit; else top = fit;
       n.style.left = (left - home.x) + 'px'; n.style.top = (top - home.y) + 'px';
       // THE FORECAST IS HELD BY ITS PANEL'S RIGHT EDGE, like a name at the far
@@ -8851,7 +8855,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         transform: 'translate(' + (tq[0] + tw / 2 + 149 * tk) + ' ' + (tq[1] + 1 * S - 636 * tk) + ') scale(' + (-tk) + ' ' + tk + ')' });
       tb.style.fill = PAPER;
       train.appendChild(tb);
-      trainSpan = [a - tw / 2 - 3 * S, a + tw / 2 + 3 * S];
+      trainEl = train;
       svg.appendChild(train);
     }
     // ...and the line starts under the train, not through it
@@ -10389,7 +10393,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     });
   }
 
-  var hoursFx = null, notes = [], dayBadges = [], trainSpan = null;
+  var hoursFx = null, notes = [], dayBadges = [];
   // THE STRIP'S WORDS A SIZE UP ON A FULL VIEW, with the titles: "header bar
   // could also increase in font size in that case". A slot and a standing
   // board keep the small size their column and rows are measured for.
@@ -10487,6 +10491,20 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // ...and on today's panel the title row runs on over the slope, so a
       // badge squeezed at the midnight may use that too (see slantAt).
       if (dayIx === 0 && slantW) room += slantAt(rowH * 1.6 + 4 * S);
+      // ...and on tomorrow's panel the same slope covers the start of the
+      // title row: the badge is measured against what is left of its day
+      // past the ink ("Tomorrow" chosen at full size and pulled back under
+      // the slope read "orrow"). Where its top would be, per form, since a
+      // title is taller than a tag.
+      var multiDay = ((spec.metro && spec.metro.days) || []).length > 1;
+      function badgeCOf(b) {
+        var bc = titleRoom ? titleRoom / 2 + 2 : c;
+        if (titleRoom && multiDay) bc = Math.max(b.offsetHeight / 2 + 4 * S, (titleRoom - rowH - 4) / 2 + 2);
+        return bc;
+      }
+      function slopeOver(b) {
+        return dayIx === 1 && slantW && horizontal ? slantAt(badgeCOf(b) - b.offsetHeight / 2) : 0;
+      }
       var forms0 = hol ? (hol.day_label ? [2, 1, 0] : [1, 0]) : [0];
       // THE TITLE GIVES WAY FIRST: "Today" is the one part of the badge the
       // strip already says elsewhere (the clock is on it), so a squeezed badge
@@ -10561,19 +10579,17 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           if (shortD) d.textContent = shortD;
         }
         var blen = horizontal ? badge.offsetWidth : badge.offsetHeight;
-        if (blen <= room || fi === forms.length - 1) break;
+        if (blen + slopeOver(badge) <= room || fi === forms.length - 1) break;
       }
       // ON A BOARD OF DAYS, THE TOP ROW OF THE BAND: the forecast has the row
       // under it, and a badge centred on both left a strip of empty ink over
       // it and no room for the forecast of a short day beside it.
-      var multiDay = ((spec.metro && spec.metro.days) || []).length > 1;
-      var badgeC = titleRoom ? titleRoom / 2 + 2 : c;
-      if (titleRoom && multiDay) badgeC = Math.max(badge.offsetHeight / 2 + 4 * S, (titleRoom - rowH - 4) / 2 + 2);
+      var badgeC = badgeCOf(badge);
       // ON THE ROUNDELS' LEFT EDGE. The day's title is the first thing read
       // and the line names are the column under it; set thirty pixels
       // further in than them it floated. A later day's title stands in from
       // the midnight it opens on, as before.
-      var titleA = dayIx ? fx.a0 + 10 * S + (dayIx === 1 ? slantAt(badgeC - rowH) : 0)
+      var titleA = dayIx ? fx.a0 + 10 * S + slopeOver(badge)
         : (spec.axis.edge0 == null ? fx.a0 + 10 * S : spec.axis.edge0 + 2 * S);
       var br = place(badge, titleA, badgeC, "left");
       taken.push(br);
@@ -11295,23 +11311,29 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // the one before it: "8pm 12am" crowded against the paper's edge
     // ("12am isn't very clean looking"). A label closer to the last placed
     // one than a label is wide is left off; the station stays.
-    var lastA = -Infinity, majors = [], minors = [];
-    // A STATION FOR EVERY HOUR OF THE STEP, WORDS WHERE THEY FIT ("hours
-    // on the timeline are not very consistent, many are missing"). The
-    // night runs at a quarter of the day's rate, and a clock pill or a
-    // squeezed morning takes a label with it; the station stays, a size
-    // smaller, so the rail keeps the clock's rhythm through the stretch the
-    // words could not follow, and a gap in the words reads as a quiet
-    // stretch rather than as hours gone missing.
-    function underSlope(hA, reach) {
-      return slantW && horizontal && dayCuts.some(function (cut) { return hA > cut - 2 * S && hA < cut + reach + 2 * S; });
-    }
+    var lastA = -Infinity, majors = [], minors = [], midnights = [];
+    // A STATION EVERY HOUR OR TWO, BIG WITH WORDS AND SMALL WITHOUT ("have
+    // the dots every 2 or 1 hours. Small without label and big with
+    // label"). The words keep the step they have room for; the stations
+    // run on the finest clock step that divides it and leaves the dots a
+    // few of their own widths apart at the day's rate. The night runs at a
+    // quarter of that, so there a small dot closer than that to the one
+    // before it is left off: the rail keeps the clock's rhythm, and a gap
+    // in the words reads as a quiet stretch rather than hours gone missing
+    // ("hours on the timeline are not very consistent, many are missing").
+    var DOT_GAP = 12 * S, dotStep = step;
+    [1, 2].some(function (d) {
+      if (step % d === 0 && d * 60 * perMin >= DOT_GAP) { dotStep = d; return true; }
+      return false;
+    });
     for (var h = Math.ceil(from / 60); h * 60 <= to; h++) {
-      if (h % step !== 0) continue;
+      if (h % dotStep !== 0) continue;
       var hA = spec.scale.at(h * 60);
+      if (h % step !== 0) { minors.push(hA); continue; }
       // Not on a midnight the strip changes panel at: the day's own title
-      // names that minute, and the label would be half on each panel.
-      if (dayCuts.length && ((spec.metro.days || []).some(function (d, di) { return di && d.start_min === h * 60; }))) continue;
+      // names that minute, and the label would be half on each panel. (Its
+      // station stays: "missing the 00:00 dot".)
+      if (dayCuts.length && ((spec.metro.days || []).some(function (d, di) { return di && d.start_min === h * 60; }))) { midnights.push(hA); continue; }
       // (the window's last hour asks for most of a regular step: it is the
       // one label with nothing after it to balance a tight gap before it,
       // and a compressed night puts it a fraction of a step past its
@@ -11350,24 +11372,29 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       } else { lab.remove(); minors.push(hA); }
     }
     if (strip && horizontal) {
-      // ...and a station on the rail under each label: a hollow stop, paper
-      // inside; the hours without words get a smaller one
-      var railC = strip.c1 + RAIL_W / 2, reachRail = slantAt(railC);
+      // ...and the stations on the rail: a hollow stop, paper inside, big
+      // under words and small where there are none
+      var railC = strip.c1 + RAIL_W / 2;
       majors.forEach(function (ma) {
         var hq = xy(ma, railC);
         var hs = svgEl(doc, 'circle', { cx: hq[0], cy: hq[1], r: NODE_R * 0.75, 'stroke-width': NODE_STROKE * 0.7 });
         hs.style.fill = PAPER; hs.style.stroke = INK;
         put(hs, 'hour-station');
       });
-      minors.forEach(function (mi) {
-        if (majors.some(function (ma) { return Math.abs(ma - mi) < NODE_R * 1.6; })) return;
-        if (trainSpan && mi > trainSpan[0] && mi < trainSpan[1]) return;
-        if (underSlope(mi, reachRail) || mi < NODE_R || mi > alongPx - NODE_R) return;
+      // (the midnight first, so a squeezed night thins round it)
+      var drawn = majors.slice();
+      midnights.concat(minors.sort(function (p, q) { return p - q; })).forEach(function (mi) {
+        if (drawn.some(function (da) { return Math.abs(da - mi) < DOT_GAP; })) return;
+        if (mi < NODE_R || mi > alongPx - NODE_R) return;
+        drawn.push(mi);
         var mq = xy(mi, railC);
         var ms = svgEl(doc, 'circle', { cx: mq[0], cy: mq[1], r: NODE_R * 0.45, 'stroke-width': NODE_STROKE * 0.55 });
         ms.style.fill = PAPER; ms.style.stroke = INK;
         put(ms, 'hour-station-minor');
       });
+      // THE TRAIN RIDES OVER THE STATION IT IS AT ("draw the now metro over
+      // the dot"), not in a gap left for it
+      if (trainEl) svg.appendChild(trainEl);
     }
   }
 
