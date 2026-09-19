@@ -519,7 +519,7 @@ function wantsFrom(metro, scale, measure, opts) {
                    open1: part.end_min > metro.day_end_min };
         });
         pills.push({ id: id + 't', a: a0, a0: a0, a1: a0, to: spanned ? a1 : null, ends: ends,
-                     lines: keys, tie: true, open0: open0, open1: open1, todo: !!ev.todo });
+                     lines: keys, tie: true, open0: open0, open1: open1, todo: !!ev.todo, done: !!ev.done });
         // A BRIEF TIE'S NAME HANGS OFF ITS OWNER'S RAIL, as it always has:
         // dinner is an hour, the owner's line carries a short shelf for it
         // and the name sits against that.
@@ -563,7 +563,7 @@ function wantsFrom(metro, scale, measure, opts) {
                               a0: (a0 + a1) / 2, a1: (a0 + a1) / 2, forms: forms }));
       return;
     }
-    wants.push(new C.Want({ id: id, text: ev.title, line: ev.owner, todo: !!ev.todo,
+    wants.push(new C.Want({ id: id, text: ev.title, line: ev.owner, todo: !!ev.todo, done: !!ev.done,
                             open0: open0, open1: open1,
                             members: crowd ? crowd.marks : null,
                             a0: a0, a1: a1, forms: forms, gap: gap }));
@@ -1299,18 +1299,32 @@ function specFor(metro, view, opts) {
   // there.
   var newsIn = metro.news && metro.news.items && metro.news.items.length ? metro.news : null;
   var footAlert = alert ? (tiny && String(alert.text || '').length > 28 ? 2 : 1) : 0;
+  // ...AND WHAT IS STILL OWED, one row of it, above the headlines: a task
+  // with no time on the board is not a stop, and a list down the side is
+  // not this board's way of saying anything (rule 2q). The tasks take
+  // their row before the news takes any: what the household owes outranks
+  // what the world is doing.
+  var taskIn = (metro.tasks || []).filter(function (t) { return t && t.title; });
+  var taskRows = taskIn.length ? 1 : 0;
   var newsRows = 0;
   if (newsIn) {
     var newsMax = newsIn.fit ? 1 : Math.max(1, Math.min(5, newsIn.max || 3));
     newsRows = Math.min(newsIn.items.length, tiny ? 1 : view.h >= 600 ? newsMax : Math.min(newsMax, 2));
   }
-  function footHeight(nr) { return (footAlert || nr) ? Math.round(footAlert * rowH0 * 2.3 + nr * rowH0 * 1.25 + 8) : 0; }
+  function footHeight(nr, tr) {
+    var t = tr == null ? taskRows : tr;
+    return (footAlert || nr || t) ? Math.round(footAlert * rowH0 * 2.3 + (nr + t) * rowH0 * 1.25 + 8) : 0;
+  }
   // THE TRACKS COME FIRST ("does the calendar tracks always come first?"):
   // the headlines give up rows until every line keeps two and a half
   // names' depth of map, a little more than a flat slot's; the alert keeps
   // its row, it is about whether the map can be trusted.
+  // THE TRACKS STILL COME FIRST: the headlines give up their rows, and
+  // then the tasks give up theirs, before the map gives up a name's depth.
   if (!opts.standing) {
-    while (newsRows > 0 && (view.h - pad - stripH - skyH - footHeight(newsRows)) / Math.max(1, legendN) < nameH0 * 2.4) newsRows--;
+    var roomy = function () { return (view.h - pad - stripH - skyH - footHeight(newsRows)) / Math.max(1, legendN) >= nameH0 * 2.4; };
+    while (newsRows > 0 && !roomy()) newsRows--;
+    while (taskRows > 0 && !roomy()) taskRows--;
   }
   var newsH = footHeight(newsRows);
   // (flush against the box where there is one, the paper's own edge inset
@@ -1365,7 +1379,8 @@ function specFor(metro, view, opts) {
            edgeRingR: opts && opts.edgeRingR != null ? opts.edgeRingR : undefined,
            railRow: opts && opts.railRow != null ? opts.railRow : 0,
            // THE HEADLINES' BAND: rows and depth, at the foot of the map.
-           news: newsH ? { rows: newsRows, alertRows: footAlert, h: newsH, items: newsIn ? newsIn.items : [], fit: !!(newsIn && newsIn.fit) } : null,
+           news: newsH ? { rows: newsRows, alertRows: footAlert, h: newsH, items: newsIn ? newsIn.items : [], fit: !!(newsIn && newsIn.fit),
+                           taskRows: taskRows, tasks: taskRows ? taskIn : [] } : null,
            // THE BOARD'S OWN INK, DECLARED BEFORE THE SOLVE. See Furniture.
            // Everything here takes paper and cannot move, so the caption
            // search has to be told about it up front rather than have it

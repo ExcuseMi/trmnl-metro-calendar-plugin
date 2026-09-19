@@ -176,6 +176,7 @@ function Stop(spec) {
   this.c = spec.c;
   this.kind = spec.kind || 'start';  // 'start' (a dot) or 'end' (a tick)
   this.todo = !!spec.todo;           // a task's start is a square, not a dot
+  this.done = !!spec.done;           // ...ticked where it was done today
 }
 
 // A CONVERGENCE: one event that several lines are at.
@@ -220,6 +221,7 @@ function Pill(spec) {
   this.initials = spec.initials || [];
   this.tie = !!spec.tie;            // one bar at a minute, the lines left where they are
   this.todo = !!spec.todo;          // a task's: its rings are squares
+  this.done = !!spec.done;
   this.joins = spec.joins || [];    // [{line, join:[a,c]|null, leave:[a,c]|null}]
 }
 Pill.prototype.box = function () {

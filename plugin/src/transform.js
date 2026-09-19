@@ -843,6 +843,26 @@ function timeLabel12(min, extra) {
   if (!(extra && extra.hour12)) return pad2(h) + ':' + pad2(m);
   return (h % 12 || 12) + (m ? ':' + pad2(m) : '') + (h < 12 ? 'am' : 'pm');
 }
+// ONE LINE OF WORDS PER TASK, whoever owes it: the same grouping an all-day
+// entry gets. Still owed comes before done, and no more than a handful
+// travels: the board draws a row of them, not a list.
+var TASKS_MAX = 8;
+function tasksFrom(list, lineByKey) {
+  var byTitle = {}, order = [];
+  (list || []).forEach(function (t) {
+    if (!t || !t.title || !lineByKey[t.line]) return;
+    var row = byTitle[t.title];
+    if (!row) { row = byTitle[t.title] = { title: t.title, owners: [], done: !!t.done, overdue: !!t.overdue }; order.push(row); }
+    if (row.owners.indexOf(t.line) < 0) row.owners.push(t.line);
+    // a chore two people share is done when both have ticked it off
+    row.done = row.done && !!t.done;
+    row.overdue = row.overdue || !!t.overdue;
+  });
+  return order.sort(function (p, q) {
+    return (p.done ? 1 : 0) - (q.done ? 1 : 0) || (q.overdue ? 1 : 0) - (p.overdue ? 1 : 0);
+  }).slice(0, TASKS_MAX);
+}
+
 function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, windowLabel, allDayEvents, extra) {
   var lineByKey = {};
   lines.forEach(function (t) { lineByKey[t.key] = t; });
@@ -941,6 +961,7 @@ function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, win
       parts: ev.parts && ev.parts.length > 1 ? ev.parts : undefined,
       // a task rather than an appointment: drawn with a square (draw.js)
       todo: ev.todo ? true : undefined,
+      done: ev.done ? true : undefined,
       start_min: ev.startMin,
       end_min: ev.endMin,
       // began before the board's first midnight: the caption's time is this
@@ -1048,6 +1069,10 @@ function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, win
         moon: d.moon || null,
       };
     }),
+    // WHAT IS OWED WITH NO TIME ON IT: tasks with no due date, and tasks
+    // still owed from an earlier day, grouped by title the way all-day
+    // entries are so that one chore for three people is one line of words.
+    tasks: tasksFrom((extra && extra.tasks) || [], lineByKey),
     // THE WINDOW INTO THE RUN, on the days a quiet one borrowed the next.
     //
     // Null on every ordinary board, and that is load bearing: the client
@@ -2834,9 +2859,23 @@ function parseIcs(text, tz, days, includeDescription, floating) {
     // Done or cancelled, it is not on the board.
     if (row === 'BEGIN:VTODO') { cur = { todo: true }; return; }
     if (row === 'END:VTODO') {
-      if (cur && !cur.completed && cur.status !== 'COMPLETED' && cur.status !== 'CANCELLED') {
+      // A TASK DONE TODAY STAYS, TICKED. Seeing the box ticked is the point
+      // of having it on the wall, and a household reads the board through
+      // the day; one finished yesterday is gone, like everything else the
+      // board does not look back at. Cancelled is gone whenever it was.
+      var done = !!(cur && (cur.completed || cur.status === 'COMPLETED'));
+      var doneToday = done && cur.completedOn
+        && cur.completedOn.y === today.y && cur.completedOn.mo === today.mo && cur.completedOn.d === today.d;
+      if (cur && cur.status !== 'CANCELLED' && (!done || doneToday)) {
         var at = cur.due || cur.dtstart;
-        if (at) { cur.dtstart = at; cur.dtend = at.isAllDay ? null : at; raw.push(cur); }
+        cur.done = done;
+        // AN OVERDUE TASK DOES NOT GO BACK ONTO THE MAP: the board looks
+        // forward, so one still owed from an earlier day is carried as a
+        // task without a time (below) rather than as a stop in the past.
+        var stale = at && !at.isAllDay && (at.y < today.y
+          || (at.y === today.y && (at.mo < today.mo || (at.mo === today.mo && at.d < today.d))));
+        if (at && !stale) { cur.dtstart = at; cur.dtend = at.isAllDay ? null : at; raw.push(cur); }
+        else { cur.undated = true; cur.overdue = !!stale; raw.push(cur); }
       }
       cur = null; return;
     }
@@ -2853,7 +2892,7 @@ function parseIcs(text, tz, days, includeDescription, floating) {
     if (key === 'DTSTART') cur.dtstart = parseIcsDateTime(params, value, tz, floating);
     else if (key === 'DTEND') cur.dtend = parseIcsDateTime(params, value, tz, floating);
     else if (key === 'DUE') cur.due = parseIcsDateTime(params, value, tz, floating);
-    else if (key === 'COMPLETED') cur.completed = true;
+    else if (key === 'COMPLETED') { cur.completed = true; cur.completedOn = parseIcsDateTime(params, value, tz, floating); }
     else if (key === 'SUMMARY') cur.title = unescapeIcsText(value);
     else if (key === 'LOCATION') cur.location = unescapeIcsText(value);
     // CATEGORIES is a LIST, and the property may appear more than once.
@@ -2903,7 +2942,7 @@ function parseIcs(text, tz, days, includeDescription, floating) {
     overriddenDates[ev.uid + '|' + ev.recurrenceId.y + '-' + ev.recurrenceId.mo + '-' + ev.recurrenceId.d] = true;
   });
 
-  var out = [], allDay = [];
+  var out = [], allDay = [], tasks = [];
   // WHICH OCCURRENCE COVERS THIS DAY. A series (or a single event) whose
   // occurrence starts `back` days before `di` and runs `spanDays` days covers
   // it. Every question below is this one: a one-day event asks with a span
@@ -2934,6 +2973,14 @@ function parseIcs(text, tz, days, includeDescription, floating) {
       span: spanDays, index: back, weekday: weekday });
   }
   raw.forEach(function (ev) {
+    // A TASK WITH NO TIME ON THIS BOARD: one with no due date at all, and
+    // one still owed from an earlier day. Neither is a stop; both are still
+    // owed, so they travel as tasks (see rule 2q).
+    if (ev.undated) {
+      if (ev.title) tasks.push({ title: ev.title, done: !!ev.done, overdue: !!ev.overdue,
+        desc: ev.desc || '', status: ev.status || '', categories: ev.categories || [] });
+      return;
+    }
     if (!ev.title || !ev.dtstart) return;
 
     if (ev.dtstart.isAllDay) {
@@ -3002,10 +3049,12 @@ function parseIcs(text, tz, days, includeDescription, floating) {
         startMin: startMin,
         endMin: durationMin != null ? startMin + durationMin : null,
         todo: ev.todo ? true : undefined,
+        // ticked off today, and kept so it can be seen ticked (rule 2q)
+        done: ev.done ? true : undefined,
       });
     });
   });
-  return { timed: out, allDay: allDay, calName: calName };
+  return { timed: out, allDay: allDay, tasks: tasks, calName: calName };
 }
 
 // ---------------------------------------------------------------------
@@ -3878,6 +3927,9 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
   var deadline = (extra && extra.deadline) || (Date.now() + RENDER_BUDGET_MS);
   var events = [];
   var allDayEvents = [];
+  // tasks with no time on this board: undated, or still owed from an
+  // earlier day (rule 2q)
+  var tasks = [];
   // Timed events on a day past the run this has always gathered: kept aside
   // until the rolling view is decided, and thrown away if it is not (see
   // the push site below).
@@ -4039,6 +4091,7 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
         title: e.title,
         parts: Array.isArray(e.parts) ? e.parts : undefined,
         todo: e.todo || undefined,
+        done: e.done || undefined,
         startMin: e.start_min,
         endMin: typeof e.end_min === 'number' && isFinite(e.end_min) ? e.end_min : e.start_min + 30,
         beganMin: typeof e.began_min === 'number' ? e.began_min : undefined,
@@ -4265,9 +4318,23 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
           title: resolved.title,
           parts: resolved.parts,
           todo: ev.todo || undefined,
+          done: ev.done || undefined,
           startMin: ev.startMin,
           endMin: ev.endMin != null ? ev.endMin : ev.startMin + 30,
           location: ev.location || null,
+        });
+      });
+      // ...AND THE TASKS WITH NO TIME, on whoever the calendar's rules put
+      // them ("what about TODO list integration"): the same resolution an
+      // all-day entry gets, and the same line.
+      (parsedIcs.tasks || []).forEach(function (ev) {
+        var rt = applyCalendarRules(ev, todayWeekday, cal, parsed.globalRules, parsed.everyoneLine);
+        if (rt.hide || rt.holiday) return;
+        var tNames = rt.lineNames || (cal.fallbackName ? [cal.fallbackName] : null)
+          || (parsed.allLines && parsed.allLines.length ? parsed.allLines.slice() : null) || (calLabel ? [calLabel] : null);
+        if (!tNames || !tNames.length) return;
+        tNames.forEach(function (n) {
+          tasks.push({ line: registry.add(n, 0.25).key, title: rt.title, done: !!ev.done, overdue: !!ev.overdue });
         });
       });
       parsedIcs.allDay.forEach(function (ev) {
@@ -4514,7 +4581,10 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       // its own forecast: a two-day board showing one temperature is
       // wrong about one of the days
       days: dayRows,
-      calendarsDown: inOrder(downAt), holidays: holidays })
+      calendarsDown: inOrder(downAt), holidays: holidays,
+      // what is owed with no time on it (rule 2q), unless the household
+      // would rather not see it
+      tasks: (extra && extra.showTasks === false) ? [] : tasks })
   );
   metro.board_notice = boardNotice(metro, { failed: inOrder(failedAt), read: feedsRead }, (extra && extra.strings) || I18N.en);
   return metro;
@@ -4660,7 +4730,9 @@ async function run(input) {
   var alertOpts = alertSettings(input, tempUnit, strings, hour12);
   var news = newsStarted ? await newsStarted : null;
   var extra = { orientation: orientation, locale: locale, strings: strings, hour12: hour12,
-    tempUnit: tempUnit, deadline: deadline, alertOpts: alertOpts, prefetched: prefetched, news: news };
+    tempUnit: tempUnit, deadline: deadline, alertOpts: alertOpts, prefetched: prefetched, news: news,
+    // on unless switched off, like the rest of what a calendar carries
+    showTasks: cf(input, 'tasks_show').trim().toLowerCase() !== 'hide' };
 
   // Every exit returns through here. The runtime stores what comes back as
   // `trmnl_state` and hands it to the next render as `input.trmnl.state`, so

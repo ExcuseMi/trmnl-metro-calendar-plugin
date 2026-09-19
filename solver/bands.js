@@ -1256,7 +1256,7 @@ function boardFor(spec, st) {
                 open0: p.open0, open1: p.open1,
                 // and where a long tie stops, so every line in it can be
                 // ticked there
-                to: p.to, ends: p.ends || null, todo: !!p.todo,
+                to: p.to, ends: p.ends || null, todo: !!p.todo, done: !!p.done,
                 c0: Math.min.apply(null, cs), c1: Math.max.apply(null, cs),
                 joins: bd ? bd.moves.map(function (m) {
                   return { line: m.line, join: m.joinAt || null, leave: m.leaveAt || null,
@@ -2283,7 +2283,7 @@ function solve(spec, opts) {
     // ...and a different mark where the board cannot see the minute: an
     // event already running when the window opened gets the half dot, not
     // the dot. See Want.open0 and the renderer.
-    if (!w.tie || w.open0) b.addStop({ line: ln.key, a: sa0, c: ln.cAt(sa0), todo: w.todo,
+    if (!w.tie || w.open0) b.addStop({ line: ln.key, a: sa0, c: ln.cAt(sa0), todo: w.todo, done: w.done,
                                        kind: w.open0 ? 'from' : 'start' });
     // every event in a crowded stretch keeps its own dot
     (w.members || []).forEach(function (a) {

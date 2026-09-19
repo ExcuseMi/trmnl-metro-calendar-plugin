@@ -195,6 +195,7 @@ function Want(spec) {
   this.ride = spec.ride || null;
   // a task rather than an appointment: its stop is a square
   this.todo = !!spec.todo;
+  this.done = !!spec.done;
   // A CROWDED STRETCH'S OTHER DOTS, along the axis: the events folded into
   // this one caption (day.js crowdsFrom). Each is still a stop on the rail.
   this.members = spec.members && spec.members.length ? spec.members.slice() : null;
@@ -259,7 +260,7 @@ Want.prototype.formCount = function () { return this.forms.length; };
 // needs to do.
 Want.prototype.clone = function () {
   return new Want({ id: this.id, text: this.text, line: this.line, pill: this.pill, tie: this.tie, tieFree: this.tieFree,
-                    endAt: this.endAt, ride: this.ride, todo: this.todo, members: this.members,
+                    endAt: this.endAt, ride: this.ride, todo: this.todo, done: this.done, members: this.members,
                     a0: this.a0, a1: this.a1, gap: this.gap, pad: this.pad,
                     allDay: this.allDay, open0: this.open0, open1: this.open1,
                     forms: this.forms.map(function (f) {
