@@ -25,7 +25,8 @@ No server of your own.
 - Headlines along the foot of the map, from any RSS or Atom feeds you name
   in the News setting: the local paper, the school, the club. A free day
   says so in the middle of the map, and the clock rides the strip as a
-  little train.
+  little train (the metro silhouette is [SVG Repo's](https://www.svgrepo.com/svg/420587/metro-metropolitan-subway),
+  CC0).
 - Each line has a texture (solid, dotted, dashed, dash-dot) and, on
   grayscale and colour panels, a shade or colour, all picked for you. A
   shared calendar's own line (a "Family" feed) is a ladder.

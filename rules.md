@@ -139,9 +139,10 @@ applies when something changes.
    its row is cut with an ellipsis, never wrapped. The transform reads the
    feeds, newest first and the feeds in turn, and keeps the last good
    headlines for a refresh on which nothing answers.
-2j. **The clock's mark on the strip is a little train**, its wheels on the
-   strip's rail under the clock pill, facing the way the day goes. The now
-   line starts under it.
+2j. **The clock's mark on the strip is a little train**: SVG Repo's metro
+   silhouette (svgrepo.com/svg/420587, CC0), in paper on the ink panel with
+   its floor on the strip's rail under the clock pill, facing the way the
+   day goes. The now line starts under it.
 2k. **A free day says so.** A board with a clock and nothing timed on it
    draws one friendly line in the middle of the map, with the day's own
    sky beside it ("Nothing planned. Free day!"), instead of four flat rails

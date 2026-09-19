@@ -8146,6 +8146,8 @@ function draw(board, spec, ctx) {
   // of the rail it sits on (Mini Metro's rule). (The corner was opened to 17
   // with it and put back: the solver books turns by it, and the wider turn
   // moved captions on boards the suites pin.)
+// The metro silhouette on the strip (see the now line): SVG Repo 420587, CC0.
+var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665,0-17.5,7.835-17.5,17.5h-64 c0-9.665-7.835-17.5-17.5-17.5h-150c-9.665,0-17.5,7.835-17.5,17.5h-28.058c-123.542,0-228.097,91.845-243.34,214.442 c-0.04,0.323-0.079,0.64-0.117,0.952c-0.166,1.379-0.064,2.719,0.241,3.986c-3.965,1.814-6.726,5.807-6.726,10.453v10.667 c0,6.351,5.149,11.5,11.5,11.5h193.611c6.351,0,11.5-5.149,11.5-11.5v-10.667c0-0.625-0.064-1.235-0.16-1.833h25.859 c-0.096,0.598-0.16,1.208-0.16,1.833v10.667c0,6.351,5.149,11.5,11.5,11.5h193.611c6.351,0,11.5-5.149,11.5-11.5v-10.667 c0-0.625-0.064-1.235-0.16-1.833h25.859c-0.096,0.598-0.16,1.208-0.16,1.833v10.667c0,6.351,5.149,11.5,11.5,11.5h193.611 c6.351,0,11.5-5.149,11.5-11.5v-10.667c0-0.625-0.064-1.235-0.16-1.833h0.16V418.389C850.456,398.706,834.5,382.75,814.817,382.75z M395.476,497.785c-17.829,23.27-45.942,38.094-77.072,38.094h-119.1c14.1-30.59,35.01-57.27,60.68-78.26h115.608 C396.287,457.62,408.062,481.358,395.476,497.785z M451.544,482.62c0-13.807,11.193-25,25-25h242c13.807,0,25,11.193,25,25v28.26 c0,13.807-11.193,25-25,25h-242c-13.807,0-25-11.193-25-25V482.62z M812.044,579.75h-352c-4.694,0-8.5-3.806-8.5-8.5 s3.806-8.5,8.5-8.5h352c4.694,0,8.5,3.806,8.5,8.5S816.738,579.75,812.044,579.75z M820.544,510.88c0,13.807-11.193,25-25,25h-1.5 c-13.807,0-25-11.193-25-25v-28.26c0-13.807,11.193-25,25-25h1.5c13.807,0,25,11.193,25,25V510.88z';
   var NODE_R = 6 * S, NODE_STROKE = 3.5 * S, LINE_GAP = 6 * S, CORNER = 13 * S;
   var RAIL_W = 4 * S;
   // the ink edge of a shaded rail: one pixel, and INSIDE the rail's width,
@@ -8811,33 +8813,21 @@ function draw(board, spec, ctx) {
     // small enough to sit under the hour labels; it straddles the rail so
     // the wheels are on the paper below the ink panel and read there.
     if (strip && horizontal) {
-      // Its wheels ON the rail, the body above them reaching up into the ink
-      // panel and stopping under the clock pill, and a rounder front so it
-      // is going somewhere: to the right, where the day goes.
+      // THE TRAIN ITSELF IS SVG REPO'S METRO (svgrepo.com/svg/420587,
+      // CC0, the user's pick: "could use this"): a filled silhouette with
+      // the windows cut out, drawn in paper on the ink panel, its floor on
+      // the strip's rail and its nose the way the day goes. Scaled from
+      // the icon's own box (viewBox 1000, the shape from 149 to 853 across
+      // and 365 to 636 down) to a height that stops under the clock pill.
       var tq = xy(a, strip.c1 + RAIL_W / 2);
       var train = svgEl(doc, 'g', { 'data-metro-role': 'now-train' });
-      var bw = 24 * S, bh = 8.5 * S, bx = tq[0] - bw / 2, by = tq[1] - bh + 1.2 * S, br = 2.4 * S, bn = 4.2 * S;
-      var body = svgEl(doc, 'path', { d: 'M ' + (bx + br) + ' ' + by
-        + ' H ' + (bx + bw - bn) + ' Q ' + (bx + bw) + ' ' + by + ' ' + (bx + bw) + ' ' + (by + bn)
-        + ' V ' + (by + bh - br) + ' Q ' + (bx + bw) + ' ' + (by + bh) + ' ' + (bx + bw - br) + ' ' + (by + bh)
-        + ' H ' + (bx + br) + ' Q ' + bx + ' ' + (by + bh) + ' ' + bx + ' ' + (by + bh - br)
-        + ' V ' + (by + br) + ' Q ' + bx + ' ' + by + ' ' + (bx + br) + ' ' + by + ' Z', 'stroke-width': 1.3 * S });
-      body.style.fill = PAPER; body.style.stroke = INK;
-      train.appendChild(body);
-      [-9.6, -4.4, 0.8].forEach(function (dx) {
-        var win = svgEl(doc, 'rect', { x: tq[0] + dx * S, y: by + 1.7 * S, width: 3.6 * S, height: 3.1 * S, rx: 0.8 * S, stroke: 'none' });
-        win.style.fill = INK;
-        train.appendChild(win);
-      });
-      // the driver's window, at the rounded front
-      var cab = svgEl(doc, 'rect', { x: tq[0] + 6.2 * S, y: by + 1.7 * S, width: 3.2 * S, height: 3.1 * S, rx: 0.8 * S, stroke: 'none' });
-      cab.style.fill = INK;
-      train.appendChild(cab);
-      [-7, 7].forEach(function (dx) {
-        var wheel = svgEl(doc, 'circle', { cx: tq[0] + dx * S, cy: tq[1] + 1.4 * S, r: 2.2 * S, 'stroke-width': 1 * S });
-        wheel.style.fill = INK; wheel.style.stroke = PAPER;
-        train.appendChild(wheel);
-      });
+      var th = 8 * S, tk = th / 271, tw = 704 * tk;
+      // (mirrored: the icon's nose is on its left, and the day runs right:
+      // "you need to flip the metro around")
+      var tb = svgEl(doc, 'path', { d: TRAIN_D, stroke: 'none',
+        transform: 'translate(' + (tq[0] + tw / 2 + 149 * tk) + ' ' + (tq[1] + 1 * S - 636 * tk) + ') scale(' + (-tk) + ' ' + tk + ')' });
+      tb.style.fill = PAPER;
+      train.appendChild(tb);
       svg.appendChild(train);
     }
     // ...and the line starts under the train, not through it
