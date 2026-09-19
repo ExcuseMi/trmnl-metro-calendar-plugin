@@ -89,8 +89,7 @@ module.exports = function (test, h) {
   });
 
   // A SUN AT TEN AT NIGHT. "Rain stops" is drawn as a sun, because clearing
-  // up is what it means; after sunset that is a sun in the dark, on a board
-  // whose other corner draws the moon in its real phase.
+  // up is what it means; after sunset that is a sun in the dark.
   test('rain that stops after sunset is a clear night, not a sun', async () => {
     const snap = {
       weather: { hi: 18, lo: 13, condition: 'rain', icon: 'wi-day-rain.svg', rain_chance: 96, unit: 'C',

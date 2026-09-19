@@ -553,12 +553,20 @@ function bumps(board, near) {
 // A BEND TOO SMALL TO READ AS ONE. A diagonal of two pixels is not a line
 // going somewhere, it is a kink in a line that should be straight, and a
 // search rewarded for stepping will buy exactly that if nothing forbids it.
+// A STEP IS THE WHOLE RISE, not each leg of it: an upright is chamfered
+// into two short 45s and a vertical (rails.js), and counted leg by leg every
+// honest step was three kinks. Legs that keep going the same way are one
+// bend, and the bend is too small when the whole of it is.
 function wobbles(board, least) {
   var n = 0;
   board.lines.forEach(function (ln) {
-    for (var i = 1; i < ln.pts.length; i++) {
-      var d = Math.abs(ln.pts[i][1] - ln.pts[i - 1][1]);
-      if (d > 0.5 && d < least) n++;
+    var run = 0, sign = 0;
+    for (var i = 1; i <= ln.pts.length; i++) {
+      var d = i < ln.pts.length ? ln.pts[i][1] - ln.pts[i - 1][1] : 0;
+      var sg = Math.abs(d) > 0.5 ? (d > 0 ? 1 : -1) : 0;
+      if (sg && sg === sign) { run += Math.abs(d); continue; }
+      if (sign && run < least) n++;
+      run = sg ? Math.abs(d) : 0; sign = sg;
     }
   });
   return n;

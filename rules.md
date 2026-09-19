@@ -167,12 +167,12 @@ applies when something changes.
    "a gray shade bg before sunset and after sundown". It is a tone behind
    everything, not a mark, so it asks the reader to name nothing -- which is
    what the night corridor of hairlines failed at. No forecast, no shade.
-2b-ii. **The moon sits in the evening's dark.** Each day's phase, from the
-   date alone: on a full view at the far right of that day's header panel,
-   with the forecast standing in beside it; elsewhere as its glyph in the
-   sky row just before that day's midnight: "where is the moonphase?" A sky glyph like the others, so it
-   never reaches into the next day. With no forecast (no location) the
-   evening is taken to start at seven, so the moon is there anyway.
+   And no shade behind the clock: the past is washed (2a) and the dark
+   begins at now, or a morning board carried three nights.
+2b-ii. **No moon.** The board drew the night's phase for a while, in the
+   header and then in the sky row; it was ambient, it cost the forecast its
+   corner, and nobody read it ("do we actually need a moon phase icon?").
+   The dark hours' shade (2b-i) is all the board says about the night.
 2b-iii. **Rails cross the midnight whole.** A rail with nothing on it at the
    midnight bridges the double rule (see 2b-xi); one carrying an event
    across the midnight has the rule tunnel under it. Otherwise an event is

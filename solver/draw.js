@@ -575,7 +575,7 @@ function draw(board, spec, ctx) {
     if (!panels.length || !strip) return;
     Array.prototype.slice.call(canvas.children).forEach(function (n) {
       if (n === svg || !/\bmetro-gen\b/.test(n.className) || /\bmetro-strip\b/.test(n.className)) return;
-      if (!/metro-hour|metro-axis-note|metro-daybadge|metro-wx|metro-nownext|metro-moon/.test(n.className)) return;
+      if (!/metro-hour|metro-axis-note|metro-daybadge|metro-wx|metro-nownext/.test(n.className)) return;
       var left = parseFloat(n.style.left) || 0, top = parseFloat(n.style.top) || 0;
       var len = horizontal ? n.offsetWidth : n.offsetHeight, thick = horizontal ? n.offsetHeight : n.offsetWidth;
       var a0 = horizontal ? left : top, c0 = horizontal ? top : left;
@@ -620,13 +620,8 @@ function draw(board, spec, ctx) {
         if (!ONE_BIT && /\bmetro-hour\b/.test(n.className) && !/metro-wx/.test(n.className)) n.classList.remove('text--bold');
         // (the panel is paper now, and the framework's outline is paper by
         // default: nothing to swap)
-        // ...AND SO IS AN IMAGE'S. The moon is a black disc with the lit part
-        // cut white out of it, rimmed in white so the dark of it has an edge
-        // on the ink panel. On tomorrow's panel that rim is the ground's own
-        // colour drawn on the ground: no edge at all, and a moon near full is
-        // a white disc on a light grey one -- "moonphases on the tomorrow
-        // view need an image-stroke". There the rim is ink, which is what
-        // gives the LIT part its edge.
+        // ...AND SO IS AN IMAGE'S: a white rim on the ink panel is the
+        // ground's own colour on tomorrow's, so there it is ink.
         [n].concat(Array.prototype.slice.call(n.querySelectorAll('.image-stroke'))).forEach(function (el) {
           if (!el.classList.contains('image-stroke--white')) return;
           el.classList.remove('image-stroke--white');
@@ -721,8 +716,14 @@ function draw(board, spec, ctx) {
         twi = d.weather.twilight_min;
       }
     });
+    // ...AND NOT BEHIND THE CLOCK. What is past is washed (the `past` wash
+    // below), and a night drawn under the wash as well was a third, darker
+    // band at the head of a morning board: with tonight and tomorrow's
+    // evening, "3 nights in the same picture looks weird". The dark begins
+    // where the board does, at now.
+    var nowM = spec.metro.now_min != null ? spec.metro.now_min : -Infinity;
     darks.forEach(function (span) {
-      var f = Math.max(span[0], m0min), t = Math.min(span[1], m1min);
+      var f = Math.max(span[0], m0min, nowM), t = Math.min(span[1], m1min);
       if (!(t > f)) return;
       var a0n = f <= m0min ? 0 : spec.scale.at(f), a1n = t >= m1min ? (horizontal ? W : H) : spec.scale.at(t);
       var q0 = xy(a0n, strip ? strip.c1 : spec.cross.c0), q1 = xy(a1n, horizontal ? H : W);
@@ -1540,39 +1541,6 @@ function draw(board, spec, ctx) {
   // (the ring letters, from the one place that spells them: board.js)
   var initials = B.initialsFor((spec.metro && spec.metro.legend) || []);
   var ringFace = null;
-  // THE MOON AS AN ADAPTIVE IMAGE (after the night sky plugin): the dark of
-  // the moon as ink with the lit part cut out of it, and a ring round the
-  // whole. Drawn as the framework's `image--adaptive`, the same as a weather
-  // icon, so on the inverse panel the framework turns it white by itself:
-  // "just make the svg for the moon with image class".
-  // THE MOON IN ITS OWN COLOURS: a black disc with the lit part white, as a
-  // plain framework `image` with an `image-stroke` rim, not an adaptive one. Adaptive, the
-  // framework recoloured it for the panel it sat on and the inverse panel
-  // turned it inside out -- "the moon should always be white".
-  function moonImg(illum, waxing, size) {
-    // TRMNL'S OWN MOON, from the same weather-icons set the forecast's icon
-    // comes from, so the two are drawn in one hand: twenty-eight phases,
-    // picked by how far round the cycle the illumination and its direction
-    // put us. An adaptive image, like the forecast's: the framework masks it
-    // in the text's colour, so it is paper on the ink panel and ink on the
-    // grey one. (A hand-drawn disc and a line-art crescent both "looked
-    // weird" beside the forecast.)
-    var frac = Math.max(0, Math.min(1, illum / 100));
-    var cycle = waxing ? frac / 2 : 1 - frac / 2;
-    var ix = Math.round(cycle * 28) % 28;
-    var name = ix === 0 ? 'new' : ix < 7 ? 'waxing-crescent-' + ix : ix === 7 ? 'first-quarter'
-      : ix < 14 ? 'waxing-gibbous-' + (ix - 7) : ix === 14 ? 'full' : ix < 21 ? 'waning-gibbous-' + (ix - 14)
-      : ix === 21 ? 'third-quarter' : 'waning-crescent-' + (ix - 21);
-    var src = 'https://trmnl.com/images/plugins/weather/wi-moon-' + name + '.svg';
-    var im = doc.createElement('img');
-    im.className = 'image--adaptive';
-    im.src = src;
-    im.style.width = size + 'px'; im.style.height = size + 'px';
-    im.style.setProperty('--framework-icon-src', 'url("' + src + '")');
-    im.setAttribute('data-adaptive', 'true');
-    return im;
-    return im;
-  }
   function initialIn(q, k, scale) {
     if (spec.oneName || !initials[k]) return;
     scale = scale == null ? 1 : scale;
@@ -2292,6 +2260,20 @@ function draw(board, spec, ctx) {
       // (0.7 of the width: at 0.9 the heavier rail's slash reached the name
       // set a row above it)
       var sw = railStroke(ln, ln.key).width, rr = Math.max(r, sw * 0.7);
+      // A SLASH ON A SOLID RAIL STANDS IN A GAP. Drawn in the rail's own ink
+      // at nearly its weight, it fused with the rail's end into one
+      // arrow-shaped blob ("something feels off"); the shaded and hollow
+      // rails' slashes read because their own core parts them. So the rail
+      // is cut back a hair either side of the slash, in paper, and the slash
+      // stands alone the way it does on every other line.
+      if (!tube_(ln) && !railCore(ln)) {
+        var hg = Math.max(1.5 * S, sw * 0.35), hl = rr + hg;
+        var h0 = xy(p[0] - hl, p[1] + hl), h1 = xy(p[0] + hl, p[1] - hl);
+        var halo = svgEl(doc, 'line', { x1: h0[0], y1: h0[1], x2: h1[0], y2: h1[1],
+          'stroke-width': sw * 0.8 + 2 * hg, 'stroke-linecap': 'butt' });
+        halo.style.stroke = PAPER;
+        put(halo, 'terminal-halo', ln.key);
+      }
       markLine(xy(p[0] - rr, p[1] + rr), xy(p[0] + rr, p[1] - rr), ln, ln.key, 'terminal', false, sw * 0.8);
     });
   });
@@ -2366,20 +2348,10 @@ function draw(board, spec, ctx) {
   // could also increase in font size in that case". A slot and a standing
   // board keep the small size their column and rows are measured for.
   var STRIP_SM = !spec.oneName && horizontal ? '' : ' label--small';
-  // THE MOON HAS THE FAR RIGHT OF A DAY'S HEADER: "moon phase far right in the
-  // header please". Its size, where the day has one and the header has the
-  // title band to hold it; the forecast stands this much further in.
   function titleBand() {
     var above = hoursFx ? hoursFx.c1 - RAIL_ROW - rowH - 8 : 0;
     return horizontal && above >= rowH * 1.6 ? above : 0;
   }
-  function moonSize(dix) {
-    var dd = ((spec.metro && spec.metro.days) || [])[dix], band = titleBand();
-    if (spec.oneName || !band || !dd || !dd.moon) return 0;
-    // as tall as the forecast's headline figure beside it, not the row
-    return Math.round(Math.min(band - 6 * S, rowH * 1.9));
-  }
-  function moonRoom(dix) { var z = moonSize(dix); return z ? z + 12 * S : 0; }
   (board.fixed || []).forEach(function (fx) { if (fx.kind === 'hours') hoursFx = fx; });
 
   // WHOSE NAMES ARE MISSING, PER LINE. Read off the board rather than told:
@@ -2392,7 +2364,51 @@ function draw(board, spec, ctx) {
     shedBy[w.line] = (shedBy[w.line] || 0) + 1;
   });
 
-  (board.fixed || []).forEach(function (fx) {
+  // THE CLOCK, AS A BADGE ON THE SCALE. A solid-ink pill, so "now" is the one
+  // time on the strip that is stated rather than annotated. Asked after the
+  // date, which wants the same corner on a board read early in its own
+  // window: the hour ticks already say what time it is to within the step,
+  // and a refresh moves the clock clear by itself, whereas nothing else
+  // anywhere says which day this is.
+  function askClock() {
+    if (!(nowFx && hoursFx && ctx.clock && spec.metro && spec.metro.now_min != null)) return;
+    var pill = html('metro-axis-note metro-pill label' + STRIP_SM + ' text--bold',
+                    ctx.clock(spec.metro.now_min));
+    // Standing up, in the column's width: the hours either side already say
+    // which half of the day it is.
+    if (!horizontal && pill.offsetWidth > hoursFx.c1) pill.textContent = pill.textContent.replace(/\s*(am|pm)$/i, '');
+    // Against the map's edge of the strip: level on a board standing up, the
+    // pill is as thick as its words, and centred on a row it reached into
+    // the map.
+    // As deep as the pill itself where that is more than a row, or its edge
+    // stands out of the strip: "now time clips outside the header box".
+    // ...and no higher than that: "3:47pm" sat above "3pm" and "5pm" either
+    // side of it. On the hours' own line where it fits, raised only as far
+    // as keeps its edge a pixel inside the strip.
+    var cRow = horizontal ? Math.min(hoursFx.c1 - rowH / 2, hoursFx.c1 - pill.offsetHeight / 2 - 1) - RAIL_ROW
+      : hoursFx.c1 - pill.offsetWidth / 2;
+    var r = place(pill, (nowFx.a0 + nowFx.a1) / 2, cRow, 'centre');
+    // Clear of the midnight that ends its day, before anything else books
+    // the strip, so an hour beside it gives way rather than touching it.
+    var nowA = (nowFx.a0 + nowFx.a1) / 2;
+    dayCuts.forEach(function (cut) {
+      if (cut > nowA && r[1] - 2 * S > cut - 10 * S) {
+        r = place(pill, cut - 10 * S, cRow, 'right');
+        // the face may settle a little wider, and it grows to the left here
+        r[0] -= 6 * S;
+      }
+    });
+    if (free(r)) taken.push(r); else pill.remove();
+  }
+  // THE STRIP'S FURNITURE IN TWO PASSES: the dates, then the clock (askClock
+  // below), then everything else. Whatever is placed first takes its room
+  // and the rest give way, and the clock came after the forecast: at ten in
+  // the morning the pill stood under "22°/16°C" and was the one dropped,
+  // the strip saying the temperature and not the time. The clock has first
+  // claim on the hours row (rule 2d); only the date, which nothing else on
+  // the board says, is asked before it.
+  function stripFixture(fx, pass) {
+    if ((fx.kind === 'date') !== (pass === 0)) return;
     var c = (fx.c0 + fx.c1) / 2;
     if (fx.kind === 'date') {
       // THE DATE AS A SOLID-INK PILL. On e-ink this is the highest-contrast
@@ -2537,7 +2553,7 @@ function draw(board, spec, ctx) {
       var fitsDay = function (r) { return r[0] >= wxFrom && free(r); };
       // A stroke's width short of its day's end, so its claim does not touch
       // the next day's title standing on the midnight.
-      var wxEnd = fx.a1 - 4 * S - moonRoom(di);
+      var wxEnd = fx.a1 - 4 * S;
       var richRoom = horizontal && (fx.c1 - fx.c0) >= rowH * 1.6 && wx && wx.hi != null;
       var underDate = null;
       if (richRoom) {
@@ -2646,14 +2662,7 @@ function draw(board, spec, ctx) {
       // A MOMENT THE SKY CHANGES, as its glyph on its minute, under the clock.
       var sky = doc.createElement('div');
       sky.className = 'metro-gen metro-sky flex flex--row flex--center-y gap--xsmall absolute text--black text-stroke';
-      var moonM = /^moon:(\d+):([01])$/.exec(fx.icon || '');
-      if (moonM) {
-        // THE MOON AS A SHAPE, not a fetched glyph (after the night sky
-        // plugin): an ink disc, with the lit part in paper -- a terminator
-        // ellipse against a half disc on the side the light is on.
-        var ms = moonImg(+moonM[1], moonM[2] === '1', rowH);
-        sky.appendChild(ms);
-      } else if (fx.icon) {
+      if (fx.icon) {
         var si = doc.createElement('img');
         si.className = 'image--adaptive';
         si.src = fx.icon;
@@ -2795,7 +2804,10 @@ function draw(board, spec, ctx) {
         [tn, rt].forEach(function (n) { n.style.left = 'auto'; n.style.right = Math.max(0, W - fx.a1) + 'px'; });
       }
     }
-  });
+  }
+  (board.fixed || []).forEach(function (fx) { stripFixture(fx, 0); });
+  askClock();
+  (board.fixed || []).forEach(function (fx) { stripFixture(fx, 1); });
 
   // NOW AND NEXT, IN WORDS. "A plain-text two-line summary for whoever is
   // walking past the display in a hurry": what is on now and what comes
@@ -2814,7 +2826,7 @@ function draw(board, spec, ctx) {
     //
     // Sending the row to tomorrow's panel is right when tomorrow's panel has
     // room for it, and late in the evening it usually has not: the forecast
-    // and the moon are already in that corner, so the row was refused there --
+    // is already in that corner, so the row was refused there --
     // and today's panel, which by then is nearly empty black, had already
     // stood down. The line vanished off the board altogether, which is worse
     // than saying the word twice. Asked again here, with the prefix, because
@@ -2830,36 +2842,6 @@ function draw(board, spec, ctx) {
       if (dayBadges[nb2] && dayBadges[nb2].band) got2 = nowNext(dayBadges[nb2], nb2, true);
     }
     if (!got2 && dayBadges[0] && dayBadges[0].band) nowNext(dayBadges[0], 0, true, true);
-  }
-  // ...AND THE MOON AFTER THEM, NOT BEFORE.
-  //
-  // Whatever is placed first takes its room and the rest give way, and the
-  // moon used to go first: it sat in the strip's right-hand end and the card
-  // beside it cut "Family Dinner 7pm" down to "Family Dinner\u2026". That is the
-  // wrong way round. What is on next is the question the board exists to
-  // answer; the moon is ambient, the one thing up there that is true whether
-  // anybody reads it or not. So it is placed last and takes what is left,
-  // which on a narrow panel is nothing -- `free()` already drops it, and a
-  // board with no moon on it has lost nothing a reader came for.
-  // THE MOON IN THE HEADER, at the top right of each day's panel: "moonphase
-  // in the top right of the header if there is any space". Left of that
-  // day's forecast where it has one; left off where the panel has no room.
-  if (!spec.oneName && horizontal && spec.metro) {
-    dayBadges.forEach(function (tb, dix) {
-      var dd = (spec.metro.days || [])[dix];
-      if (!tb || !tb.band || !dd || !dd.moon) return;
-      var size = moonSize(dix);
-      if (!size) return;
-      var to = (dayCuts.length > dix ? dayCuts[dix] : W) - 10 * S;
-      if (to - size < tb.r[1] + 12 * S) return;
-      var box = doc.createElement('div');
-      box.className = 'metro-gen metro-moon flex absolute';
-      box.setAttribute('title', 'Moon ' + dd.moon.illumination + '%');
-      box.appendChild(moonImg(dd.moon.illumination, dd.moon.waxing, size));
-      canvas.appendChild(box);
-      var mr2 = place(box, to, tb.band / 2 + 2, 'right');
-      if (free(mr2)) taken.push(mr2); else box.remove();
-    });
   }
   function nowNext(tb, dayIx, oneRow, here) {
     var m = spec.metro, now = m.now_min, i18n = m.i18n || {};
@@ -3085,41 +3067,6 @@ function draw(board, spec, ctx) {
     return false;
   }
 
-  // THE CLOCK, AS A BADGE ON THE SCALE. A solid-ink pill, so "now" is the one
-  // time on the strip that is stated rather than annotated. Asked after the
-  // date, which wants the same corner on a board read early in its own
-  // window: the hour ticks already say what time it is to within the step,
-  // and a refresh moves the clock clear by itself, whereas nothing else
-  // anywhere says which day this is.
-  if (nowFx && hoursFx && ctx.clock && spec.metro && spec.metro.now_min != null) {
-    var pill = html('metro-axis-note metro-pill label' + STRIP_SM + ' text--bold',
-                    ctx.clock(spec.metro.now_min));
-    // Standing up, in the column's width: the hours either side already say
-    // which half of the day it is.
-    if (!horizontal && pill.offsetWidth > hoursFx.c1) pill.textContent = pill.textContent.replace(/\s*(am|pm)$/i, '');
-    // Against the map's edge of the strip: level on a board standing up, the
-    // pill is as thick as its words, and centred on a row it reached into
-    // the map.
-    // As deep as the pill itself where that is more than a row, or its edge
-    // stands out of the strip: "now time clips outside the header box".
-    // ...and no higher than that: "3:47pm" sat above "3pm" and "5pm" either
-    // side of it. On the hours' own line where it fits, raised only as far
-    // as keeps its edge a pixel inside the strip.
-    var cRow = horizontal ? Math.min(hoursFx.c1 - rowH / 2, hoursFx.c1 - pill.offsetHeight / 2 - 1) - RAIL_ROW
-      : hoursFx.c1 - pill.offsetWidth / 2;
-    var r = place(pill, (nowFx.a0 + nowFx.a1) / 2, cRow, 'centre');
-    // Clear of the midnight that ends its day, before anything else books
-    // the strip, so an hour beside it gives way rather than touching it.
-    var nowA = (nowFx.a0 + nowFx.a1) / 2;
-    dayCuts.forEach(function (cut) {
-      if (cut > nowA && r[1] - 2 * S > cut - 10 * S) {
-        r = place(pill, cut - 10 * S, cRow, 'right');
-        // the face may settle a little wider, and it grows to the left here
-        r[0] -= 6 * S;
-      }
-    });
-    if (free(r)) taken.push(r); else pill.remove();
-  }
 
   // THE OVERFLOW COUNTS, on the hour row at the strip's two ends, after the
   // clock, which has first claim on either end (rule 2d). Level whichever

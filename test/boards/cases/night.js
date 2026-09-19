@@ -16,6 +16,10 @@
 // look like that at the end? it shouldn't be there yet, and it shouldn't be
 // that wide."
 //
+// THE CLOCK IS AN EDGE TOO. The past is washed, not shaded, so a dark span
+// the board is read inside begins at the clock's line -- a cut like the
+// paper's, not a sunset -- and the deep runs from it.
+//
 // Nothing could ask any of this until now. The night is a <rect> and neither
 // harness reported one, so the whole of it -- where the dark is, how dark,
 // how it ends -- was outside every suite in the project.
@@ -25,6 +29,12 @@ module.exports = function (test, h) {
   // Two days, each with a sunrise and a sunset, drawn whole: midnight to
   // midnight to midnight.
   const twoDay = fixtures.find((f) => f.name === 'badge-and-branch');
+  // where the board's clock stands, in the same units as the shades
+  const clockAt = (rep) => {
+    const fx = (rep.spec.fixed || []).find((x) => x.kind === 'now');
+    return fx ? (fx.a0 + fx.a1) / 2 : null;
+  };
+  const cutAtStart = (rep, s) => s.a0 <= 0.5 || (clockAt(rep) != null && Math.abs(s.a0 - clockAt(rep)) <= 1.5);
 
   for (const v of ['x-landscape', 'og-landscape']) {
     test('the night is drawn, and its deep is inside it: ' + v, () => {
@@ -41,7 +51,7 @@ module.exports = function (test, h) {
       if (overnight.a1 - overnight.a0 > end * 0.06) {
         // ...inside a shoulder at each end the SUN made; an end the paper
         // cut (a window opening after sunset) has none, and the deep runs out
-        const cut0 = overnight.a0 <= 0.5, cut1 = overnight.a1 >= end - 0.5;
+        const cut0 = cutAtStart(rep, overnight), cut1 = overnight.a1 >= end - 0.5;
         assert(deeps.some((d) => (cut0 ? d.a0 <= overnight.a0 + 0.5 : d.a0 > overnight.a0 + 0.5)
           && (cut1 ? d.a1 >= overnight.a1 - 0.5 : d.a1 < overnight.a1 - 0.5)),
           'the night between the two days has no deep inside its shoulders');
@@ -68,7 +78,7 @@ module.exports = function (test, h) {
         if (!d) continue;
         // The board's own edges. A dark span that reaches one is a night the
         // paper cut off, not a night the sun ended.
-        const cut0 = s.a0 <= 0.5, cut1 = s.a1 >= end - 0.5;
+        const cut0 = cutAtStart(rep, s), cut1 = s.a1 >= end - 0.5;
         if (cut0 && d.a0 > s.a0 + 0.5) bad.push('a dawn at the leading edge, ' + Math.round(d.a0 - s.a0) + 'px of it');
         if (cut1 && d.a1 < s.a1 - 0.5) bad.push('a dawn at the far edge, ' + Math.round(s.a1 - d.a1) + 'px of it');
         // ...and in the middle of the board it fades at both ends.

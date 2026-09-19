@@ -1114,6 +1114,13 @@ function specFor(metro, view, opts) {
   // bar between labelled stations, which is what a transit map draws.
   var flatSlot = !opts.standing && legendN > 1 && view.h / legendN < nameH0 * 2.6;
   var levelNames = flatSlot || (!opts.standing && legendN > 1 && ringLead > 0);
+  // ...AND A NAME IS GIVEN MORE ROOM WHERE IT STANDS OVER ITS RAIL. The
+  // share above was cut for a legend column, where every pixel of the
+  // widest name comes off the day; a roundel over the rail at the paper's
+  // edge costs the map only the caption room over the first minutes, and
+  // at a share that held seven letters a nine-letter name was set as its
+  // initial on a panel with a day's width to spare ("that's a bit sad").
+  if (!LEGEND_COLUMN && !levelNames) nameMax = Math.max(nameMax, Math.round((view.w - pad * 2) * NAME_SHARE_OVER));
   if (levelNames && opts.nameRoom == null) {
     var widest = 0;
     (metro.legend || []).forEach(function (p) {
@@ -1209,28 +1216,7 @@ function specFor(metro, view, opts) {
     return w && w.at_min != null && w.label
       && w.at_min >= metro.day_start_min && w.at_min <= metro.day_end_min;
   }) : [];
-  // THE MOON, in the middle of each evening the board draws: from sunset to
-  // that day's midnight, where the dark hours are shaded. "Where is the
-  // moonphase?"
-  // (On a full view lying down the moon is in the header instead: draw.js.)
-  var nowCard0 = !opts.oneName && !opts.standing && view.w >= 700 && view.h >= 400 && metro.now_min != null;
-  if (!tiny && !nowCard0) {
-    (metro.days || []).forEach(function (d) {
-      // No forecast, no sunset: the phase does not need one, so the evening
-      // is taken to start at seven.
-      var wx = d.weather, dusk = wx && wx.sunset_min != null ? wx.sunset_min : 19 * 60;
-      if (!d.moon || d.start_min == null) return;
-      var f = Math.max(d.start_min + dusk, metro.day_start_min);
-      var t = Math.min(d.start_min + 1440, metro.day_end_min);
-      if (t - f < 60) return;
-      // AGAINST MIDNIGHT, where the night is deepest on the board: "move the
-      // moonphase closest to the 00:00". The glyph is clamped short of the
-      // cut when it is drawn, so it never reaches into the next day.
-      skyMarks.push({ at_min: t - 1, label: 'Moon ' + d.moon.illumination + '%',
-                      icon: 'moon:' + d.moon.illumination + ':' + (d.moon.waxing ? 1 : 0) });
-    });
-    skyMarks.sort(function (p, q) { return p.at_min - q.at_min; });
-  }
+  skyMarks.sort(function (p, q) { return p.at_min - q.at_min; });
   var skyH = skyMarks.length ? rowH0 + 6 : 0;
   var cross = { c0: (opts.bandLo != null ? opts.bandLo : stripH) + alertH + skyH,
                 c1: view.h - pad };
@@ -1335,8 +1321,10 @@ function ringRoom(metro, opts) {
 // gutter is cut to hold it (see nameRoom), so the widest name plus this is
 // what a line's name is given, and the first ring stands clear of the word.
 var NAME_CLEAR = 4;
-// The share of a panel's length a line's name may take before it is cut.
+// The share of a panel's length a line's name may take before it is cut:
+// in a legend column, and set over its own rail (see nameMax, specFor).
 var NAME_SHARE = 0.12;
+var NAME_SHARE_OVER = 0.22;
 
 // A BADGE'S WORDS ON AT MOST TWO LINES of `maxW`, broken at a space and
 // never leaving the separator stranded: "Ship Inspection · Wed" becomes

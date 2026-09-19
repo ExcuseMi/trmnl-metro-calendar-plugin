@@ -992,9 +992,6 @@ function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, win
         // a date marker falls back to where the strip is an hour label wide.
         weekday_short: d.weekdayShort || null,
         weather: d.weather || null,
-        // The moon that night, lit fraction and whether it is growing: the
-        // board draws it in the dark hours (see day.js).
-        moon: d.moon || null,
       };
     }),
     // THE WINDOW INTO THE RUN, on the days a quiet one borrowed the next.
@@ -1375,9 +1372,8 @@ function convertTemp(v, from, to) {
 // A SUN AT TEN AT NIGHT SAYS THE WRONG THING.
 //
 // "Rain stops" is drawn as a sun, because clearing up is what it means and a
-// glyph is read before any words are. After sunset that is a sun in the dark,
-// on a board whose other corner is drawing the moon in its real phase: rain
-// ending at eight on a September evening put a midday sun on the strip.
+// glyph is read before any words are. After sunset that is a sun in the dark:
+// rain ending at eight on a September evening put a midday sun on the strip.
 //
 // The board already knows when the sun went down -- every day of the snapshot
 // carries its own sunrise and sunset -- so the marker takes the night's own
@@ -1486,19 +1482,6 @@ function localeRegion(locale) {
     if (/^[A-Za-z]{2}$/.test(parts[i])) return parts[i].toUpperCase();
   }
   return null;
-}
-
-// THE MOON ON A CIVIL DAY: how much of it is lit, and whether it is growing.
-// Counted from a known new moon (2000-01-06 18:14 UTC) in synodic months, at
-// that day's evening, with no network; the board draws the shape from these
-// two numbers, the way the night sky plugin does.
-function moonFor(civil) {
-  if (!civil || !civil.y) return null;
-  var t = Date.UTC(civil.y, civil.mo - 1, civil.d, 21, 0);
-  var synodic = 29.530588853 * 86400000;
-  var age = ((t - Date.UTC(2000, 0, 6, 18, 14)) % synodic + synodic) % synodic;
-  var f = age / synodic;
-  return { illumination: Math.round((1 - Math.cos(2 * Math.PI * f)) / 2 * 100), waxing: f < 0.5 };
 }
 
 // THE ADDRESS THE FEED IS READ FROM. webcal:// is https in another coat, and
@@ -4190,7 +4173,6 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       weekday: localeDatePart(extra.locale || 'en', 'long', 'weekday', civil.y, civil.mo, civil.d),
       weekdayShort: localeDatePart(extra.locale || 'en', 'short', 'weekday', civil.y, civil.mo, civil.d),
       weather: wx,
-      moon: extra.showMoon === false ? null : moonFor(civil),
     };
   }
   var dayRows = [dayRow(shownDay, shownWx || (snapIx === 0 && weather && weather.header) || null)];
@@ -4380,9 +4362,7 @@ async function run(input) {
   // 0" means 0 of whatever the header is showing.
   var alertOpts = alertSettings(input, tempUnit, strings, hour12);
   var extra = { orientation: orientation, locale: locale, strings: strings, hour12: hour12,
-    tempUnit: tempUnit, deadline: deadline, alertOpts: alertOpts, prefetched: prefetched,
-    // On unless switched off: a day with no moon draws none, header or night.
-    showMoon: cf(input, 'show_moon').trim().toLowerCase() !== 'false' };
+    tempUnit: tempUnit, deadline: deadline, alertOpts: alertOpts, prefetched: prefetched };
 
   // Every exit returns through here. The runtime stores what comes back as
   // `trmnl_state` and hands it to the next render as `input.trmnl.state`, so

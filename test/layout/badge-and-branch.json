@@ -35,10 +35,6 @@
     ],
     "sunrise_min": 425,
     "sunset_min": 1180
-   },
-   "moon": {
-    "illumination": 36,
-    "waxing": true
    }
   },
   {
@@ -58,10 +54,6 @@
     "milestones": [],
     "sunrise_min": 425,
     "sunset_min": 1180
-   },
-   "moon": {
-    "illumination": 46,
-    "waxing": true
    }
   }
  ],
