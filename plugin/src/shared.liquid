@@ -8851,6 +8851,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         transform: 'translate(' + (tq[0] + tw / 2 + 149 * tk) + ' ' + (tq[1] + 1 * S - 636 * tk) + ') scale(' + (-tk) + ' ' + tk + ')' });
       tb.style.fill = PAPER;
       train.appendChild(tb);
+      trainSpan = [a - tw / 2 - 3 * S, a + tw / 2 + 3 * S];
       svg.appendChild(train);
     }
     // ...and the line starts under the train, not through it
@@ -10388,7 +10389,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     });
   }
 
-  var hoursFx = null, notes = [], dayBadges = [];
+  var hoursFx = null, notes = [], dayBadges = [], trainSpan = null;
   // THE STRIP'S WORDS A SIZE UP ON A FULL VIEW, with the titles: "header bar
   // could also increase in font size in that case". A slot and a standing
   // board keep the small size their column and rows are measured for.
@@ -11294,18 +11295,29 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // the one before it: "8pm 12am" crowded against the paper's edge
     // ("12am isn't very clean looking"). A label closer to the last placed
     // one than a label is wide is left off; the station stays.
-    var lastA = -Infinity;
+    var lastA = -Infinity, majors = [], minors = [];
+    // A STATION FOR EVERY HOUR OF THE STEP, WORDS WHERE THEY FIT ("hours
+    // on the timeline are not very consistent, many are missing"). The
+    // night runs at a quarter of the day's rate, and a clock pill or a
+    // squeezed morning takes a label with it; the station stays, a size
+    // smaller, so the rail keeps the clock's rhythm through the stretch the
+    // words could not follow, and a gap in the words reads as a quiet
+    // stretch rather than as hours gone missing.
+    function underSlope(hA, reach) {
+      return slantW && horizontal && dayCuts.some(function (cut) { return hA > cut - 2 * S && hA < cut + reach + 2 * S; });
+    }
     for (var h = Math.ceil(from / 60); h * 60 <= to; h++) {
       if (h % step !== 0) continue;
+      var hA = spec.scale.at(h * 60);
+      // Not on a midnight the strip changes panel at: the day's own title
+      // names that minute, and the label would be half on each panel.
+      if (dayCuts.length && ((spec.metro.days || []).some(function (d, di) { return di && d.start_min === h * 60; }))) continue;
       // (the window's last hour asks for most of a regular step: it is the
       // one label with nothing after it to balance a tight gap before it,
       // and a compressed night puts it a fraction of a step past its
       // neighbour)
       var need = h * 60 >= to - 59 ? Math.max(room, step * 60 * perMin * 0.85) : room;
-      if (spec.scale.at(h * 60) - lastA < need) continue;
-      // Not on a midnight the strip changes panel at: the day's own title
-      // names that minute, and the label would be half on each panel.
-      if (dayCuts.length && ((spec.metro.days || []).some(function (d, di) { return di && d.start_min === h * 60; }))) continue;
+      if (hA - lastA < need) { minors.push(hA); continue; }
       var lab = html('metro-hour label' + STRIP_SM + ' text--bold text-stroke',
                      ctx.clock((h % 24) * 60));
       lab.setAttribute('data-metro-hour', h);   // the strip's scale, readable back
@@ -11313,22 +11325,49 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // are covered by today's ink as far as the slope reaches on this row
       // ("6am" stood with its "6" under the diagonal)
       if (slantW && horizontal) {
-        var hA = spec.scale.at(h * 60), hHalf = lab.offsetWidth / 2, hReach = slantAt(cHour - rowH / 2);
-        if (dayCuts.some(function (cut) { return hA > cut && hA - hHalf < cut + hReach + 2 * S; })) { lab.remove(); continue; }
+        var hHalf = lab.offsetWidth / 2, hReach = slantAt(cHour - rowH / 2);
+        if (dayCuts.some(function (cut) { return hA > cut && hA - hHalf < cut + hReach + 2 * S; })) { lab.remove(); minors.push(hA); continue; }
       }
       if (!horizontal) cHour = hoursFx.c1 - lab.offsetWidth / 2 - 2 * S;
-      var got = place(lab, spec.scale.at(h * 60), cHour, 'centre');
+      var got = place(lab, hA, cHour, 'centre');
+      // A LABEL A FEW PIXELS SHORT OF ROOM SLIDES rather than going: the
+      // clock pill at a quarter to seven took "8pm" by a hair. The station
+      // under it stays on the hour; the words move up to a third of their
+      // width off it, never further, or they would name the next station.
+      var slid = 0;
+      if (!free(got) && horizontal) {
+        var lw = lab.offsetWidth, maxSlide = lw / 3;
+        for (var sd = 2 * S; sd <= maxSlide && !free(got); sd += 2 * S) {
+          got = place(lab, hA + sd, cHour, 'centre'); slid = sd;
+          if (free(got)) break;
+          got = place(lab, hA - sd, cHour, 'centre'); slid = -sd;
+        }
+      }
       if (free(got)) {
         taken.push(got);
-        lastA = spec.scale.at(h * 60);
-        // ...and a station on the rail under it: a hollow stop, paper inside
-        if (strip && horizontal) {
-          var hq = xy(spec.scale.at(h * 60), strip.c1 + RAIL_W / 2);
-          var hs = svgEl(doc, 'circle', { cx: hq[0], cy: hq[1], r: NODE_R * 0.75, 'stroke-width': NODE_STROKE * 0.7 });
-          hs.style.fill = PAPER; hs.style.stroke = INK;
-          put(hs, 'hour-station');
-        }
-      } else lab.remove();
+        lastA = hA + slid;
+        majors.push(hA);
+      } else { lab.remove(); minors.push(hA); }
+    }
+    if (strip && horizontal) {
+      // ...and a station on the rail under each label: a hollow stop, paper
+      // inside; the hours without words get a smaller one
+      var railC = strip.c1 + RAIL_W / 2, reachRail = slantAt(railC);
+      majors.forEach(function (ma) {
+        var hq = xy(ma, railC);
+        var hs = svgEl(doc, 'circle', { cx: hq[0], cy: hq[1], r: NODE_R * 0.75, 'stroke-width': NODE_STROKE * 0.7 });
+        hs.style.fill = PAPER; hs.style.stroke = INK;
+        put(hs, 'hour-station');
+      });
+      minors.forEach(function (mi) {
+        if (majors.some(function (ma) { return Math.abs(ma - mi) < NODE_R * 1.6; })) return;
+        if (trainSpan && mi > trainSpan[0] && mi < trainSpan[1]) return;
+        if (underSlope(mi, reachRail) || mi < NODE_R || mi > alongPx - NODE_R) return;
+        var mq = xy(mi, railC);
+        var ms = svgEl(doc, 'circle', { cx: mq[0], cy: mq[1], r: NODE_R * 0.45, 'stroke-width': NODE_STROKE * 0.55 });
+        ms.style.fill = PAPER; ms.style.stroke = INK;
+        put(ms, 'hour-station-minor');
+      });
     }
   }
 
