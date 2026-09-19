@@ -8506,10 +8506,12 @@ function draw(board, spec, ctx) {
         stroke: 'none', 'fill-opacity': 0 });
       band.style.fill = INK;
       put(band, 'river');
-      // THE LIGHT PANEL IS RULED OFF FROM THE MAP: "tomorrow header section
-      // needs a bottom border". The inverse panel ends in its own ink; the
-      // wash would otherwise fade into the paper under it.
-      if (pi) {
+      // EVERY PANEL IS RULED OFF FROM THE MAP: "tomorrow header section
+      // needs a bottom border". The wash would otherwise fade into the paper
+      // under it; under the inverse panel the rule is ink on ink and simply
+      // carries its edge down by the same amount, so the two bottoms are one
+      // line ("the black has no line so it looks uneven").
+      {
         var e0 = xy(pa0, strip.c1), e1 = xy(pa1, strip.c1);
         var rule = svgEl(doc, 'line', { x1: e0[0], y1: e0[1], x2: e1[0], y2: e1[1],
           'stroke-width': 1.5 * S, 'stroke-linecap': 'butt' });
@@ -9510,7 +9512,8 @@ function draw(board, spec, ctx) {
       + (lit ? "<path fill='white' d='" + lit + "'/>" : '')
       // ...AND A RIM, so the lit half and the dark half are one disc: without
       // it a half moon on the light panel was a black D beside a white D, and
-      // read as a glyph rather than as the moon.
+      // read as a glyph rather than as the moon. (Line art, the lit part
+      // outlined on its own, was tried and "looks weird".)
       + "<circle cx='12' cy='12' r='10.25' fill='none' stroke='black' stroke-width='1.5'/>"
       + '</svg>';
     var im = doc.createElement('img');
@@ -10393,13 +10396,13 @@ function draw(board, spec, ctx) {
         if (titled[fi]) {
           var tt = doc.createElement('span');
           // a word's space from the date: "Today and the date too pushed together"
-          tt.className = 'metro-today title text--bold mr--3';
+          tt.className = 'metro-today value value--small text--bold mr--3';
           var i18n2 = spec.metro.i18n || {};
           tt.textContent = dayIx ? (i18n2.tomorrow || 'Tomorrow') : (i18n2.today || 'Today');
           badge.appendChild(tt);
         }
         var d = doc.createElement('span');
-        d.className = 'metro-axis-note metro-date metro-pill label' + STRIP_SM + ' text--bold';
+        d.className = 'metro-axis-note metro-date metro-pill' + (titled[fi] ? ' metro-pill--quiet label label--small' : ' label' + STRIP_SM) + ' text--bold';
         d.textContent = fx.text;
         badge.appendChild(d);
         if (forms[fi] > 0) {
