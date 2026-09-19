@@ -34,7 +34,7 @@ module.exports = function (test, h) {
       }
       const el = canvasOf(built).querySelector('.metro-news');
       assert(el, 'no band element');
-      assert(Math.round(parseFloat(el.style.top)) === Math.round(top), 'the band element is not at the foot');
+      assert(Math.abs(parseFloat(el.style.top) - top) <= 2 * built.o.S + 0.5, 'the band element is not at the foot');
       assert(el.querySelectorAll('.metro-news-row').length === rows, 'row elements: ' + el.querySelectorAll('.metro-news-row').length);
     });
   }

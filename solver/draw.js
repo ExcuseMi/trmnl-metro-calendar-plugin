@@ -140,6 +140,9 @@ function draw(board, spec, ctx) {
   var svg = ctx.svg, canvas = ctx.canvas;
   var S = ctx.S || 1, horizontal = ctx.horizontal !== false;
   var W = ctx.W, H = ctx.H;
+  // Where the map's paper ends: above the headlines' box where there is one
+  // (the washes and the midnight cut stop there, not at the paper's edge).
+  var mapFoot = (spec.news && spec.news.h && horizontal) ? H - spec.news.h : H;
   // The constants the old engine tuned, at the panel's own scale.
   // THE RAIL IS THE HEAVIEST INK ON THE BOARD. A transit map is read by its
   // lines first and its words second, and at 3 the rails were the thinnest
@@ -728,7 +731,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       var f = Math.max(span[0], m0min, nowM), t = Math.min(span[1], m1min);
       if (!(t > f)) return;
       var a0n = f <= m0min ? 0 : spec.scale.at(f), a1n = t >= m1min ? (horizontal ? W : H) : spec.scale.at(t);
-      var q0 = xy(a0n, strip ? strip.c1 : spec.cross.c0), q1 = xy(a1n, horizontal ? H : W);
+      var q0 = xy(a0n, strip ? strip.c1 : spec.cross.c0), q1 = xy(a1n, horizontal ? mapFoot : W);
       var shade = svgEl(doc, 'rect', { x: Math.min(q0[0], q1[0]), y: Math.min(q0[1], q1[1]),
         width: Math.abs(q1[0] - q0[0]), height: Math.abs(q1[1] - q0[1]),
         stroke: 'none', 'fill-opacity': 0.06 });
@@ -752,7 +755,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       if (d1 > d0) {
         var b0 = d0 <= m0min ? 0 : spec.scale.at(d0);
         var b1 = d1 >= m1min ? (horizontal ? W : H) : spec.scale.at(d1);
-        var p0 = xy(b0, strip ? strip.c1 : spec.cross.c0), p1 = xy(b1, horizontal ? H : W);
+        var p0 = xy(b0, strip ? strip.c1 : spec.cross.c0), p1 = xy(b1, horizontal ? mapFoot : W);
         var deep = svgEl(doc, 'rect', { x: Math.min(p0[0], p1[0]), y: Math.min(p0[1], p1[1]),
           width: Math.abs(p1[0] - p0[0]), height: Math.abs(p1[1] - p0[1]),
           stroke: 'none', 'fill-opacity': 0.06 });
@@ -1371,7 +1374,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   if (days.length > 1 && spec.scale && spec.cross) {
     days.forEach(function (d, di) {
       if (!di || d.start_min == null) return;
-      var cq0 = xy(spec.scale.at(d.start_min), strip ? strip.c1 : spec.cross.c0), cq1 = xy(spec.scale.at(d.start_min), horizontal ? H : W);
+      var cq0 = xy(spec.scale.at(d.start_min), strip ? strip.c1 : spec.cross.c0), cq1 = xy(spec.scale.at(d.start_min), horizontal ? mapFoot : W);
       var cut = svgEl(doc, 'rect', { x: Math.min(cq0[0], cq1[0]) - 0.5, y: Math.min(cq0[1], cq1[1]),
         width: Math.abs(cq1[0] - cq0[0]) + 1, height: Math.abs(cq1[1] - cq0[1]), fill: 'none', stroke: 'none' });
       put(cut, 'midnight-cut');
@@ -3582,17 +3585,20 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // theirs, so the framework's `inverse` turns them to paper.
   var newsSpec = spec.news;
   if (newsSpec && newsSpec.rows && horizontal) {
-    var nbH = newsSpec.h, nbTop = H - nbH;
+    // A ROUNDED BOX, set in a little from the paper's edges ("maybe a
+    // rounded--small box for the news"), not a bar flush to them: the
+    // display is a thing hung on the wall, not the wall.
+    var nbIn = 5 * S, nbH = newsSpec.h - nbIn, nbTop = H - newsSpec.h + 1 * S, nbW = W - 2 * nbIn;
     var nb = doc.createElement('div');
-    nb.className = 'metro-strip metro-news absolute inverse bg--canvas';
-    nb.style.left = '0px'; nb.style.top = nbTop + 'px';
-    nb.style.width = W + 'px'; nb.style.height = nbH + 'px';
+    nb.className = 'metro-strip metro-news absolute inverse bg--canvas rounded--small';
+    nb.style.left = nbIn + 'px'; nb.style.top = nbTop + 'px';
+    nb.style.width = nbW + 'px'; nb.style.height = nbH + 'px';
     canvas.insertBefore(nb, svg);
-    var nbRail = svgEl(doc, 'rect', { x: 0, y: nbTop, width: W, height: nbH, stroke: 'none', 'fill-opacity': 0 });
+    var nbRail = svgEl(doc, 'rect', { x: nbIn, y: nbTop, width: nbW, height: nbH, stroke: 'none', 'fill-opacity': 0 });
     nbRail.style.fill = INK;
     put(nbRail, 'news');
     var nbSM = (spec.oneName || !horizontal) ? ' label--small' : '';
-    var rowStep = (nbH - 4 * S) / newsSpec.rows, nbMaxW = W - 16 * S;
+    var rowStep = (nbH - 4 * S) / newsSpec.rows, nbMaxW = nbW - 16 * S;
     newsSpec.items.slice(0, newsSpec.rows).forEach(function (it, i) {
       var row = doc.createElement('div');
       row.className = 'metro-gen metro-news-row flex flex--row flex--center-y gap--small absolute';
