@@ -2355,7 +2355,7 @@ function newsLinks(raw) {
 // Every feed asked at once inside the render's deadline; the newest headline
 // of each feed in turn, so a busy wire does not drown the school's one
 // notice a week; and what was read last time where nothing answers now.
-async function fetchNews(urls, deadline, state, nowS, max) {
+async function fetchNews(urls, deadline, state, nowS, max, fit) {
   if (!urls.length) return null;
   var key = urls.join('\n');
   var got = await Promise.all(urls.map(async function (u) {
@@ -2380,10 +2380,10 @@ async function fetchNews(urls, deadline, state, nowS, max) {
   }
   if (items.length) {
     if (state) state.news = { items: items, key: key, fetchedAt: nowS };
-    return { items: items, max: max };
+    return { items: items, max: max, fit: !!fit };
   }
   var saved = state && state.news;
-  if (saved && saved.key === key && nowS - saved.fetchedAt <= NEWS_STALE_AFTER_S) return { items: saved.items, max: max };
+  if (saved && saved.key === key && nowS - saved.fetchedAt <= NEWS_STALE_AFTER_S) return { items: saved.items, max: max, fit: !!fit };
   return null;
 }
 
@@ -4582,9 +4582,13 @@ async function run(input) {
   });
   // ...AND THE NEWS, which needs neither a calendar nor a location.
   var newsUrls = newsLinks(cf(input, 'news_feeds'));
-  var newsMax = Math.max(1, Math.min(5, parseInt(cf(input, 'news_count'), 10) || 3));
+  // "fit", the default: one row, as many headlines as fit along it with
+  // separators; a number is that many rows
+  var newsCountRaw = cf(input, 'news_count').trim().toLowerCase();
+  var newsFit = newsCountRaw === 'fit' || !newsCountRaw;
+  var newsMax = newsFit ? 1 : Math.max(1, Math.min(5, parseInt(newsCountRaw, 10) || 3));
   var newsStarted = newsUrls.length
-    ? fetchNews(newsUrls, deadline, state, Math.floor(Date.now() / 1000), newsMax).catch(function () { return null; })
+    ? fetchNews(newsUrls, deadline, state, Math.floor(Date.now() / 1000), newsMax, newsFit).catch(function () { return null; })
     : null;
   var wxStarted = null, wxOpts = null;
   if (latLonRaw) {

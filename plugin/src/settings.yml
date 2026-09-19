@@ -154,13 +154,14 @@ custom_fields:
   field_type: select
   group: News
   name: Headlines
-  description: How many rows the news may take on a full panel. A small panel shows one.
+  description: One row of the newest headlines with their sources, as many as fit, or a number of rows on a full panel (a small panel shows one).
   options:
+  - As many as fit on one row: fit
   - One: 1
   - Two: 2
   - Three: 3
   - Four: 4
-  default: 3
+  default: fit
   optional: true
 - keyname: demo_set
   field_type: select
