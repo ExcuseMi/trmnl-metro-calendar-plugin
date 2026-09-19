@@ -1402,7 +1402,7 @@ function branch(key, trunk, a0, a1, dist, dir, axis, leadCap, pre, floor, corner
   // "it's too straight". An approach as long as the event itself still
   // reads as the event (the dot is at its minute); past that it reads as a
   // longer one, and the spur leaves upright.
-  if (lead + run > Math.max(0, a1 - a0) * 1.0) lead = 0;
+  if (a1 - a0 >= 1 && lead + run > Math.max(0, a1 - a0) * 1.0) lead = 0;
   var lo = floor == null ? axis.a0 : Math.max(axis.a0, floor);
   var loC = lo + Math.max(0, corner || 0);
   if (loC + lead > a0) lead = 0;
@@ -3671,7 +3671,12 @@ function boardFor(spec, st) {
     // over the corner rather than over the event -- "Walk Nibbler is a bit
     // awkward... the angled corner taking space". Long enough to carry both,
     // the diagonal is what a transit map draws and it stays.
-    if (level && (w.a1 - w.a0) < dist * 1.4) level = false;
+    // (...except a MOMENT, which hangs off the line on one 45 and ends in
+    // its dot: two 45s, a run, a dot and a tick in the space of a mark was
+    // "what is this bend, it looks weird")
+    var moment = (w.a1 - w.a0) < 1;
+    if (level && !moment && (w.a1 - w.a0) < dist * 1.4) level = false;
+    if (moment) pre = 0;
     var floor = null;
     if (!level) {
       for (var vj = 1; vj < tp.length - 1; vj++) {
@@ -8753,15 +8758,27 @@ function draw(board, spec, ctx) {
     // stops a hair short of each name it would cross and picks up again
     // past it.
     var cFrom = strip ? strip.c1 : fx.c0, cTo = fx.c1, runs = [[cFrom, cTo]];
-    (board.fixed || []).forEach(function (g) {
-      if (g.kind !== 'terminus' || !(g.a0 - 2 * S <= a && a <= g.a1 + 2 * S)) return;
-      var g0 = g.c0 - 2 * S, g1 = g.c1 + 2 * S, next = [];
+    function cutRuns(g0, g1) {
+      var next = [];
       runs.forEach(function (rn) {
         if (g1 <= rn[0] || g0 >= rn[1]) { next.push(rn); return; }
         if (g0 > rn[0]) next.push([rn[0], g0]);
         if (g1 < rn[1]) next.push([g1, rn[1]]);
       });
       runs = next;
+    }
+    (board.fixed || []).forEach(function (g) {
+      if (g.kind !== 'terminus' || !(g.a0 - 2 * S <= a && a <= g.a1 + 2 * S)) return;
+      cutRuns(g.c0 - 2 * S, g.c1 + 2 * S);
+    });
+    // ...AND AROUND EVERY RAIL IT CROSSES, the gap a bar gets: the line is
+    // one more thing crossing the tracks ("might as well cut on the tracks
+    // as well"), so the rails run over it whole with paper either side.
+    board.lines.forEach(function (ln) {
+      var rc = ln.cAt(a);
+      if (rc == null) return;
+      var rw = railStroke(ln, ln.key).width;
+      cutRuns(rc - rw / 2 - BRIDGE_CLEAR, rc + rw / 2 + BRIDGE_CLEAR);
     });
     runs.forEach(function (rn) {
       var r0 = xy(a, rn[0]), r1 = xy(a, rn[1]);
@@ -9084,12 +9101,16 @@ function draw(board, spec, ctx) {
     // (No tie between the owners of a shared state any more: each of their
     // heads carries the badge itself -- see routeRows, day.js.)
   });
+  // EVERY rail that is level at the first minute, trunk or shelf, whatever
+  // it carried before the board: a chevron, three dots and a half dot at the
+  // edge were three ways of saying "this was already going", and the page's
+  // edge says it once ("I don't like these starts"). Not past a connector
+  // standing at the edge, and not under a name set level at the head.
   var ranOff = {};
   function headRun(ln, lpts) {
-    if (!horizontal || ln.branchOf || lpts.length < 2) return null;
-    if (!(unfinished[ln.key] || [])[0] || edgeTieAt[ln.key] != null || levelHead[ln.key]) return null;
-    // (a day that is a slice of something longer keeps its open chevron)
-    if ((openEnded[ln.key] || [])[0]) return null;
+    if (!horizontal || lpts.length < 2) return null;
+    var trunkKey = ln.branchOf || ln.key;
+    if (edgeTieAt[trunkKey] != null || levelHead[trunkKey]) return null;
     if (lpts[0][0] > spec.axis.a0 + 1 || Math.abs(lpts[0][1] - lpts[1][1]) > 0.5) return null;
     ranOff[ln.key] = true;
     return [(spec.axis.edge0 == null ? spec.axis.a0 : spec.axis.edge0) - 12 * S, lpts[0][1]];
@@ -9874,7 +9895,9 @@ function draw(board, spec, ctx) {
     // the half dot's statement for two people at once (see the stations).
     // It stands in for both their terminal slashes, which there would be two
     // strokes of the printer's end mark crossing one joined pair of rails.
-    if (pl.open0 && pa0 <= axisA0 + 1) { halfDiamond(axisA0, pl.c0, pl.c1, 1, pl.id); cut(pl, 0); }
+    // ...NOT AT THE HEAD OF A LYING BOARD, where nothing marks a start any
+    // more: the pair's rails run in from the edge or from their roundels.
+    if (pl.open0 && pa0 <= axisA0 + 1) { if (!horizontal) halfDiamond(axisA0, pl.c0, pl.c1, 1, pl.id); cut(pl, 0); }
     if (pl.open1 && pa1 >= axisA1 - 1) { halfDiamond(axisA1, pl.c0, pl.c1, -1, pl.id); cut(pl, 1); }
   });
 
@@ -9947,6 +9970,9 @@ function draw(board, spec, ctx) {
     // A tie's spur ends the way every rail ends, with a tick: "use a proper
     // terminator for group events." (It wore a small ring for a while.)
     if (st.kind === 'end') {
+      // A MOMENT GETS ONE MARK (rule 28): its dot is its end, so no tick on
+      // the same minute.
+      if (board.stops.some(function (o) { return o.kind === 'start' && o.line === st.line && Math.abs(o.a - st.a) < 1; })) return;
       // (across a wide rail, long enough to read as a bar and not a box)
       var half = Math.max(NODE_R * 1.05 * mk, railStroke(stLine, st.line).width * 1.25);
       var t0 = xy(st.a, st.c - half), t1 = xy(st.a, st.c + half);
@@ -9995,6 +10021,9 @@ function draw(board, spec, ctx) {
           && Math.abs(st.a - spec.axis.a0) < NODE_R) return;
     }
     if (st.kind === 'from') {
+      // (a shelf that runs in off the paper's edge needs no half dot: the
+      // edge says it; the dotted drop that ties it to its rail stays)
+      var offPaper = !!ranOff[st.line];
       // THE HALF DOT IS THE HEAD. Where the event runs on the trunk from
       // the first minute of the paper, the terminal slash would be drawn
       // through the same point, and the two came out as one scribble at the
@@ -10017,6 +10046,7 @@ function draw(board, spec, ctx) {
         drop.style.stroke = inkOf(st.line);
         put(drop, 'edge-drop', st.line);
       }
+      if (offPaper) return;
       var q = xy(st.a + 1, st.c);
       var dx = q[0] - p[0], dy = q[1] - p[1], len = Math.hypot(dx, dy) || 1;
       dx /= len; dy /= len;
@@ -10094,6 +10124,7 @@ function draw(board, spec, ctx) {
         // this says the branch drawn for it really does reach the paper's
         // edge, so the dots are put where the ink stops.
         if (Math.abs(p[0] - (end ? axisA1 : axisA0)) > 1) return;
+        if (!end && nameLevel[ln.branchOf]) return;   // the roundel is the head (see the trunk's case)
         var bDir = end ? 1 : -1;
         var bGap = Math.max(RAIL_W * 1.3, 2.6 * S), bR = Math.max(1.2 * S, RAIL_W * 0.42);
         for (var bi = 1; bi <= 3; bi++) {
@@ -10108,6 +10139,9 @@ function draw(board, spec, ctx) {
     var r = 4 * S, w = Math.max(2 * S, (ln.width || 3) * S);
     [ln.pts[0], ln.pts[ln.pts.length - 1]].forEach(function (p, end) {
       if (!end && ranOff[ln.key]) return;
+      // A NAME SET LEVEL AT THE HEAD IS THE HEAD: the roundel is the line's
+      // terminus, and dots or an arrow after it were a second start mark.
+      if (!end && nameLevel[ln.key]) return;
       if (end) { var ftE = farTrim(ln); if (ftE > 0) p = [p[0] - ftE, p[1]]; }
       // THE EDGE RING IS THIS END'S MARK, AND THE ONLY ONE. A shared event
       // already running when the board opened puts a ring on the rail's first

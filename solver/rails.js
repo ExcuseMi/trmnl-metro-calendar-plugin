@@ -307,7 +307,7 @@ function branch(key, trunk, a0, a1, dist, dir, axis, leadCap, pre, floor, corner
   // "it's too straight". An approach as long as the event itself still
   // reads as the event (the dot is at its minute); past that it reads as a
   // longer one, and the spur leaves upright.
-  if (lead + run > Math.max(0, a1 - a0) * 1.0) lead = 0;
+  if (a1 - a0 >= 1 && lead + run > Math.max(0, a1 - a0) * 1.0) lead = 0;
   var lo = floor == null ? axis.a0 : Math.max(axis.a0, floor);
   var loC = lo + Math.max(0, corner || 0);
   if (loC + lead > a0) lead = 0;

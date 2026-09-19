@@ -113,7 +113,14 @@ module.exports = function (test, h) {
       // paper's edge and a mark measured against the edge was measured
       // against the wrong thing.
       const x0 = Math.min(...rep.rects.filter((r) => r.owner === ln.key && r.role === 'terminal').map((r) => r.x), Infinity);
-      if (!dots.length && !(marks.length >= 2 && x0 <= rep.spec.axis.a0 + 12)) bad.push(ln.key);
+      // ...or runs in off the paper's edge, which is what a rail that was
+      // already going does now (draw.js headRun): its first point is past the
+      // edge, and there is no mark to draw
+      const t = pathsWhere(rep, 'track').filter((p) => p.owner === ln.key)[0];
+      const offPaper = t && t.pts[0][0] < (rep.spec.axis.edge0 == null ? rep.spec.axis.a0 : rep.spec.axis.edge0) - 1;
+      // ...or starts at its roundel, set level at the head
+      const levelHead = (rep.spec.fixed || []).some((x) => x.kind === 'terminus' && x.level && x.line === ln.key);
+      if (!offPaper && !levelHead && !dots.length && !(marks.length >= 2 && x0 <= rep.spec.axis.a0 + 12)) bad.push(ln.key);
     }
     assert(!bad.length, 'no start mark on ' + bad.join(', '));
   });
@@ -269,7 +276,10 @@ module.exports = function (test, h) {
       const edgeRings = rep.circles.filter((c) => c.role === 'ring-edge');
       const opensFor = (k) => open.filter((p) => p.owner === k).length
         + edgeRings.filter((c) => c.owner === k).length;
-      for (const k of inIt) assertEqual(opensFor(k), 2, k + '\'s open ends');
+      // ONE, AT THE FAR END. The leading end is the paper's edge or the
+      // line's roundel now, and neither takes a mark (draw.js headRun,
+      // nameLevel): the arrow is drawn where the day runs on past the paper.
+      for (const k of inIt) assertEqual(opensFor(k), 1, k + '\'s open ends');
       assert(open.every((p) => inIt.has(p.owner)), 'a line not in any all-day state ends open');
       assertEqual(pathsWhere(rep, 'origin-tie').length, 0, 'a shared state is tied between its heads again');
     });

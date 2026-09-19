@@ -120,6 +120,9 @@ module.exports = function (test, h) {
             if (caps.some((m) => pointIn(end, inflate(m, NEAR)))) continue;
             if (dots.some((m) => m.owner === p.owner && pointIn(end, inflate(m, DOT_NEAR)))) continue;
             if (ends.some((c) => c.pts.some((pt) => dist(pt, end) <= NEAR))) continue;
+            // ...or its own name, set level at the head: the roundel is the terminus
+            if ((rep.spec.fixed || []).some((hb) => hb.kind === 'terminus' && hb.level && hb.line === p.owner)
+              && end[0] <= rep.spec.axis.a0 + 2) continue;
             bad.push(p.role + '/' + p.owner + ' ends at ' + Math.round(end[0]) + ',' + Math.round(end[1]));
           }
         }

@@ -624,7 +624,12 @@ function boardFor(spec, st) {
     // over the corner rather than over the event -- "Walk Nibbler is a bit
     // awkward... the angled corner taking space". Long enough to carry both,
     // the diagonal is what a transit map draws and it stays.
-    if (level && (w.a1 - w.a0) < dist * 1.4) level = false;
+    // (...except a MOMENT, which hangs off the line on one 45 and ends in
+    // its dot: two 45s, a run, a dot and a tick in the space of a mark was
+    // "what is this bend, it looks weird")
+    var moment = (w.a1 - w.a0) < 1;
+    if (level && !moment && (w.a1 - w.a0) < dist * 1.4) level = false;
+    if (moment) pre = 0;
     var floor = null;
     if (!level) {
       for (var vj = 1; vj < tp.length - 1; vj++) {
