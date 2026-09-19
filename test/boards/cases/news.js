@@ -94,6 +94,14 @@ module.exports = function (test, h) {
     assert(pills[0].className.indexOf('metro-pill--quiet') < 0, 'the source pill is not solid');
   });
 
+  test('one source is not named: the pills only say which paper when there are two', () => {
+    const one = { max: 1, fit: true, items: NEWS.items.map((it) => Object.assign({}, it, { source: 'Het Nieuwsblad' })) };
+    const built = build(withNews(one), 'x-landscape');
+    const row = canvasOf(built).querySelector('.metro-news .metro-news-row');
+    assert(row && !row.querySelector('.metro-pill'), 'a lone source was named on every headline');
+    assert(/Citadelpark/.test(row.textContent), 'the headline is missing');
+  });
+
   test('no news, no band, and the map keeps its foot', () => {
     const rep = layout(five, 'x-landscape');
     assert(!rep.spec.news, 'rows reserved for nothing');

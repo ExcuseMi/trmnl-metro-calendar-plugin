@@ -176,7 +176,8 @@ applies when something changes.
    Or, at the setting's asking, ONE ROW OF AS MANY AS FIT: the newest first,
    each with its source, a dot between them, the row filled until the next
    would not fit. The source is a solid pill, paper with the name knocked
-   out, the way the clock is on the strip.
+   out, the way the clock is on the strip; with one source on the board it
+   is not named at all.
    THE WEATHER ALERT IS ITS FIRST ROW: one box, not a band and a box, with
    the alert's own classes and pieces (the thing bold, the clock quiet), two
    rows deep on a slot where a long translation wraps. The box is drawn on
