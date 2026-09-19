@@ -2233,7 +2233,8 @@ function xmlText(content) {
 // Binnenland" is the section, which the headline already implies.
 function newsSourceName(title) {
   var t = xmlText(title).replace(/\s*[|\u2013\u2014-]\s*(rss|atom|feed|news|nieuws|actualit\u00e9s|nachrichten|noticias|notizie|wiadomo\u015bci|not\u00edcias)\b.*$/i, '');
-  var cut = t.split(/\s+[|\u2013\u2014-]\s+/)[0].trim();
+  // ...nor its section after a colon: "VRT NWS: nieuws", "HLN:home"
+  var cut = t.split(/\s+[|\u2013\u2014-]\s+|\s*:\s*/)[0].trim();
   return (cut || t).slice(0, NEWS_SOURCE_MAX);
 }
 
