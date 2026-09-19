@@ -144,7 +144,7 @@ function specOf(metro, v, o, extra) {
     markR: Math.round(6 * 1.15 * o.S), corner: Math.round(13 * o.S),
     edgeRing: Draw.edgeRing(o.S).reach, edgeRingR: Draw.edgeRing(o.S).r,
     pad: Math.round(4 * o.S), rowH: o.rowH, cell: Math.round(o.base * 0.55),
-    alert: null, measure: measure, oneName: !!v.slot,
+    measure: measure, oneName: !!v.slot,
     // a badge's words in the small bold type it is drawn in
     routeW: function (t) { return metrics.widthOf(metrics.TABLE[o.dev].route || metrics.TABLE[o.dev].small, t); },
   }, extra || {}));

@@ -4,7 +4,7 @@
 //
 // Everything this card does is decided from measured text: which of three
 // sizes it wears, whether a title is cut at a word, which day's panel it goes
-// in, and whether the moon still has room beside it. The jsdom harness cannot
+// in. The jsdom harness cannot
 // see any of it -- offsetWidth is zero there, so the card never cuts, never
 // shrinks and never competes for space, and a case written over there passes
 // whatever the panel does. Every one of the faults below was found by looking
@@ -30,8 +30,7 @@ module.exports = function (test, h) {
         if (l === card || has(l, 'metro-nownext')) continue;
         // the card sits inside the strip, so only the strip's own furniture
         // can be in its way
-        if (!(has(l, 'metro-daybadge') || has(l, 'metro-wx') || has(l, 'metro-moon')
-              || has(l, 'metro-axis-note'))) continue;
+        if (!(has(l, 'metro-daybadge') || has(l, 'metro-wx') || has(l, 'metro-axis-note'))) continue;
         if (overlap(card, l)) bad.push((l.cls.match(/metro-[a-z]+/) || ['?'])[0] + ' "' + l.text.slice(0, 20) + '"');
       }
       assert(!bad.length, 'the card is written over ' + bad.join(', '));
@@ -49,6 +48,10 @@ module.exports = function (test, h) {
       const left = badges.filter((b) => b.x <= card.x + 2)
         .sort((p, q) => (card.x - p.x) - (card.x - q.x))[0] || badges[0];
       if (card.h > left.h * 1.6) return;        // a two-row card: centred on the band, correctly
+      // ...OR UNDER THE DATE, starting where it starts, when that row is the
+      // wider slot: beside the date on a full panel the card cut "Shift
+      // Handover" to "Shift..." with the whole row under the title empty.
+      if (Math.abs(card.x - left.x) <= 4 && card.y >= left.y + left.h - 2) return;
       assert(Math.abs(mid(card) - mid(left)) <= Math.max(4, left.h * 0.35),
         'the card sits ' + Math.round(mid(card) - mid(left)) + 'px off the date "' + left.text.slice(0, 14) + '"');
     });

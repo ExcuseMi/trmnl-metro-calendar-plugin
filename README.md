@@ -20,8 +20,17 @@ No server of your own.
   into tomorrow as the day runs out. What falls off the far end is counted
   on the hour strip ("+9 more"). Only the night is compressed: from
   midnight to a day's first event and from its last event to midnight.
-- The hour strip is the header: each day's date, holiday, forecast and moon
-  phase, the time now, and on a full view what is on now and next.
+- The hour strip is the header: each day's date, holiday and forecast,
+  the time now, and on a full view what is on now and next.
+- Today's panel meets tomorrow's at 45 degrees, the angle the map's own
+  branches take.
+- Headlines along the foot of the map, from any RSS or Atom feeds you name
+  in the News setting: the local paper, the school, the club. The weather
+  alert, when you switch it on, is the first row of the same box, and the
+  headlines give up rows before the map does. A free day
+  says so in the middle of the map, and the clock rides the strip as a
+  little train (the metro silhouette is [SVG Repo's](https://www.svgrepo.com/svg/420587/metro-metropolitan-subway),
+  CC0).
 - Each line has a texture (solid, dotted, dashed, dash-dot) and, on
   grayscale and colour panels, a shade or colour, all picked for you. A
   shared calendar's own line (a "Family" feed) is a ladder.

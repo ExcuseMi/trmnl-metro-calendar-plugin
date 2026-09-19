@@ -591,7 +591,9 @@ const REPORTER = `
 
 function pageFor(metro, screenClasses, slot, liquidExtra, page) {
   const fw = frameworkAssets();
-  let html = swapMetro(baseHtml(liquidExtra, page), metro);
+  // The extra reaches the script's payload too, not only the template's
+  // data: the banner is drawn by the script now, from METRO.service_alert.
+  let html = swapMetro(baseHtml(liquidExtra, page), liquidExtra ? Object.assign({}, metro, liquidExtra) : metro);
   html = html.split(CSS_URL).join('file://' + fw.css).split(JS_URL).join('file://' + fw.js);
   // Add the device classes to whatever the build put on the screen element,
   // rather than matching one exact string. The bleed setting changes that

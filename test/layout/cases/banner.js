@@ -9,9 +9,11 @@
 // template. These cases render it for real, through a build of its own
 // (`layout(fixture, view, { service_alert: ... })`).
 //
-// The claim being tested is the one the template's comment makes: the
-// banner is a SIBLING of the canvas, so the map gives up exactly its
-// height and there is no second place for the two to disagree.
+// THE BANNER IS THE FIRST ROW OF THE BOX ALONG THE FOOT OF THE MAP now,
+// drawn by the script with the same classes and pieces it always had (one
+// box with the headlines, not a band and a box: "can weather alert combine
+// with news alerts?"). The claim is the same in spirit: the map gives up
+// the box's height, the rails end above it, and nothing is drawn under it.
 
 module.exports = function (test, h) {
   const { layout, fixtures, assert, assertEqual } = h;
@@ -69,28 +71,22 @@ module.exports = function (test, h) {
     }
   });
 
-  test('the banner takes its height OFF the map, not out of it', () => {
-    // The sibling-of-the-canvas claim, stated as arithmetic: the root is
-    // the same height either way, the header is untouched, so whatever the
-    // banner takes is exactly what the canvas loses. A banner moved inside
-    // the canvas, or positioned absolutely over it, breaks this and
-    // nothing else in the suite would notice: the map would simply be
-    // drawn under an opaque black bar.
+  test('the banner sits in the box at the foot, and the map ends above it', () => {
+    // Inside the canvas now, but not over the map: the box is taken off the
+    // cross extent, so every rail ends above the banner's top and the box
+    // itself ends inside the canvas.
     for (const v of VIEWS) {
       const withAlert = layout(busy, v, { service_alert: RAIN });
       assert(withAlert.banner, v.name + ': service_alert was set and no banner was drawn');
-      const without = layout(busy, v);
-      const lost = without.canvas.h - withAlert.canvas.h;
-      // 1px: the two heights are laid out independently and either can
-      // land on a subpixel boundary. Anything looser would let a banner
-      // that overlaps the map by a line of text through.
-      assert(Math.abs(lost - withAlert.banner.h) <= 1, v.name + ': the banner is '
-        + Math.round(withAlert.banner.h) + 'px tall but the canvas only gave up '
-        + Math.round(lost) + 'px');
-      // and it sits below the map rather than on it (canvas-relative, so
-      // the canvas's own bottom edge is exactly canvas.h)
-      assert(withAlert.banner.y >= withAlert.canvas.h - 1, v.name + ': the banner starts '
-        + Math.round(withAlert.canvas.h - withAlert.banner.y) + 'px above the bottom of the map');
+      const b = withAlert.banner;
+      assert(b.y + b.h <= withAlert.canvas.h + 1, v.name + ': the banner runs '
+        + Math.round(b.y + b.h - withAlert.canvas.h) + 'px off the bottom of the canvas');
+      const rails = (withAlert.paths || []).filter((p) => p.role === 'track' || p.role === 'spur');
+      assert(rails.length, v.name + ': no rails to measure against');
+      for (const r of rails) {
+        const bottom = r.y != null ? r.y + (r.h || 0) : Math.max(...(r.pts || [[0, 0]]).map((q) => q[1]));
+        assert(bottom <= b.y + 1, v.name + ': a rail reaches ' + Math.round(bottom - b.y) + 'px into the banner');
+      }
     }
   });
 
@@ -143,9 +139,10 @@ module.exports = function (test, h) {
     const rootBottom = long.root.y + long.root.h;
     assert(long.banner.y + long.banner.h <= rootBottom + 1, 'the wrapped banner runs '
       + Math.round(long.banner.y + long.banner.h - rootBottom) + 'px off the bottom of the board');
-    const lost = layout(busy, v).canvas.h - long.canvas.h;
-    assert(Math.abs(lost - long.banner.h) <= 1, 'the two-line banner is '
-      + Math.round(long.banner.h) + 'px tall but the canvas gave up ' + Math.round(lost) + 'px');
+    // ...and inside its box: the solver gave the alert two rows on a slot for
+    // exactly this, so the wrapped line is not painted over the box's edge.
+    assert(long.banner.y + long.banner.h <= long.canvas.h + 1, 'the wrapped banner runs '
+      + Math.round(long.banner.y + long.banner.h - long.canvas.h) + 'px off the bottom of the canvas');
   });
 
   test('the weather\'s own name is the loud one, on every bit depth', () => {

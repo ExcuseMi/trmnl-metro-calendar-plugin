@@ -40,5 +40,6 @@
   "notice_feeds_failed": "Geen enkele agenda kon gelezen worden: {n}",
   "notice_nothing": "Niets in de agenda's vandaag of morgen.",
   "notice_demo_failed": "De voorbeelddag kon niet geladen worden. Voeg je agenda's toe in de instellingen van de plugin.",
-  "notice_error": "De agenda's konden deze keer niet getekend worden. Bij de volgende verversing wordt het opnieuw geprobeerd."
+  "notice_error": "De agenda's konden deze keer niet getekend worden. Bij de volgende verversing wordt het opnieuw geprobeerd.",
+  "quiet_day": "Niets gepland. Vrije dag!"
 }

@@ -40,5 +40,6 @@
   "notice_feeds_failed": "Keiner der Kalender konnte gelesen werden: {n}",
   "notice_nothing": "Heute und morgen steht nichts in den Kalendern.",
   "notice_demo_failed": "Der Beispieltag konnte nicht geladen werden. Füge deine Kalender in den Plugin-Einstellungen hinzu.",
-  "notice_error": "Die Kalender konnten diesmal nicht gezeichnet werden. Beim nächsten Aktualisieren wird es erneut versucht."
+  "notice_error": "Die Kalender konnten diesmal nicht gezeichnet werden. Beim nächsten Aktualisieren wird es erneut versucht.",
+  "quiet_day": "Nichts geplant. Freier Tag!"
 }

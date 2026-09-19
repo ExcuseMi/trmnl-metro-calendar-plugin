@@ -130,6 +130,55 @@ applies when something changes.
    earlier" was its twin at the leading edge and is no longer drawn; the
    wash over the past says it.)
 
+2o. **A date without its title steps up.** Without "Today" in front of it
+   the small outlined date read as "a secondary label without a primary
+   one": a badge too wide for its panel with the title tries the date in
+   the title's own size before it falls back to the tag, and on today's
+   panel it may use the slope's room (2l) for the title.
+2l. **The days meet at 45 degrees.** Today's ink panel does not stop square
+   at the midnight: its top runs on over tomorrow's paper and its edge comes
+   down to the cut at the strip's rail on the diagonal every branch on the
+   map takes ("divided by a 45° shape, so today gets some extra space, and
+   it would look nicer and in theme"). As far across as the strip is deep,
+   less where tomorrow's panel is a sliver. Tomorrow's title stands clear of
+   the slope; today's forecast may run onto it. A one-line forecast tries
+   its day's title row before the row under the date, so it never stands on
+   the hours and takes their labels with it.
+2m. **The next-up card takes the wider slot.** Beside the date on the
+   title row, or under the date starting where it starts, whichever gives
+   a one-row card more room: on a full panel the row under the title was
+   empty while the card beside the date cut "Shift Handover" to
+   "Shift..." ("restructure header to use all the space").
+2n. **The strip's last hour is labelled only at a regular step from the
+   one before it.** A compressed night puts the window's last hour a
+   fraction of a step past its neighbour, and "8pm 12am" crowded against
+   the paper's edge "isn't very clean looking"; the station stays, the
+   label is left off. Elsewhere a label closer to the last one than a
+   label is wide is left off the same way.
+2i. **The headlines are the platform display.** A household that names
+   RSS or Atom feeds in the News setting gets a band of ink along the foot
+   of the map, one row a headline with its source as a small pill in front
+   of it: the display under a station's departure board. As many rows as
+   the panel can spare up to the setting (one on a small panel, none on a
+   board standing up), and the rails end above it. A headline too long for
+   its row is cut with an ellipsis, never wrapped. The transform reads the
+   feeds, newest first and the feeds in turn, and keeps the last good
+   headlines for a refresh on which nothing answers.
+   THE WEATHER ALERT IS ITS FIRST ROW: one box, not a band and a box, with
+   the alert's own classes and pieces (the thing bold, the clock quiet), two
+   rows deep on a slot where a long translation wraps. The box is drawn on
+   a standing board too, off the axis there.
+   THE TRACKS COME FIRST: the headlines give up rows until every line keeps
+   three names' depth of map; the alert keeps its row, it is about whether
+   the map can be trusted.
+2j. **The clock's mark on the strip is a little train**: SVG Repo's metro
+   silhouette (svgrepo.com/svg/420587, CC0), in paper on the ink panel with
+   its floor on the strip's rail under the clock pill, facing the way the
+   day goes. The now line starts under it.
+2k. **A free day says so.** A board with a clock and nothing timed on it
+   draws one friendly line in the middle of the map, with the day's own
+   sky beside it ("Nothing planned. Free day!"), instead of four flat rails
+   and nothing to read them by.
 2b. **The night is not drawn.** It was, for a long time: ten at night to
    six in the morning as a corridor of upright hairlines the depth of the
    board, because a board covering two days is one continuous scale and
@@ -162,17 +211,15 @@ applies when something changes.
    only vertical the reader has to name.
 
    The model still tracks the night. It is how the axis knows a run has one.
-2b-i. **The dark hours are shaded, not ruled.** Before sunrise and after
-   sunset the map's paper is a light grey, from each day's own forecast:
-   "a gray shade bg before sunset and after sundown". It is a tone behind
-   everything, not a mark, so it asks the reader to name nothing -- which is
-   what the night corridor of hairlines failed at. No forecast, no shade.
-2b-ii. **The moon sits in the evening's dark.** Each day's phase, from the
-   date alone: on a full view at the far right of that day's header panel,
-   with the forecast standing in beside it; elsewhere as its glyph in the
-   sky row just before that day's midnight: "where is the moonphase?" A sky glyph like the others, so it
-   never reaches into the next day. With no forecast (no location) the
-   evening is taken to start at seven, so the moon is there anyway.
+2b-i. **The dark hours are not shaded either.** They were, for a while, a
+   light grey from each day's forecast ("a gray shade bg before sunset and
+   after sundown"); beside the past wash (2a) and the news box the two
+   columns were a third grey with nothing to say ("I'm not sure it looks
+   that clean"). The map is paper; the strip says which day it is.
+2b-ii. **No moon.** The board drew the night's phase for a while, in the
+   header and then in the sky row; it was ambient, it cost the forecast its
+   corner, and nobody read it ("do we actually need a moon phase icon?").
+   The dark hours' shade (2b-i) is all the board says about the night.
 2b-iii. **Rails cross the midnight whole.** A rail with nothing on it at the
    midnight bridges the double rule (see 2b-xi); one carrying an event
    across the midnight has the rule tunnel under it. Otherwise an event is
