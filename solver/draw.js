@@ -223,7 +223,9 @@ function draw(board, spec, ctx) {
   // crossed line stopping short of something rather than passing under it.
   // Held in S, not in the rail's width, so every line style leaves the same
   // gap -- which is the same reason the pillars are one size everywhere.
-  var BRIDGE_CLEAR = 1.2 * S;
+  // (a rail's width of paper each side of the deck: at a hair the crossing
+  // needed pillars to be seen, and with the pillars gone the gap is the mark)
+  var BRIDGE_CLEAR = 2.4 * S;
 
   function X(a, c) { return horizontal ? a : c; }
   function Y(a, c) { return horizontal ? c : a; }
@@ -431,6 +433,11 @@ function draw(board, spec, ctx) {
   // ONE SIZE: "we shouldn't have different size bridges", so every bridge is
   // this one, set in the deck's width -- which is the same on every line.
   function guardrails(at, u, d, ln, key) {
+    // NO PILLARS. Four stubs under every rail at every crossing were a picket
+    // fence along the midnight rule ("can we make the bridges look nicer?");
+    // a printed map marks a crossing with the gap alone, and the gap is
+    // wider now (BRIDGE_CLEAR) so it can carry that.
+    return;
     var rs = railStroke(ln, key), W = rs.width, edge = W / 2, n = [-u[1], u[0]];
     function pt(along, across) {
       return xy(at[0] + u[0] * along + n[0] * across, at[1] + u[1] * along + n[1] * across);
@@ -1258,8 +1265,26 @@ function draw(board, spec, ctx) {
   // where it starts; this is the same fact drawn on the MAP, as the double
   // rule a transit diagram uses for a boundary, so a rail crossing it can be
   // seen to cross it.
+  // ...AND NOT ANY MORE. The strip changes panel at the midnight, with the
+  // day's name standing on the cut, and the night wash runs across the map
+  // under it: the double rule through every rail was the busiest thing left
+  // on the board and said nothing the strip was not already saying ("do we
+  // even need it?"). Kept behind a switch rather than deleted, with its
+  // bridges and tunnels, in case a board without a night ever wants it.
+  var MIDNIGHT_RULE = false;
   var days = (spec.metro && spec.metro.days) || [];
+  // The cut itself is still a fact worth reading back: an unpainted marker
+  // at each midnight, for anything that asks where the day turns.
   if (days.length > 1 && spec.scale && spec.cross) {
+    days.forEach(function (d, di) {
+      if (!di || d.start_min == null) return;
+      var cq0 = xy(spec.scale.at(d.start_min), strip ? strip.c1 : spec.cross.c0), cq1 = xy(spec.scale.at(d.start_min), horizontal ? H : W);
+      var cut = svgEl(doc, 'rect', { x: Math.min(cq0[0], cq1[0]) - 0.5, y: Math.min(cq0[1], cq1[1]),
+        width: Math.abs(cq1[0] - cq0[0]) + 1, height: Math.abs(cq1[1] - cq0[1]), fill: 'none', stroke: 'none' });
+      put(cut, 'midnight-cut');
+    });
+  }
+  if (MIDNIGHT_RULE && days.length > 1 && spec.scale && spec.cross) {
     days.forEach(function (d, di) {
       if (!di || d.start_min == null) return;
       var mx = spec.scale.at(d.start_min);

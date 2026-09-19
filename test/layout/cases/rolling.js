@@ -19,7 +19,8 @@ module.exports = function (test, h) {
   const hasCls = (l, c) => (' ' + l.cls + ' ').indexOf(' ' + c + ' ') >= 0;
   const daybreaks = (rep) => rep.labels.filter((l) => hasCls(l, 'metro-daybreak'));
   const midnightX = (rep) => {
-    const m = (rep.rects || []).filter((p) => p.role === 'midnight')[0];
+    // (the unpainted marker at the cut: the rule itself is no longer drawn)
+    const m = (rep.rects || []).filter((p) => p.role === 'midnight-cut')[0];
     return m ? m.x + m.w / 2 : null;
   };
 

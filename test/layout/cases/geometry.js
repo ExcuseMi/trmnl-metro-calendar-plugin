@@ -62,6 +62,9 @@ module.exports = function (test, h) {
         // drawn separately, in runs, because it breaks wherever it passes
         // under something. Nothing is meant to see this one.
         if (el.role === 'course') continue;
+        // ...and so is the marker at a midnight: the cut is a fact the tests
+        // read back; the rule that used to be painted there is switched off.
+        if (el.role === 'midnight-cut') continue;
         // A <line> cannot be filled — only its stroke draws anything — and
         // its computed fill defaults to black, so counting fill as paint let
         // the strokeless tie through. This test passed on the broken build

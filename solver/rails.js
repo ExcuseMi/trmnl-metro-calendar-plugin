@@ -338,8 +338,14 @@ function branch(key, trunk, a0, a1, dist, dir, axis, leadCap, pre, floor, corner
     // ("could replace the 90 bend with 2 short 45 degree turns?"). Each
     // chamfer is a mark's radius or so, so the whole thing costs the axis
     // about two of them, and the shelf still begins where the dot wants it.
+    // ...AND WHERE THE FLOOR LEAVES NO ROOM FOR THEM before the shelf would
+    // start (a spur leaving right after its trunk's own corner), the shelf
+    // starts a little later instead, as long as the dot still lands on it:
+    // a shorter run before the dot is a smaller loss than an elbow.
     var ch = Math.min(chamfer || 0, dist / 2);
-    if (ch > 0.5 && flat - 2 * ch >= lo) {
+    var flatC = Math.max(flat, lo + 2 * ch);
+    if (ch > 0.5 && flatC <= a0 + 0.5) {
+      flat = flatC;
       push(pts, flat - 2 * ch, cFrom);
       push(pts, flat - ch, cFrom + dir * ch);
       push(pts, flat - ch, shelfC - dir * ch);

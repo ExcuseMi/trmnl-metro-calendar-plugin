@@ -206,18 +206,18 @@ applies when something changes.
    rail's tick and slash are solid. A caption may set its time beside its
    name on one line where two rows do not fit. The hour before the first
    event on the board is drawn at full rate, so the first things have room.
-2b-xi. **Where a line crosses a bar or the midnight, which crossing is not a
-   choice, and the line is never cut or painted over.** The bar or the rule
+2b-xi. **Where a line crosses a bar, which crossing is not a choice, and the
+   line is never cut or painted over.** (The midnight is no longer drawn
+   as a rule on the map: the strip changes panel there and the night wash
+   runs across; what follows about "the rule" is kept for the switch in
+   draw.js.) The bar or the rule
    is drawn in pieces around it. A line with nothing on it there is a bridge:
-   the rule or bar stands clear of it by a hair -- close enough to read as
-   passing under it rather than as stopping short of it, and no closer than
-   not touching -- with two square pillars under it on
-   each side, in its own ink, half its width wide, the one by the gap the
-   taller; one size everywhere, since every line style is drawn at one
-   width. **On a board that runs downward the pillars are mirrored**, four a
-   flank, because a deck stood on its end has no "under" to hang from and
-   four pillars out of one side of a rail read as a fault in the line rather
-   than as a bridge. A line with an event on it there (on the trunk or its branch), or
+   the rule or bar stands clear of it by a rail's width of paper on each
+   side, and that gap is the whole mark. (It used to be a hair, with two
+   square pillars under the deck each side to say "bridge"; four stubs under
+   every rail at every crossing were a picket fence along the midnight rule,
+   and a printed map marks a crossing with the gap alone.) A line with an
+   event on it there (on the trunk or its branch), or
    beside a name cut into the bar, has the bar go under it, its event and the
    name in one gap with a hairline portal at each mouth, and no pillars.
 2b-xiii. **Only the night runs fast.** The scale compresses only from

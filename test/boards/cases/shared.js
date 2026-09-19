@@ -215,23 +215,22 @@ module.exports = function (test, h) {
     return { built, pl, x: pl.a, y: sam.cAt(pl.a) };
   }
 
-  test('a line with nothing on it where a bar crosses is a bridge: the bar in pieces, two square pillars a side', () => {
+  // THE GAP IS THE WHOLE MARK. There were two square pillars a side under
+  // the deck; four stubs under every rail at every crossing were a picket
+  // fence along the midnight rule, and a printed map marks a crossing with
+  // the gap alone ("can we make the bridges look nicer?").
+  test('a line with nothing on it where a bar crosses is a bridge: the bar in pieces, a rail\'s width of paper each side, nothing else', () => {
     const { built, pl, x, y } = walk(13 * 60);
     assert(!covers(roles(built, 'capsule', pl.id), x, y), 'the bar runs through Sam\'s rail');
-    assert(roles(built, 'capsule', pl.id).length >= 2, 'the bar is not in pieces');
-    const piers = roles(built, 'guardrail', 'sam').map(polyOf).filter((q) => q.some((v) => Math.abs(v[0] - x) < 30));
-    assertEqual(piers.length, 4, 'pillars beside the gap');
-    assertEqual(piers.map((q) => Math.sign(q[0][0] - x)).sort(), [-1, -1, 1, 1], 'the pillars are not two each side');
+    const pieces = roles(built, 'capsule', pl.id);
+    assert(pieces.length >= 2, 'the bar is not in pieces');
+    assertEqual(roles(built, 'guardrail', 'sam').length, 0, 'a bridge has pillars');
     const W = +roles(built, 'track', 'sam')[0].getAttribute('stroke-width');
-    for (const q of piers) {
-      assert(q.every((v) => v[1] >= y - 0.5), 'a pillar reaches above the deck');
-      assert(Math.abs(q[2][1] - q[3][1]) < 0.5, 'a pillar is not square-cut');
-      assert(Math.abs(Math.abs(q[1][0] - q[0][0]) - W * 0.5) < 0.6, 'a pillar is not half the deck wide');
-    }
-    const depth = (q) => Math.max(...q.map((v) => v[1]));
-    for (const sd of [-1, 1]) {
-      const side = piers.filter((q) => Math.sign(q[0][0] - x) === sd).sort((p, q) => Math.abs(p[0][0] - x) - Math.abs(q[0][0] - x));
-      assert(depth(side[0]) > depth(side[1]), 'the pillar by the gap is not the taller');
+    const ys = pieces.map((n) => [Math.min(+n.getAttribute('y1'), +n.getAttribute('y2')), Math.max(+n.getAttribute('y1'), +n.getAttribute('y2'))]);
+    const above = Math.max(...ys.map((p) => p[1]).filter((v) => v <= y)), below = Math.min(...ys.map((p) => p[0]).filter((v) => v >= y));
+    for (const gap of [y - W / 2 - above, below - y - W / 2]) {
+      assert(gap > 1, 'the bar touches the deck (' + gap.toFixed(2) + ')');
+      assert(gap <= W * 0.6, 'the bar stops ' + gap.toFixed(2) + ' short of a deck ' + W.toFixed(2) + ' wide, which reads as a hole');
     }
     assertEqual(roles(built, 'portal', pl.id).filter((n) => Math.abs(+n.getAttribute('y1') - y) < 20).length, 0, 'a bridge has tunnel mouths');
   });
@@ -243,95 +242,26 @@ module.exports = function (test, h) {
     assert(roles(built, 'portal', pl.id).length > 0, 'no tunnel mouths');
   });
 
+  // NO RULE AT THE MIDNIGHT. The strip changes panel there, with the day's
+  // name on the cut, and the night wash runs across the map: the double rule
+  // through every rail, with its bridges and tunnels, is switched off
+  // (draw.js MIDNIGHT_RULE).
   for (const name of ['rolling-quiet', 'three-day']) {
-    test('every line crossing the midnight with nothing on it bridges it, the rule in pieces around it: ' + name, () => {
+    test('no rule is drawn at the midnight: ' + name, () => {
       const f = fixtures.find((x) => x.name === name);
       const built = h.build(Object.assign({}, f.metro, { now_min: 17 * 60 }), 'x-landscape');
-      const cut = built.spec.cuts && built.spec.cuts[0];
-      assert(cut != null, 'no midnight on this board');
-      const rules = roles(built, 'midnight').filter((n) => n.tagName === 'line');
-      let crossing = 0;
-      for (const ln of built.board.lines.filter((l) => !l.branchOf)) {
-        if (!(ln.pts[0][0] < cut - 12 && ln.pts[ln.pts.length - 1][0] > cut + 12)) continue;
-        crossing++;
-        const y = ln.cAt(cut);
-        assert(!rules.some((n) => Math.min(+n.getAttribute('y1'), +n.getAttribute('y2')) < y && y < Math.max(+n.getAttribute('y1'), +n.getAttribute('y2'))
-          && Math.abs(+n.getAttribute('x1') - cut) < 6), ln.key + ': the rule runs through the rail');
-        assertEqual(roles(built, 'guardrail', ln.key).length, 4, ln.key + ': pillars at the midnight');
-      }
-      assert(crossing > 0, 'no line crosses the midnight');
+      assert(built.spec.cuts && built.spec.cuts[0] != null, 'no midnight on this board');
+      assertEqual(roles(built, 'midnight').length, 0, 'a midnight rule was drawn');
     });
   }
 
-  // A HAIR, NOT A HOLE. "Can you get the other track a bit closer to the
-  // bridge... close enough so they just aren't touching." At six tenths of a
-  // rail's own width the crossed line read as stopping short of something
-  // rather than passing under it. Both halves of that are asserted, because
-  // either one alone invites the other fault: paper on each side, and not
-  // much of it.
+  // NO PILLARS ON ANY BOARD, lying or standing: the crossing is the gap.
   for (const name of ['rolling-quiet', 'three-day']) {
-    test('a bridge leaves the line it crosses a hair of paper, not a hole: ' + name, () => {
-      const f = fixtures.find((x) => x.name === name);
-      const built = h.build(Object.assign({}, f.metro, { now_min: 17 * 60 }), 'x-landscape');
-      const cut = built.spec.cuts && built.spec.cuts[0];
-      assert(cut != null, 'no midnight on this board');
-      // The rule's pieces at the midnight, as spans of y.
-      const spans = roles(built, 'midnight').filter((n) => n.tagName === 'line'
-        && Math.abs(+n.getAttribute('x1') - +n.getAttribute('x2')) < 0.5
-        && Math.abs(+n.getAttribute('x1') - cut) < 4)
-        .map((n) => [Math.min(+n.getAttribute('y1'), +n.getAttribute('y2')),
-                     Math.max(+n.getAttribute('y1'), +n.getAttribute('y2'))]);
-      assert(spans.length > 0, 'no midnight rule at the cut');
-      let checked = 0;
-      for (const ln of built.board.lines.filter((l) => !l.branchOf)) {
-        if (!roles(built, 'guardrail', ln.key).length) continue;   // bridges, not tunnels
-        const y = ln.cAt(cut), rw = +roles(built, 'track', ln.key)[0].getAttribute('stroke-width');
-        const edge = rw / 2;
-        // The piece that stops above the rail, and the one that starts below.
-        const above = Math.max(...spans.map((p) => p[1]).filter((v) => v <= y));
-        const below = Math.min(...spans.map((p) => p[0]).filter((v) => v >= y));
-        for (const [what, gap] of [['above', y - edge - above], ['below', below - y - edge]]) {
-          assert(gap > 0.4, ln.key + ': the rule ' + what + ' touches the deck (' + gap.toFixed(2) + ')');
-          assert(gap <= rw * 0.5, ln.key + ': the rule ' + what + ' stops ' + gap.toFixed(2)
-            + ' short of a deck ' + rw.toFixed(2) + ' wide, which reads as a hole');
-        }
-        checked++;
-      }
-      assert(checked > 0, 'no bridge on this board to measure');
-    });
-  }
-
-  // A VERTICAL BOARD HAS NO "UNDER" TO HANG FROM, so the pillars are mirrored.
-  //
-  // Four pillars on one flank of a rail read as something wrong with the line,
-  // not as a bridge: what makes the shape legible lying down -- the deck, and
-  // everything hanging beneath it -- has no meaning once the deck is stood on
-  // its end. Asked for in these words: "Could we have bridge with the same
-  // pillars on both sides? Or just in vertical?" Just in vertical: a deck that
-  // still lies across the paper keeps its four, because there it reads right.
-  for (const name of ['rolling-quiet', 'three-day']) {
-    test('a bridge on a vertical board carries its pillars on both flanks: ' + name, () => {
+    test('a crossing draws no pillars, lying or standing: ' + name, () => {
       const f = fixtures.find((x) => x.name === name);
       const m = Object.assign({}, f.metro, { now_min: 17 * 60 });
-      const down = h.build(m, 'x-portrait');
-      const flat = h.build(m, 'x-landscape');
-      let checked = 0;
-      for (const ln of down.board.lines.filter((l) => !l.branchOf)) {
-        const piers = roles(down, 'guardrail', ln.key);
-        if (!piers.length) continue;
-        checked++;
-        // Twice what the same board draws lying down, and evenly split about
-        // the rail: the deck runs along the axis, so its flanks are in x.
-        assertEqual(piers.length, 8, ln.key + ': pillars on a vertical board');
-        const cut = down.spec.cuts && down.spec.cuts[0];
-        const rail = ln.cAt(cut);
-        const sides = piers.map(polyOf).map((q) => Math.sign(Math.max(...q.map((v) => v[0])) - rail));
-        assertEqual(sides.filter((v) => v < 0).length, 4, ln.key + ': pillars left of the rail');
-        assertEqual(sides.filter((v) => v > 0).length, 4, ln.key + ': pillars right of the rail');
-        // ...and the same four as ever on the board that lies down.
-        assertEqual(roles(flat, 'guardrail', ln.key).length, 4, ln.key + ': pillars lying down');
-      }
-      assert(checked > 0, 'no bridge on this board to look at');
+      assertEqual(roles(h.build(m, 'x-portrait'), 'guardrail').length, 0, 'pillars on a vertical board');
+      assertEqual(roles(h.build(m, 'x-landscape'), 'guardrail').length, 0, 'pillars lying down');
     });
   }
 
@@ -340,10 +270,6 @@ module.exports = function (test, h) {
     const built = h.build(f.metro, 'x-landscape');
     const widths = [...new Set(roles(built, 'track').map((n) => (+n.getAttribute('stroke-width')).toFixed(2)))];
     assertEqual(widths.length, 1, 'trunks drawn at ' + widths.join(', '));
-    const b3 = fixtures.find((x) => x.name === 'three-day');
-    const bb = h.build(Object.assign({}, b3.metro, { now_min: 17 * 60 }), 'x-landscape');
-    const sizes = [...new Set(roles(bb, 'guardrail').map(polyOf).map((q) => Math.abs(q[1][0] - q[0][0]).toFixed(1)))];
-    assertEqual(sizes.length, 1, 'pillars of widths ' + sizes.join(', '));
   });
 
   test('an event running across the midnight has the midnight tunnel under it: no pillars on that line', () => {
