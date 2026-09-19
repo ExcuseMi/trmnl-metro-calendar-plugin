@@ -2344,7 +2344,8 @@ function draw(board, spec, ctx) {
   function moonSize(dix) {
     var dd = ((spec.metro && spec.metro.days) || [])[dix], band = titleBand();
     if (spec.oneName || !band || !dd || !dd.moon) return 0;
-    return Math.round(Math.min(band - 6 * S, rowH * 1.5));
+    // as tall as the forecast's headline figure beside it, not the row
+    return Math.round(Math.min(band - 6 * S, rowH * 1.9));
   }
   function moonRoom(dix) { var z = moonSize(dix); return z ? z + 12 * S : 0; }
   (board.fixed || []).forEach(function (fx) { if (fx.kind === 'hours') hoursFx = fx; });
@@ -2463,9 +2464,12 @@ function draw(board, spec, ctx) {
       var multiDay = ((spec.metro && spec.metro.days) || []).length > 1;
       var badgeC = titleRoom ? titleRoom / 2 + 2 : c;
       if (titleRoom && multiDay) badgeC = Math.max(badge.offsetHeight / 2 + 4 * S, (titleRoom - rowH - 4) / 2 + 2);
-      // in from the edge on both days: with no legend column the first day's
-      // title stood hard against the paper's edge
-      var br = place(badge, fx.a0 + 10 * S, badgeC, "left");
+      // ON THE ROUNDELS' LEFT EDGE. The day's title is the first thing read
+      // and the line names are the column under it; set thirty pixels
+      // further in than them it floated. A later day's title stands in from
+      // the midnight it opens on, as before.
+      var titleA = dayIx ? fx.a0 + 10 * S : (spec.axis.edge0 == null ? fx.a0 + 10 * S : spec.axis.edge0 + 2 * S);
+      var br = place(badge, titleA, badgeC, "left");
       taken.push(br);
       dayBadges[dayIx] = { r: br, band: titleRoom };
       return;
