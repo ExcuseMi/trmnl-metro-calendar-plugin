@@ -2412,7 +2412,9 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   function free(r) {
     return !taken.some(function (t) {
       if (!(r[0] < t[1] && t[0] < r[1])) return false;
-      if (r.length > 3 && t.length > 3 && !(r[2] < t[3] && t[2] < r[3])) return false;
+      // (two rows that only touch are two rows: a forecast whose foot and an
+      // hour's head met at a fraction of a pixel took "20:00" off the strip)
+      if (r.length > 3 && t.length > 3 && !(r[2] < t[3] - 1 && t[2] < r[3] - 1)) return false;
       return true;
     });
   }
@@ -2799,6 +2801,41 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       });
       // (a rail's width down: the strip's rail runs along the top of this row)
       place(sky, skyA, fx.c0 + (horizontal ? sky.offsetHeight : sky.offsetWidth) / 2 + (horizontal && strip ? RAIL_W : 0), 'left');
+      return;
+    }
+    if (fx.kind === 'rain') {
+      // WHILE IT RAINS, THE ROW RAINS ("rain as a stretch, not a point", "if
+      // you can make it look very nice"): a trail of little drops under the
+      // time line from the glyph that says it starts to the one that says it
+      // stops, a drop every so often and every other one a little lower, the
+      // way rain falls on a window. Clear of every glyph in the row and of
+      // the clock's line, so the icons stay the statements and the drops
+      // only say how long.
+      if (!horizontal) return;
+      var rH = Math.max(5 * S, (fx.c1 - fx.c0) * 0.42), rStep = Math.max(7 * S, rH * 1.25);
+      // (on the glyphs' own line: they stand a rail's width under the strip)
+      var rMid = fx.c0 + (strip ? RAIL_W : 0) + rowH / 2 + 1 * S;
+      var keepOff = (board.fixed || []).filter(function (g) { return g.kind === 'sky' || g.kind === 'now'; })
+        .map(function (g) { return [g.a0 - rH * 0.5 - 2 * S, g.a1 + rH * 0.5 + 2 * S]; });
+      var group = svgEl(doc, 'g', { 'data-metro-role': 'rain' });
+      var n = Math.floor((fx.a1 - fx.a0) / rStep), drops = 0;
+      var start = fx.a0 + ((fx.a1 - fx.a0) - n * rStep) / 2;
+      for (var ri = 0; ri <= n; ri++) {
+        var ra = start + ri * rStep;
+        if (keepOff.some(function (k) { return ra > k[0] && ra < k[1]; })) continue;
+        var rc = rMid + (ri % 2 ? 0.18 : -0.18) * rH;
+        var q = xy(ra, rc), hh = rH / 2, ww = rH * 0.36;
+        // a teardrop: a point at the top, round at the bottom
+        var dp = svgEl(doc, 'path', { d: 'M' + q[0] + ' ' + (q[1] - hh)
+          + ' C' + (q[0] + ww * 0.35) + ' ' + (q[1] - hh * 0.35) + ' ' + (q[0] + ww) + ' ' + (q[1] + hh * 0.05) + ' ' + (q[0] + ww) + ' ' + (q[1] + hh * 0.4)
+          + ' A' + ww + ' ' + ww + ' 0 0 1 ' + (q[0] - ww) + ' ' + (q[1] + hh * 0.4)
+          + ' C' + (q[0] - ww) + ' ' + (q[1] + hh * 0.05) + ' ' + (q[0] - ww * 0.35) + ' ' + (q[1] - hh * 0.35) + ' ' + q[0] + ' ' + (q[1] - hh) + 'Z',
+          stroke: 'none' });
+        dp.style.fill = INK;
+        group.appendChild(dp);
+        drops++;
+      }
+      if (drops) { group.setAttribute('data-metro-drops', drops); svg.appendChild(group); }
       return;
     }
     if (fx.kind === 'note') { notes.push(fx); return; }

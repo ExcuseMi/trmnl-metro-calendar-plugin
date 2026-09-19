@@ -420,7 +420,11 @@ function msUntil(deadline) {
 //
 // Re-measure before moving it again: no harness for it lives in the tree, the
 // one used is in the commit message.
-var RENDER_BUDGET_MS = 4000;
+// THREE, NOT FOUR (2026-09-19): the live plugin went degraded, "Transform
+// timed out after 5s", with the platform's own advice beside it to keep
+// requests under three. The transform's own work is ten milliseconds; the
+// rest of the five is the platform's, and four left it too little.
+var RENDER_BUDGET_MS = 3000;
 
 var WEATHER_STALE_AFTER_S = 6 * 3600;  // older than this and the board says so rather than presenting it as today's forecast
 // THE SAME SIX HOURS FOR A CALENDAR, AND FOR THE SAME REASON.
@@ -1000,7 +1004,7 @@ function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, win
   var allDay = Object.keys(allDayByTitle).map(function (t) { return allDayByTitle[t]; });
 
   (weatherMilestones || []).forEach(function (w) {
-    items.push({ type: 'weather', _sortMin: w.atMin, at_min: w.atMin, icon: w.icon, label: w.label });
+    items.push({ type: 'weather', _sortMin: w.atMin, at_min: w.atMin, icon: w.icon, label: w.label, kind: w.kind || null });
   });
 
   // NO SUNRISE AND NO SUNSET. They were two of the five sky markers, and
@@ -1445,7 +1449,7 @@ function materializeMilestones(list, strings, sun) {
   return (Array.isArray(list) ? list : [])
     .filter(function (m) { return m && typeof m.atMin === 'number' && isFinite(m.atMin) && MILESTONE_ICON[m.kind]; })
     .map(function (m) {
-      return { atMin: m.atMin, icon: WEATHER_ICON_BASE + nightly(m.kind, m.atMin, sun), label: tr(strings, m.kind) + ' ' + timeLabel(m.atMin) };
+      return { atMin: m.atMin, kind: m.kind, icon: WEATHER_ICON_BASE + nightly(m.kind, m.atMin, sun), label: tr(strings, m.kind) + ' ' + timeLabel(m.atMin) };
     });
 }
 
@@ -2187,9 +2191,17 @@ async function fetchWithTimeout(url, ms, extraHeaders) {
   var timer = controller ? setTimeout(function () { controller.abort(); }, ms) : null;
   function clear() { if (timer) { clearTimeout(timer); timer = null; } }
   var resp;
+  // A HARD STOP, NOT ONLY A SIGNAL: a runtime whose fetch does not honour
+  // the abort would wait on a slow server past the platform's limit, so the
+  // request itself is raced against the same clock.
+  var hardStop = null;
+  var stopped = new Promise(function (_, reject) {
+    hardStop = setTimeout(function () { reject(new Error('timed out')); }, ms + 50);
+  });
   try {
-    resp = await fetch(url, controller ? { signal: controller.signal, headers: headers } : { headers: headers });
-  } catch (e) { clear(); throw e; }
+    resp = await Promise.race([fetch(url, controller ? { signal: controller.signal, headers: headers } : { headers: headers }), stopped]);
+  } catch (e) { clear(); clearTimeout(hardStop); throw e; }
+  clearTimeout(hardStop);
   if (!resp || !resp.ok) { clear(); return resp; }
   // THE BODY IS INSIDE THE TIME TOO. The timer used to stop when the headers
   // came, and a feed that answered at once and then sent its two hundred
@@ -2202,7 +2214,10 @@ async function fetchWithTimeout(url, ms, extraHeaders) {
       var cut = controller ? new Promise(function (_, reject) {
         if (controller.signal.aborted) reject(new Error('timed out'));
         controller.signal.addEventListener('abort', function () { reject(new Error('timed out')); });
-      }) : null;
+      }) : new Promise(function (_, reject) {
+        // (no abort to listen for: the body gets the request's own time)
+        setTimeout(function () { reject(new Error('timed out')); }, ms);
+      });
       return (cut ? Promise.race([reading, cut]) : reading)
         .then(function (v) { clear(); return v; }, function (e) { clear(); throw e; });
     };
