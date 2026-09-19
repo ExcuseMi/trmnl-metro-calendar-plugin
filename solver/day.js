@@ -1519,12 +1519,28 @@ function fixedFor(metro, scale, axis, cross, opts) {
     // on past the midnight into Tuesday's half of the board: a marker is set
     // back from the end of its own day until it fits, and dropped where the
     // day has no room for it at all.
+    // (the moon belongs to the midnight itself, "on 12 midnight", and
+    // stands centred on it, half in each day)
     var dayEndMin = (Math.floor(w.at_min / 1440) + 1) * 1440;
-    var dayEndA = dayEndMin < metro.day_end_min ? scale.at(dayEndMin) - 4 : axis.a1;
-    var dayStartA = Math.max(axis.a0, scale.at(Math.max(metro.day_start_min, dayEndMin - 1440)));
-    var a0 = Math.max(dayStartA, Math.min(at, dayEndA - wide));
-    if (a0 + wide > dayEndA + 0.5) return;
-    if (skyTaken.some(function (t) { return a0 < t[1] + cell && t[0] < a0 + wide + cell; })) return;
+    var dayEndA = w.moon ? axis.a1 : dayEndMin < metro.day_end_min ? scale.at(dayEndMin) - 4 : axis.a1;
+    var dayStartA = w.moon ? axis.a0 : Math.max(axis.a0, scale.at(Math.max(metro.day_start_min, dayEndMin - 1440)));
+    var want = Math.max(dayStartA, Math.min(at, dayEndA - wide));
+    if (want + wide > dayEndA + 0.5) return;
+    // TWO GLYPHS ON ONE MINUTE STAND SIDE BY SIDE ("a solution when there's
+    // a weather event at the same time"): the one that gives way moves to
+    // the nearer side of what is already there, snug against it, and only
+    // goes where neither side is inside its own day.
+    var clash = function (x) { return skyTaken.some(function (t) { return x < t[1] + cell && t[0] < x + wide + cell; }); };
+    var tries = [want];
+    skyTaken.forEach(function (t) { tries.push(t[1] + cell, t[0] - cell - wide); });
+    var a0 = null;
+    // (a glyph moved off its minute keeps off the clock's line as well)
+    var nowA = metro.now_min != null ? scale.at(metro.now_min) : null;
+    var onNow = function (x) { return x !== want && nowA != null && nowA > x - 3 && nowA < x + wide + 3; };
+    tries.filter(function (x) { return x >= dayStartA - 0.5 && x + wide <= dayEndA + 0.5 && !clash(x) && !onNow(x); })
+      .sort(function (p, q) { return Math.abs(p - want) - Math.abs(q - want); })
+      .slice(0, 1).forEach(function (x) { a0 = x; });
+    if (a0 == null || Math.abs(a0 - want) > wide * 2.5) return;
     skyTaken.push([a0, a0 + wide]);
     out.push({ id: 'sky' + i, kind: 'sky', text: w.label, icon: w.icon, at: at, min: w.at_min,
                a0: a0, a1: a0 + wide,
