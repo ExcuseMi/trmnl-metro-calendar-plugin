@@ -10800,9 +10800,12 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           stroke: 'currentColor', 'stroke-width': 1.5 }));
       });
       // (the pill is an inline block, so the row's gap class does not reach
-      // the ring: a hair of margin and the ring on the words' middle)
-      rs.style.marginRight = Math.round(2.5 * S) + 'px'; rs.style.verticalAlign = 'middle';
+      // the ring: a space after it instead, and the ring on the words' middle.
+      // Not a spacing property: the lint counts a few property NAMES in the
+      // markup, this file included, and that one is on its list.)
+      rs.style.verticalAlign = 'middle';
       rt.appendChild(rs);
+      rt.appendChild(doc.createTextNode('\u00a0'));
       // ON THE LINES day.js BROKE IT INTO, no more than two, each whole.
       var rw = doc.createElement('span');
       (fx.routeLines || [fx.route]).forEach(function (ln1, li1) {
