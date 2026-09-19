@@ -146,9 +146,10 @@ custom_fields:
   group: News
   name: News Feeds
   placeholder: |-
-    https://www.vrt.be/vrtnws/nl.rss.articles.xml
-    https://www.example-school.be/news/feed
-  description: 'Headlines along the foot of the map, like the platform display under a departure board. One RSS or Atom link per row: the local paper, the school, the club. Leave it empty for none.'
+    https://feeds.npr.org/1001/rss.xml
+    https://feeds.bbci.co.uk/news/world/rss.xml
+  description: 'Headlines along the foot of the map, like the platform display under a departure board. One RSS or Atom link per row: the local paper, the school, the club. Leave it empty for none.<br /><br />Some that work as of September 2026 &mdash; US: NPR <code>https://feeds.npr.org/1001/rss.xml</code>, NYT <code>https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml</code>. World: BBC <code>https://feeds.bbci.co.uk/news/world/rss.xml</code>, Al Jazeera <code>https://www.aljazeera.com/xml/rss/all.xml</code>, The Guardian <code>https://www.theguardian.com/world/rss</code>. Europe: VRT NWS <code>https://www.vrt.be/vrtnws/nl.rss.headlines.xml</code>, NOS <code>https://feeds.nos.nl/nosnieuwsalgemeen</code>, tagesschau <code>https://www.tagesschau.de/xml/rss2/</code>, Le Monde <code>https://www.lemonde.fr/rss/une.xml</code>.'
+  help_text: One link per row. NPR, NYT, BBC World, Al Jazeera, The Guardian, VRT NWS, NOS, tagesschau and Le Monde all work.
   optional: true
 - keyname: news_count
   field_type: select

@@ -2304,7 +2304,11 @@ function newsSourceName(title) {
   var t = xmlText(title).replace(/\s*[|>\u2013\u2014-]\s*(rss|atom|feed|news|nieuws|actualit\u00e9s|nachrichten|noticias|notizie|wiadomo\u015bci|not\u00edcias)\b.*$/i, '');
   // ...nor its section after a colon: "VRT NWS: nieuws", "HLN:home"
   // (nor after a ">" or a colon: "NYT > Top Stories", "VRT NWS: nieuws")
-  var cut = t.split(/\s+[|>\u2013\u2014-]\s+|\s*:\s*/)[0].trim();
+  var parts = t.split(/\s+[|>\u2013\u2014-]\s+|\s*:\s*/).map(function (x) { return x.trim(); }).filter(Boolean);
+  // ...and where the first part is only a section, the site is the second:
+  // "World news | The Guardian" is The Guardian
+  var cut = parts[0] || '';
+  if (parts.length > 1 && /^(world|world news|home|top stories|headlines|news|latest|latest news)$/i.test(cut)) cut = parts[1];
   return (cut || t).slice(0, NEWS_SOURCE_MAX);
 }
 
