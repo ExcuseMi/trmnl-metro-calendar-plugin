@@ -517,6 +517,16 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     if (di && d.start_min != null && spec.scale) dayCuts.push(spec.scale.at(d.start_min));
   });
   var panels = [];
+  // THE DAYS MEET AT 45 DEGREES. Today's ink panel does not stop square at
+  // the midnight: its top runs on over tomorrow's paper and its edge comes
+  // down to the cut at the strip's rail on the diagonal every branch on the
+  // map takes ("could we have the today and tomorrow header be divided by
+  // a 45° shape? So today gets some extra space, and it would look
+  // nicer and in theme"). As far across as the strip is deep, or less
+  // where tomorrow's panel is a sliver; the reach at any row is what
+  // `slantAt` says, and tomorrow's title and today's forecast use it.
+  var slantW = 0;
+  function slantAt(cBottom) { return slantW ? Math.max(0, strip.c1 - cBottom - 2 * S) : 0; }
   if (strip) {
     var along1 = horizontal ? W : H, gapHalf = 0;
     var edges = [0].concat(dayCuts).concat([along1]);
@@ -544,6 +554,15 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       panel.className = 'metro-strip absolute ' + (inkPanel ? 'inverse bg--canvas' : 'bg--canvas');
       panel.style.left = px0 + 'px'; panel.style.top = py0 + 'px';
       panel.style.width = pw + 'px'; panel.style.height = ph + 'px';
+      if (inkPanel && horizontal && edges.length > 2) {
+        var nextW = edges[2] - edges[1];
+        slantW = Math.min(ph, Math.floor(nextW * 0.4));
+        if (slantW < 8 * S) slantW = 0;
+        if (slantW) {
+          panel.style.width = (pw + slantW) + 'px';
+          panel.style.clipPath = 'polygon(0 0, 100% 0, ' + pw + 'px 100%, 0 100%)';
+        }
+      }
       canvas.insertBefore(panel, svg);
       panels.push({ el: panel, a0: pa0, a1: pa1, x: px0, y: py0, w: pw, inverse: inkPanel });
       // The band's extent, for anything that asks where the scale ends.
@@ -572,6 +591,12 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         put(rule, 'strip-edge');
       }
     }
+    // ...and tomorrow's panel, painted after it, leaves the slope's
+    // triangle unpainted so the ink shows through there. (Not reordered in
+    // the DOM: the panels are read back in the order of the days.)
+    if (slantW && panels.length > 1) {
+      panels[1].el.style.clipPath = 'polygon(' + slantW + 'px 0, 100% 0, 100% 100%, 0 100%)';
+    }
   }
   // WHICH PANEL A STRIP LABEL BELONGS TO, by where it stands along the axis;
   // moved into it, so the inverse reaches it. One that straddles a gap has
@@ -590,7 +615,12 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // the paper between the panels.
       var mid = a0 + len / 2, home = null;
       panels.forEach(function (pn) { if (mid >= pn.a0 && mid <= pn.a1) home = pn; });
-      if (!home || len > home.a1 - home.a0) { n.remove(); return; }
+      if (!home) { n.remove(); return; }
+      // ON THE INK PANEL A ROW REACHES AS FAR AS THE SLANT LETS IT: the
+      // higher the row, the further past the midnight it may run.
+      var reach = home.inverse ? slantAt(c0 + thick) : 0;
+      var homeA1 = home.a1 + reach, homeW = home.w + (home.inverse ? slantW : 0);
+      if (len > homeA1 - home.a0) { n.remove(); return; }
       // A day's own title stands clear of the midnight it opens on: set hard
       // against the double rule, "Morgen" read as squeezed into the corner.
       // ...and the clock the same distance short of the midnight that ends it.
@@ -602,15 +632,15 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // "weird header alignment for today".
       if (horizontal && !/metro-pill/.test(n.className) && Math.abs(a0 - spec.axis.a0) < 2
           && home.a0 < spec.axis.a0 - inset) a0 = home.a0;
-      var fit = Math.max(home.a0 + inset, Math.min(a0, home.a1 - len - inset));
-      if (len > home.a1 - home.a0 - 2 * inset) { n.remove(); return; }
+      var fit = Math.max(home.a0 + inset, Math.min(a0, homeA1 - len - inset));
+      if (len > homeA1 - home.a0 - 2 * inset) { n.remove(); return; }
       if (horizontal) left = fit; else top = fit;
       n.style.left = (left - home.x) + 'px'; n.style.top = (top - home.y) + 'px';
       // THE FORECAST IS HELD BY ITS PANEL'S RIGHT EDGE, like a name at the far
       // edge: measured before the face settles it ran off the paper.
-      if (horizontal && (/metro-wx/.test(n.className) || (/metro-pill/.test(n.className) && fit + len >= home.a1 - inset - 12 * S))) {
+      if (horizontal && (/metro-wx/.test(n.className) || (/metro-pill/.test(n.className) && fit + len >= homeA1 - inset - 12 * S))) {
         n.style.left = 'auto';
-        n.style.right = Math.max(0, home.w - (fit - home.x) - len) + 'px';
+        n.style.right = Math.max(0, homeW - (fit - home.x) - len) + 'px';
       }
       // THE OUTLINE IS THE GROUND'S COLOUR. The framework's stroke follows
       // `inverse` by itself, so on today's panel it is ink; the light panel
@@ -2546,7 +2576,8 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // and the line names are the column under it; set thirty pixels
       // further in than them it floated. A later day's title stands in from
       // the midnight it opens on, as before.
-      var titleA = dayIx ? fx.a0 + 10 * S : (spec.axis.edge0 == null ? fx.a0 + 10 * S : spec.axis.edge0 + 2 * S);
+      var titleA = dayIx ? fx.a0 + 10 * S + (dayIx === 1 ? slantAt(badgeC - rowH) : 0)
+        : (spec.axis.edge0 == null ? fx.a0 + 10 * S : spec.axis.edge0 + 2 * S);
       var br = place(badge, titleA, badgeC, "left");
       taken.push(br);
       dayBadges[dayIx] = { r: br, band: titleRoom };
@@ -2581,7 +2612,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       var fitsDay = function (r) { return r[0] >= wxFrom && free(r); };
       // A stroke's width short of its day's end, so its claim does not touch
       // the next day's title standing on the midnight.
-      var wxEnd = fx.a1 - 4 * S;
+      var wxEnd = fx.a1 - 4 * S + (di === 0 && panels.length > 1 && panels[0].inverse ? slantAt(fx.c1) : 0);
       var richRoom = horizontal && (fx.c1 - fx.c0) >= rowH * 1.6 && wx && wx.hi != null;
       var underDate = null;
       if (richRoom) {
@@ -2663,17 +2694,35 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // Standing up the forecast is a sentence at the column's far end, and
       // level it ran across the last line's name.
       turn(box);
-      var rc = underDate ? place(box, underDate[0], c, 'left') : place(box, wxEnd, c, 'right');
-      if (underDate && !(rc[1] <= wxEnd && fitsDay(rc))) rc = place(box, wxEnd, c, 'right');
-      // ...and where the headline form is still too wide for its day, the
-      // one line of small print, which is better than no forecast at all.
-      if (!fitsDay(rc) && box.querySelector('.metro-wx-hi')) {
+      // ON THE TITLE'S OWN ROW FIRST, at the day's end. Under the date the
+      // one-line forecast stood on the hours row and took its labels with it
+      // ("22\u00b0/16\u00b0C" cost a morning its 08:00 and its clock; tomorrow's
+      // cost it every label before four). Beside the title it costs the
+      // strip nothing it was using.
+      // The one line of small print, where the headline form will not fit.
+      function smallPrint() {
         while (box.lastChild && box.lastChild !== ic) box.removeChild(box.lastChild);
         if (ic) { ic.style.width = rowH + 'px'; ic.style.height = rowH + 'px'; }
         var tx2 = doc.createElement('span');
         tx2.className = 'metro-hour label' + STRIP_SM + ' text--bold text-stroke';
         tx2.textContent = fx.text;
         box.appendChild(tx2);
+      }
+      var rc = null, onTitleRow = false;
+      if (dayBadges[di] && dayBadges[di].band) {
+        var rowC = (dayBadges[di].r[2] + dayBadges[di].r[3]) / 2;
+        var onRow = place(box, wxEnd, rowC, 'right');
+        // (the headline form first, then the small print, before the row
+        // under the date is even considered)
+        if (!fitsDay(onRow) && box.querySelector('.metro-wx-hi')) { smallPrint(); onRow = place(box, wxEnd, rowC, 'right'); }
+        if (fitsDay(onRow)) { rc = onRow; onTitleRow = true; }
+      }
+      if (!rc) rc = underDate ? place(box, underDate[0], c, 'left') : place(box, wxEnd, c, 'right');
+      if (!onTitleRow && underDate && !(rc[1] <= wxEnd && fitsDay(rc))) rc = place(box, wxEnd, c, 'right');
+      // ...and where the headline form is still too wide for its day, the
+      // one line of small print, which is better than no forecast at all.
+      if (!fitsDay(rc) && box.querySelector('.metro-wx-hi')) {
+        smallPrint();
         rc = underDate ? place(box, underDate[0], c, 'left') : place(box, wxEnd, c, 'right');
         if (underDate && !(rc[1] <= wxEnd && fitsDay(rc))) rc = place(box, wxEnd, c, 'right');
       }

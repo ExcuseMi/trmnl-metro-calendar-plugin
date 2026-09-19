@@ -22,6 +22,8 @@ No server of your own.
   midnight to a day's first event and from its last event to midnight.
 - The hour strip is the header: each day's date, holiday and forecast,
   the time now, and on a full view what is on now and next.
+- Today's panel meets tomorrow's at 45 degrees, the angle the map's own
+  branches take.
 - Headlines along the foot of the map, from any RSS or Atom feeds you name
   in the News setting: the local paper, the school, the club. A free day
   says so in the middle of the map, and the clock rides the strip as a

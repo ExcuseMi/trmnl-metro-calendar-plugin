@@ -130,6 +130,15 @@ applies when something changes.
    earlier" was its twin at the leading edge and is no longer drawn; the
    wash over the past says it.)
 
+2l. **The days meet at 45 degrees.** Today's ink panel does not stop square
+   at the midnight: its top runs on over tomorrow's paper and its edge comes
+   down to the cut at the strip's rail on the diagonal every branch on the
+   map takes ("divided by a 45° shape, so today gets some extra space, and
+   it would look nicer and in theme"). As far across as the strip is deep,
+   less where tomorrow's panel is a sliver. Tomorrow's title stands clear of
+   the slope; today's forecast may run onto it. A one-line forecast tries
+   its day's title row before the row under the date, so it never stands on
+   the hours and takes their labels with it.
 2i. **The headlines are the platform display.** A household that names
    RSS or Atom feeds in the News setting gets a band of ink along the foot
    of the map, one row a headline with its source as a small pill in front
