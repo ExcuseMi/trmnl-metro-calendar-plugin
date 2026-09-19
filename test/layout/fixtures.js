@@ -403,10 +403,11 @@ const momentDay = base({
   ],
 });
 
-// Three days, because a run is the shape this plugin was built without and
-// every part of it has to survive one: a night between two days, an event
-// on each of them, and a board that has to decide how many of the three it
-// can actually draw.
+// Two days, today and tomorrow, which is what transform.js sends (its
+// DAY_SPAN): a night between two days, an event on each of them, and a
+// board that has to decide how much of tomorrow it can actually draw. (It
+// was three days once, a span the plugin stopped sending long ago; the
+// fixture kept drawing a board no household could get.)
 function shift(items, day) {
   return items.map(function (i) {
     return Object.assign({}, i, { start_min: i.start_min + day * 1440, end_min: i.end_min + day * 1440 });
@@ -421,43 +422,38 @@ const DAY0 = [
 const DAY1 = [
   ev('Sprint Review', 'work', 570, 660, { track_width: 4 }),
   ev('Dentist', 'alex', 780, 825, { side: 'right', hue: 'orange-40', track_offset: 10 }),
+  ev('Piano Lesson', 'kids', 990, 1035, { side: 'right', hue: 'purple-40', track_style: 'dotted', track_offset: 30 }),
   ev('Swim Training', 'sam', 1020, 1080, { location: 'City Pool', side: 'right', hue: 'green-40', track_style: 'dashed', track_offset: 20 }),
 ];
-const DAY2 = [
-  ev('Retro', 'work', 600, 660, { track_width: 4 }),
-  ev('Piano Lesson', 'kids', 990, 1035, { side: 'right', hue: 'purple-40', track_style: 'dotted', track_offset: 30 }),
-];
-const threeDay = Object.assign(base({
+const twoDay = Object.assign(base({
   now_min: 600,
-  events: DAY0.concat(shift(DAY1, 1), shift(DAY2, 2)),
+  events: DAY0.concat(shift(DAY1, 1)),
 }), {
   days: [
     { index: 0, start_min: 0, end_min: 1440, date_label: 'Tue 8 Sep', weekday_label: 'Tuesday',
       weather: { hi: 21, lo: 13, condition: 'Rain', rain_chance: 60, icon: '' } },
     { index: 1, start_min: 1440, end_min: 2880, date_label: 'Wed 9 Sep', weekday_label: 'Wednesday',
       weather: { hi: 18, lo: 11, condition: 'Cloudy', rain_chance: 20, icon: '' } },
-    { index: 2, start_min: 2880, end_min: 4320, date_label: 'Thu 10 Sep', weekday_label: 'Thursday',
-      weather: { hi: 24, lo: 15, condition: 'Clear', rain_chance: 5, icon: '' } },
   ],
-  day_start_min: 0, day_end_min: 4320,
+  day_start_min: 0, day_end_min: 2880,
 });
 
-// THREE DAYS WITH HOLIDAYS ON SOME OF THEM.
+// TWO DAYS WITH HOLIDAYS ON SOME OF THEM.
 //
 // An all-day event is declared at the line's head rather than on the axis,
 // because it is a property of a DAY and not a stretch of one. That says
 // everything on a board showing one day and nothing at all about WHICH day
-// on a board showing three: a holiday on the Thursday sat at the head
-// exactly like one covering all three. Nothing in the suite had both a
-// multi-day window and an all-day event, so nothing ever asked.
+// on a board showing two: a holiday tomorrow sat at the head exactly like
+// one covering both. Nothing in the suite had both a multi-day window and
+// an all-day event, so nothing ever asked.
 //
-// One covering every day (no qualifier owed), one covering a single day, and
-// one covering two of the three.
-const threeDayHoliday = Object.assign(JSON.parse(JSON.stringify(threeDay)), {
+// One covering both days (no qualifier owed), one covering tomorrow only,
+// and one covering today only.
+const twoDayHoliday = Object.assign(JSON.parse(JSON.stringify(twoDay)), {
   all_day: [
-    { title: 'Conference', owners: ['work'], days: [0, 1, 2] },
+    { title: 'Conference', owners: ['work'], days: [0, 1] },
     { title: 'School Holiday', owners: ['kids'], days: [1] },
-    { title: 'Half Term', owners: ['sam'], days: [1, 2] },
+    { title: 'Half Term', owners: ['sam'], days: [0] },
   ],
 });
 
@@ -573,7 +569,7 @@ module.exports = [
   { name: 'crew-day', metro: crewDay },
   { name: 'seven-lines', metro: sevenLines },
   { name: 'moment-day', metro: momentDay },
-  { name: 'three-day', metro: threeDay },
-  { name: 'three-day-holiday', metro: threeDayHoliday },
+  { name: 'two-day', metro: twoDay },
+  { name: 'two-day-holiday', metro: twoDayHoliday },
   { name: 'two-places', metro: twoPlaces },
 ];

@@ -253,7 +253,7 @@ module.exports = function (test, h) {
   // name on the cut, and the night wash runs across the map: the double rule
   // through every rail, with its bridges and tunnels, is switched off
   // (draw.js MIDNIGHT_RULE).
-  for (const name of ['rolling-quiet', 'three-day']) {
+  for (const name of ['rolling-quiet', 'two-day']) {
     test('no rule is drawn at the midnight: ' + name, () => {
       const f = fixtures.find((x) => x.name === name);
       const built = h.build(Object.assign({}, f.metro, { now_min: 17 * 60 }), 'x-landscape');
@@ -263,7 +263,7 @@ module.exports = function (test, h) {
   }
 
   // NO PILLARS ON ANY BOARD, lying or standing: the crossing is the gap.
-  for (const name of ['rolling-quiet', 'three-day']) {
+  for (const name of ['rolling-quiet', 'two-day']) {
     test('a crossing draws no pillars, lying or standing: ' + name, () => {
       const f = fixtures.find((x) => x.name === name);
       const m = Object.assign({}, f.metro, { now_min: 17 * 60 });
