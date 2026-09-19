@@ -112,8 +112,8 @@ custom_fields:
   field_type: boolean
   group: Weather
   name: Moon Phase
-  description: The moon as it is that night, in the header or over the evening.
-  default: true
+  description: The moon as it is that night, at the far right of the header. Off unless you want it.
+  default: false
   optional: true
 - keyname: alert_enabled
   field_type: boolean

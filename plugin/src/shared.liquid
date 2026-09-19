@@ -9495,33 +9495,27 @@ function draw(board, spec, ctx) {
   // framework recoloured it for the panel it sat on and the inverse panel
   // turned it inside out -- "the moon should always be white".
   function moonImg(illum, waxing, size) {
-    var mr = 11, mc = 12, lit = '';
-    if (illum > 2 && illum < 98) {
-      var frac = illum / 100, ex = Math.round(mr * Math.abs(1 - 2 * frac) * 10) / 10;
-      var bs = waxing ? 1 : 0, ts = frac < 0.5 ? (1 - bs) : bs;
-      lit = 'M ' + mc + ',' + (mc - mr) + ' A ' + mr + ' ' + mr + ' 0 0 ' + bs + ' '
-        + mc + ',' + (mc + mr) + ' A ' + ex + ' ' + mr + ' 0 0 ' + ts + ' ' + mc + ',' + (mc - mr) + ' Z';
-    }
-    // crisp on a 1-bit panel, the board's own trick (the svg's shape-rendering):
-    // anti-aliased edges dither into a fuzz there. No rim of its own: on the
-    // black panel the lit part alone reads best, and elsewhere the image-stroke
-    // gives the dark of the moon its edge.
-    var svgText = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' shape-rendering='"
-      + (ONE_BIT ? 'crispEdges' : 'geometricPrecision') + "'>"
-      + "<circle cx='12' cy='12' r='11' fill='" + (illum >= 98 ? 'white' : 'black') + "'/>"
-      + (lit ? "<path fill='white' d='" + lit + "'/>" : '')
-      // ...AND A RIM, so the lit half and the dark half are one disc: without
-      // it a half moon on the light panel was a black D beside a white D, and
-      // read as a glyph rather than as the moon. (Line art, the lit part
-      // outlined on its own, was tried and "looks weird".)
-      + "<circle cx='12' cy='12' r='10.25' fill='none' stroke='black' stroke-width='1.5'/>"
-      + '</svg>';
+    // TRMNL'S OWN MOON, from the same weather-icons set the forecast's icon
+    // comes from, so the two are drawn in one hand: twenty-eight phases,
+    // picked by how far round the cycle the illumination and its direction
+    // put us. An adaptive image, like the forecast's: the framework masks it
+    // in the text's colour, so it is paper on the ink panel and ink on the
+    // grey one. (A hand-drawn disc and a line-art crescent both "looked
+    // weird" beside the forecast.)
+    var frac = Math.max(0, Math.min(1, illum / 100));
+    var cycle = waxing ? frac / 2 : 1 - frac / 2;
+    var ix = Math.round(cycle * 28) % 28;
+    var name = ix === 0 ? 'new' : ix < 7 ? 'waxing-crescent-' + ix : ix === 7 ? 'first-quarter'
+      : ix < 14 ? 'waxing-gibbous-' + (ix - 7) : ix === 14 ? 'full' : ix < 21 ? 'waning-gibbous-' + (ix - 14)
+      : ix === 21 ? 'third-quarter' : 'waning-crescent-' + (ix - 21);
+    var src = 'https://trmnl.com/images/plugins/weather/wi-moon-' + name + '.svg';
     var im = doc.createElement('img');
-    // outlined by the framework in white, so the dark
-    // of the moon has an edge on the black panel and the grey one alike
-    im.className = 'image image-stroke image-stroke--small image-stroke--white';
-    im.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgText);
+    im.className = 'image--adaptive';
+    im.src = src;
     im.style.width = size + 'px'; im.style.height = size + 'px';
+    im.style.setProperty('--framework-icon-src', 'url("' + src + '")');
+    im.setAttribute('data-adaptive', 'true');
+    return im;
     return im;
   }
   function initialIn(q, k, scale) {
