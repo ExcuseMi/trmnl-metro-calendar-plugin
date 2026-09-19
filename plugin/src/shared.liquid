@@ -8477,6 +8477,13 @@ function draw(board, spec, ctx) {
   // black on white, dark enough to bound the band on a 1-bit panel.
   var strip = null;
   (board.fixed || []).forEach(function (fx) { if (fx.kind === 'hours') strip = fx; });
+  // TODAY'S PANEL IN INK, the day it reaches into in paper: the rail along
+  // the strip's foot, its stations and the train are knocked out of the ink
+  // there and drawn in ink on the paper. (A paper strip on both days was
+  // tried: "not sure about the removal of the black header bg for the now
+  // panel".)
+  var INK_TODAY = true;
+  function onInkPanel(a) { return panels.some(function (pn) { return pn.inverse && a >= pn.a0 - 0.5 && a <= pn.a1 + 0.5; }); }
   // the row the hours' rail takes at the strip's foot (day.js railRow)
   var RAIL_ROW = horizontal && strip && spec.railRow ? spec.railRow : 0;
   // ONE PANEL PER DAY, IN INVERSE. A single wash from edge to edge made a
@@ -8516,11 +8523,12 @@ function draw(board, spec, ctx) {
       // carry the weight below it, "the black is too much": the date pill
       // and the clock pill are the strip's ink now, and the wash over the
       // past says which half of the board is today.
-      panel.className = 'metro-strip absolute bg--canvas';
+      var inkPanel = INK_TODAY && !pi;
+      panel.className = 'metro-strip absolute ' + (inkPanel ? 'inverse bg--canvas' : 'bg--canvas');
       panel.style.left = px0 + 'px'; panel.style.top = py0 + 'px';
       panel.style.width = pw + 'px'; panel.style.height = ph + 'px';
       canvas.insertBefore(panel, svg);
-      panels.push({ el: panel, a0: pa0, a1: pa1, x: px0, y: py0, w: pw, inverse: false });
+      panels.push({ el: panel, a0: pa0, a1: pa1, x: px0, y: py0, w: pw, inverse: inkPanel });
       // The band's extent, for anything that asks where the scale ends.
       var band = svgEl(doc, 'rect', { x: px0, y: py0, width: pw, height: ph,
         stroke: 'none', 'fill-opacity': 0 });
@@ -8535,7 +8543,12 @@ function draw(board, spec, ctx) {
         // THE STRIP'S EDGE IS A RAIL: the day itself, drawn as a line at the
         // rails' weight, with the hours as its stations and the clock as the
         // train on it (below). "Something metro and or train themed."
-        var e0 = xy(pa0, strip.c1), e1 = xy(pa1, strip.c1);
+        // ...UNDER THE PANELS, one ink rail the whole width, so the day's
+        // panel stands on the line like a sign on a track and the line runs
+        // through the midnight whole. Drawn in the panel's own colour it
+        // changed from paper to ink at the cut, which read as a break.
+        var railC = strip.c1 + RAIL_W / 2;
+        var e0 = xy(pa0, railC), e1 = xy(pa1, railC);
         var rule = svgEl(doc, 'line', { x1: e0[0], y1: e0[1], x2: e1[0], y2: e1[1],
           'stroke-width': RAIL_W, 'stroke-linecap': 'butt' });
         rule.style.stroke = INK;
@@ -8782,7 +8795,7 @@ function draw(board, spec, ctx) {
     // stops a hair short of each name it would cross and picks up again
     // past it.
     if (strip && horizontal) {
-      var tq = xy(a, strip.c1);
+      var tq = xy(a, strip.c1 + RAIL_W / 2);
       var train = svgEl(doc, 'circle', { cx: tq[0], cy: tq[1], r: NODE_R * 1.1, 'stroke-width': NODE_STROKE * 0.7 });
       train.style.fill = INK; train.style.stroke = PAPER;
       put(train, 'now-train');
@@ -10649,7 +10662,8 @@ function draw(board, spec, ctx) {
       (spec.cuts || []).forEach(function (cut) {
         if (fx.a0 < cut && skyA + skyLen > cut - 4) skyA = cut - 4 - skyLen;
       });
-      place(sky, skyA, fx.c0 + (horizontal ? sky.offsetHeight : sky.offsetWidth) / 2, 'left');
+      // (a rail's width down: the strip's rail runs along the top of this row)
+      place(sky, skyA, fx.c0 + (horizontal ? sky.offsetHeight : sky.offsetWidth) / 2 + (horizontal && strip ? RAIL_W : 0), 'left');
       return;
     }
     if (fx.kind === 'note') { notes.push(fx); return; }
@@ -11228,7 +11242,7 @@ function draw(board, spec, ctx) {
         taken.push(got);
         // ...and a station on the rail under it: a hollow stop, paper inside
         if (strip && horizontal) {
-          var hq = xy(spec.scale.at(h * 60), strip.c1);
+          var hq = xy(spec.scale.at(h * 60), strip.c1 + RAIL_W / 2);
           var hs = svgEl(doc, 'circle', { cx: hq[0], cy: hq[1], r: NODE_R * 0.75, 'stroke-width': NODE_STROKE * 0.7 });
           hs.style.fill = PAPER; hs.style.stroke = INK;
           put(hs, 'hour-station');
