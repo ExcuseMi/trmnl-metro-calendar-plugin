@@ -770,10 +770,31 @@ function draw(board, spec, ctx) {
     // ...AND THE LINE ITSELF IS A LINE, not a row of dots: a dotted hairline
     // was one more texture on a board made of textures, and the one mark
     // that says "you are here" was the faintest thing on it.
-    var n = svgEl(doc, 'line', { x1: p0[0], y1: p0[1], x2: p1[0], y2: p1[1],
-      'stroke-width': 2 * S });
-    n.style.stroke = INK;
-    put(n, 'now');
+    // ...IN PIECES AROUND A LINE'S NAME. In the small hours the night is
+    // compressed, two hours is a name's width, and the clock's line ran
+    // through the roundels at the head ("now line crossing the starting
+    // labels shouldn't happen"). The names are HTML above the drawing, but a
+    // pill's rounded ends let the line show at its corners, so the line
+    // stops a hair short of each name it would cross and picks up again
+    // past it.
+    var cFrom = strip ? strip.c1 : fx.c0, cTo = fx.c1, runs = [[cFrom, cTo]];
+    (board.fixed || []).forEach(function (g) {
+      if (g.kind !== 'terminus' || !(g.a0 - 2 * S <= a && a <= g.a1 + 2 * S)) return;
+      var g0 = g.c0 - 2 * S, g1 = g.c1 + 2 * S, next = [];
+      runs.forEach(function (rn) {
+        if (g1 <= rn[0] || g0 >= rn[1]) { next.push(rn); return; }
+        if (g0 > rn[0]) next.push([rn[0], g0]);
+        if (g1 < rn[1]) next.push([g1, rn[1]]);
+      });
+      runs = next;
+    });
+    runs.forEach(function (rn) {
+      var r0 = xy(a, rn[0]), r1 = xy(a, rn[1]);
+      var n = svgEl(doc, 'line', { x1: r0[0], y1: r0[1], x2: r1[0], y2: r1[1],
+        'stroke-width': 2 * S });
+      n.style.stroke = INK;
+      put(n, 'now');
+    });
   });
 
   // The box a shared event is drawn in, for the wash and the outline alike.

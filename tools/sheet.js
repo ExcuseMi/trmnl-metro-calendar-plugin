@@ -79,7 +79,7 @@ const VIEWPORTS = {
 // ahead of it, the middle of the day has a window cutting both ways, and late
 // evening has most of it behind -- which is when an event already running, a
 // clipped branch and a shed name all show up.
-const DEMO_TIMES = ['07:30', '12:00', '13:40', '21:30'];
+const DEMO_TIMES = ['02:04', '07:30', '12:00', '13:40', '21:30'];
 const DEMO_SETS = ['simpsons', 'futurama', 'friends'];
 
 function served(url) {
