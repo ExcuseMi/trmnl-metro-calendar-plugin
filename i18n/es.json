@@ -17,6 +17,7 @@
   "ice": "Lluvia helada",
   "rain_starts": "Empieza la lluvia",
   "rain_stops": "Para la lluvia",
+  "windy": "Viento fuerte",
   "feed_down": "{n} no disponible",
   "weather_stale": "La previsión puede estar desactualizada",
   "holiday_day": "Día {n} de {m}",

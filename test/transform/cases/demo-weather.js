@@ -81,8 +81,10 @@ module.exports = function (test, h) {
   });
 
   test('sunrise and sunset come back as a day\'s dark hours, never as sky markers', async () => {
-    // The sunrise and sunset MARKERS are gone from the board and stay gone:
-    // nobody plans around the minute the sun comes up. The TIMES came back,
+    // The transform sends no sunrise or sunset MARKER: nobody plans around
+    // the minute the sun comes up, and the sunset the board does draw (rule
+    // 2n) it makes itself from the day's own time, in the row it can spare,
+    // so it never stretches the night. The TIMES came back,
     // for the grey the map is shaded with before sunrise and after sunset
     // (rules.md 2b-i), so they travel on each day's forecast and nowhere else.
     const urls = [];

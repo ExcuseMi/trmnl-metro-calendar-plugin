@@ -3421,15 +3421,25 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // clock pill at a quarter to seven took "8pm" by a hair. The station
       // under it stays on the hour; the words move up to a third of their
       // width off it, never further, or they would name the next station.
+      // (as far as keeps the words nearer their own station than the next
+      // one on the rail, and never more than half their width: a third of
+      // it left "12:00" two pixels short beside a morning clock)
       var slid = 0;
       if (!free(got) && horizontal) {
-        var lw = lab.offsetWidth, maxSlide = lw / 3;
-        for (var sd = 2 * S; sd <= maxSlide && !free(got); sd += 2 * S) {
-          got = place(lab, hA + sd, cHour, 'centre'); slid = sd;
-          if (free(got)) break;
-          got = place(lab, hA - sd, cHour, 'centre'); slid = -sd;
+        var lw = lab.offsetWidth;
+        var maxR = Math.min(lw / 2, 0.45 * (spec.scale.at((h + dotStep) * 60) - hA));
+        var maxL = Math.min(lw / 2, 0.45 * (hA - spec.scale.at((h - dotStep) * 60)));
+        for (var sd = 2 * S; sd <= Math.max(maxR, maxL) && !free(got); sd += 2 * S) {
+          if (sd <= maxR) { got = place(lab, hA + sd, cHour, 'centre'); slid = sd; if (free(got)) break; }
+          if (sd <= maxL) { got = place(lab, hA - sd, cHour, 'centre'); slid = -sd; }
         }
       }
+      // ...AND NOT HELD OFF ITS STATION BY THE PAPER'S EDGE: the window's
+      // last hour, set against the edge, stood well left of its dot ("00:00
+      // at the end is still not aligned"). Words that the edge would move
+      // further than the slide may are left off; the station stays.
+      var gotMid = (got[0] + got[1]) / 2;
+      if (horizontal && Math.abs(gotMid - (hA + slid)) > 2 * S) { lab.remove(); minors.push([hA, h]); continue; }
       if (free(got)) {
         taken.push(got);
         lastA = hA + slid;
