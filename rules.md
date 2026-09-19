@@ -166,8 +166,9 @@ applies when something changes.
    label is wide is left off the same way.
 2i. **The headlines are the platform display.** A household that names
    RSS or Atom feeds in the News setting gets a band of ink along the foot
-   of the map, one row a headline with its source as a small pill in front
-   of it: the display under a station's departure board. As many rows as
+   of the map, one row a headline with a small newspaper glyph and its
+   source as a small pill in front of it: the display under a station's
+   departure board. As many rows as
    the panel can spare up to the setting (one on a small panel, none on a
    board standing up), and the rails end above it. A headline too long for
    its row is cut with an ellipsis, never wrapped. The transform reads the

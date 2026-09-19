@@ -3782,6 +3782,17 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       src.textContent = it.source;
       return src;
     }
+    // A NEWSPAPER IN FRONT OF THE HEADLINES ("maybe a news icon for the
+    // news?"): a little paper, drawn here like the feed alert's triangle
+    // so it owes nobody a credit line; in the box's paper, like the words.
+    function newsIcon() {
+      var sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-news-icon flex-none', 'aria-hidden': 'true' });
+      sv.appendChild(svgEl(doc, 'path', { d: 'M2.5 3h11v9a1.5 1.5 0 0 1-1.5 1.5H2.5z M2.5 13.5A1.5 1.5 0 0 1 1 12V6',
+        fill: 'none', stroke: 'currentColor', 'stroke-width': 1.4, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+      sv.appendChild(svgEl(doc, 'rect', { x: 4.5, y: 5.2, width: 3.6, height: 3.2, fill: 'currentColor' }));
+      sv.appendChild(svgEl(doc, 'path', { d: 'M9.6 5.9h2.2M9.6 7.8h2.2M4.5 10.4h7.3', stroke: 'currentColor', 'stroke-width': 1.2, 'stroke-linecap': 'round' }));
+      return sv;
+    }
     function headline(it) {
       var tx = doc.createElement('span');
       tx.className = 'metro-hour label' + nbSM + ' text--bold';
@@ -3805,6 +3816,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       var row = doc.createElement('div');
       row.className = 'metro-gen metro-news-row flex flex--row flex--center-y gap--small absolute';
       var first = group[0];
+      row.appendChild(newsIcon());
       if (namePapers && first.source) row.appendChild(sourcePill(first));
       var tx = headline(first);
       row.appendChild(tx);

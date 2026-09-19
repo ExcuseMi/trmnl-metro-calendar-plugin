@@ -46,6 +46,11 @@ module.exports = function (test, h) {
     const band = canvasOf(built).querySelector('.metro-news');
     const rows = [...band.querySelectorAll('.metro-news-row')];
     assert(rows[0].querySelector('.metro-pill').textContent === 'Het Nieuwsblad', 'the source pill is missing');
+    // a newspaper in front of every headline row, before its pill
+    rows.forEach(function (r, i) {
+      var ic = r.firstChild;
+      assert(ic && /metro-news-icon/.test(ic.getAttribute('class') || ''), 'row ' + i + ' does not start with the news icon');
+    });
     assert(/Citadelpark/.test(rows[0].textContent), 'the headline is missing');
     assert(/Pyjamadag/.test(rows[1].textContent), 'the feeds are not taken in turn');
     assert(band.className.indexOf('inverse') >= 0, 'the band is not ink');
@@ -99,6 +104,7 @@ module.exports = function (test, h) {
     const built = build(withNews(one), 'x-landscape');
     const row = canvasOf(built).querySelector('.metro-news .metro-news-row');
     assert(row && !row.querySelector('.metro-pill'), 'a lone source was named on every headline');
+    assert(row.querySelector('.metro-news-icon'), 'the news icon is missing');
     assert(/Citadelpark/.test(row.textContent), 'the headline is missing');
   });
 
