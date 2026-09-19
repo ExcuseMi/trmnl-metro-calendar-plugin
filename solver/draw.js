@@ -807,13 +807,43 @@ function draw(board, spec, ctx) {
     // pill's rounded ends let the line show at its corners, so the line
     // stops a hair short of each name it would cross and picks up again
     // past it.
+    // A LITTLE TRAIN ON THE STRIP'S RAIL, where the clock is: the one mark
+    // on the board a child reads at once ("more appealing to kids, more
+    // cute"). A paper car with ink windows, its wheels on the rail, drawn
+    // small enough to sit under the hour labels; it straddles the rail so
+    // the wheels are on the paper below the ink panel and read there.
     if (strip && horizontal) {
+      // Its wheels ON the rail, the body above them reaching up into the ink
+      // panel and stopping under the clock pill, and a rounder front so it
+      // is going somewhere: to the right, where the day goes.
       var tq = xy(a, strip.c1 + RAIL_W / 2);
-      var train = svgEl(doc, 'circle', { cx: tq[0], cy: tq[1], r: NODE_R * 1.1, 'stroke-width': NODE_STROKE * 0.7 });
-      train.style.fill = INK; train.style.stroke = PAPER;
-      put(train, 'now-train');
+      var train = svgEl(doc, 'g', { 'data-metro-role': 'now-train' });
+      var bw = 24 * S, bh = 8.5 * S, bx = tq[0] - bw / 2, by = tq[1] - bh + 1.2 * S, br = 2.4 * S, bn = 4.2 * S;
+      var body = svgEl(doc, 'path', { d: 'M ' + (bx + br) + ' ' + by
+        + ' H ' + (bx + bw - bn) + ' Q ' + (bx + bw) + ' ' + by + ' ' + (bx + bw) + ' ' + (by + bn)
+        + ' V ' + (by + bh - br) + ' Q ' + (bx + bw) + ' ' + (by + bh) + ' ' + (bx + bw - br) + ' ' + (by + bh)
+        + ' H ' + (bx + br) + ' Q ' + bx + ' ' + (by + bh) + ' ' + bx + ' ' + (by + bh - br)
+        + ' V ' + (by + br) + ' Q ' + bx + ' ' + by + ' ' + (bx + br) + ' ' + by + ' Z', 'stroke-width': 1.3 * S });
+      body.style.fill = PAPER; body.style.stroke = INK;
+      train.appendChild(body);
+      [-9.6, -4.4, 0.8].forEach(function (dx) {
+        var win = svgEl(doc, 'rect', { x: tq[0] + dx * S, y: by + 1.7 * S, width: 3.6 * S, height: 3.1 * S, rx: 0.8 * S, stroke: 'none' });
+        win.style.fill = INK;
+        train.appendChild(win);
+      });
+      // the driver's window, at the rounded front
+      var cab = svgEl(doc, 'rect', { x: tq[0] + 6.2 * S, y: by + 1.7 * S, width: 3.2 * S, height: 3.1 * S, rx: 0.8 * S, stroke: 'none' });
+      cab.style.fill = INK;
+      train.appendChild(cab);
+      [-7, 7].forEach(function (dx) {
+        var wheel = svgEl(doc, 'circle', { cx: tq[0] + dx * S, cy: tq[1] + 1.4 * S, r: 2.2 * S, 'stroke-width': 1 * S });
+        wheel.style.fill = INK; wheel.style.stroke = PAPER;
+        train.appendChild(wheel);
+      });
+      svg.appendChild(train);
     }
-    var cFrom = strip ? strip.c1 : fx.c0, cTo = fx.c1, runs = [[cFrom, cTo]];
+    // ...and the line starts under the train, not through it
+    var cFrom = strip ? strip.c1 + (horizontal ? RAIL_W / 2 + 4 * S : 0) : fx.c0, cTo = fx.c1, runs = [[cFrom, cTo]];
     function cutRuns(g0, g1) {
       var next = [];
       runs.forEach(function (rn) {
@@ -3551,6 +3581,88 @@ function draw(board, spec, ctx) {
       else { el.style.top = 'auto'; el.style.bottom = gapEnd + 'px'; }
     }
   });
+
+  // ---- the platform display ----------------------------------------------
+  //
+  // THE HEADLINES, along the foot of the map, in the ink of the strip above:
+  // the display under a station's departure board. One row a headline, its
+  // source as a small pill in front of it, and a title too long for the row
+  // cut with an ellipsis rather than wrapped (a wrapped row is two rows). The
+  // rows live INSIDE the ink panel, the way the strip's words are moved into
+  // theirs, so the framework's `inverse` turns them to paper.
+  var newsSpec = spec.news;
+  if (newsSpec && newsSpec.rows && horizontal) {
+    var nbH = newsSpec.h, nbTop = H - nbH;
+    var nb = doc.createElement('div');
+    nb.className = 'metro-strip metro-news absolute inverse bg--canvas';
+    nb.style.left = '0px'; nb.style.top = nbTop + 'px';
+    nb.style.width = W + 'px'; nb.style.height = nbH + 'px';
+    canvas.insertBefore(nb, svg);
+    var nbRail = svgEl(doc, 'rect', { x: 0, y: nbTop, width: W, height: nbH, stroke: 'none', 'fill-opacity': 0 });
+    nbRail.style.fill = INK;
+    put(nbRail, 'news');
+    var nbSM = (spec.oneName || !horizontal) ? ' label--small' : '';
+    var rowStep = (nbH - 4 * S) / newsSpec.rows, nbMaxW = W - 16 * S;
+    newsSpec.items.slice(0, newsSpec.rows).forEach(function (it, i) {
+      var row = doc.createElement('div');
+      row.className = 'metro-gen metro-news-row flex flex--row flex--center-y gap--small absolute';
+      if (it.source) {
+        var src = doc.createElement('span');
+        src.className = 'metro-pill metro-pill--quiet label label--small text--bold';
+        src.textContent = it.source;
+        row.appendChild(src);
+      }
+      var tx = doc.createElement('span');
+      tx.className = 'metro-hour label' + nbSM + ' text--bold';
+      tx.textContent = it.title;
+      row.appendChild(tx);
+      nb.appendChild(row);
+      row.style.left = (8 * S) + 'px';
+      row.style.top = Math.round(2 * S + i * rowStep + (rowStep - row.offsetHeight) / 2) + 'px';
+      // cut to the row: a measured width of zero is a ruler that cannot
+      // measure (the offline harness), and then the words are left whole
+      var t = it.title, guard = 0;
+      while (row.offsetWidth > nbMaxW && t.length > 8 && guard++ < 12) {
+        var keep = Math.max(8, Math.floor(t.length * Math.min(0.92, nbMaxW / row.offsetWidth)) - 1);
+        t = t.slice(0, keep).replace(/[\s\u00b7,:;\u2013-]+$/, '') + '\u2026';
+        tx.textContent = t;
+      }
+    });
+  }
+
+  // A FREE DAY SAYS SO. Four flat rails and two forecasts was "very boring
+  // looking", and a child reading the board wants to know what an empty
+  // map means: nothing planned, go and play. One friendly line in the
+  // middle of the map, with the day's own sky beside it, only where there
+  // is a clock (a board about today) and nothing timed on it at all.
+  var quietText = spec.metro && !spec.metro.board_notice && spec.metro.now_min != null
+    && !((spec.wants || []).length) && (spec.metro.i18n || {}).quiet_day;
+  if (quietText && horizontal && spec.cross) {
+    var qBox = doc.createElement('div');
+    qBox.className = 'metro-gen metro-quiet absolute flex flex--col flex--center text--center';
+    var qRow = doc.createElement('div');
+    qRow.className = 'flex flex--row flex--center-y gap--small bg--white outline rounded--large p--3';
+    var qWx = ((spec.metro.days || [])[0] || {}).weather || spec.metro.header_weather;
+    if (qWx && qWx.icon) {
+      var qIc = doc.createElement('img');
+      qIc.className = 'image--adaptive';
+      qIc.src = qWx.icon;
+      var qz = Math.round(rowH * 2.6);
+      qIc.style.width = qz + 'px'; qIc.style.height = qz + 'px';
+      qIc.style.setProperty('--framework-icon-src', 'url("' + qWx.icon + '")');
+      qIc.setAttribute('data-adaptive', 'true');
+      qRow.appendChild(qIc);
+    }
+    var qWords = doc.createElement('span');
+    qWords.className = 'title text--bold';
+    qWords.textContent = quietText;
+    qRow.appendChild(qWords);
+    qBox.appendChild(qRow);
+    var qTop = spec.cross.c0, qH = Math.max(0, spec.cross.c1 - spec.cross.c0);
+    qBox.style.left = '0px'; qBox.style.top = qTop + 'px';
+    qBox.style.width = W + 'px'; qBox.style.height = qH + 'px';
+    canvas.appendChild(qBox);
+  }
 
   // WHY THE BOARD IS EMPTY, WHEN IT IS: a broken setting, every feed down, or
   // nothing on (transform.js boardNotice). Set in the map under the strip,

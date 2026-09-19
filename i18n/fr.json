@@ -40,5 +40,6 @@
   "notice_feeds_failed": "Aucun calendrier n'a pu être lu : {n}",
   "notice_nothing": "Rien dans les calendriers aujourd'hui ni demain.",
   "notice_demo_failed": "La journée d'exemple n'a pas pu être chargée. Ajoutez vos calendriers dans les réglages du plugin.",
-  "notice_error": "Les calendriers n'ont pas pu être dessinés cette fois. Nouvel essai à la prochaine actualisation."
+  "notice_error": "Les calendriers n'ont pas pu être dessinés cette fois. Nouvel essai à la prochaine actualisation.",
+  "quiet_day": "Rien de prévu. Journée libre !"
 }

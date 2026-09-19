@@ -112,6 +112,9 @@ var I18N = {
         notice_nothing: 'Nothing on the calendars today or tomorrow.',
         notice_demo_failed: 'The example day could not be loaded. Add your calendars in the plugin settings.',
         notice_error: 'The calendars could not be drawn this time. It tries again at the next refresh.',
+        // A day with nothing timed on it, said the way a child would want to
+        // hear it, in the middle of the empty map (draw.js).
+        quiet_day: 'Nothing planned. Free day!',
         // "Day 3 of 5". A week-long half term is a different fact on the
         // Monday than on the Thursday, and the one day the board draws is
         // somewhere inside it. Both numbers are named, because a language
@@ -471,7 +474,7 @@ function readState(input) {
   }
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) raw = {};
 
-  var out = { weather: null, weatherFetchedAt: 0, calendarDown: {}, calendarNames: {}, i18n: null, feedOk: {} };
+  var out = { weather: null, weatherFetchedAt: 0, calendarDown: {}, calendarNames: {}, i18n: null, feedOk: {}, news: null };
 
   if (raw.weather && typeof raw.weather === 'object' && !Array.isArray(raw.weather)) {
     out.weather = raw.weather;
@@ -497,6 +500,19 @@ function readState(input) {
       var t = raw.feedOk[url];
       if (typeof t === 'number' && isFinite(t) && t > 0) out.feedOk[url] = t;
     });
+  }
+  // THE LAST HEADLINES, for a refresh on which every feed is slow: a few
+  // short strings, so they fit the state beside the forecast.
+  if (raw.news && typeof raw.news === 'object' && Array.isArray(raw.news.items)) {
+    var nItems = raw.news.items.slice(0, NEWS_MAX_ITEMS).filter(function (it) {
+      return it && typeof it.title === 'string' && it.title.trim();
+    }).map(function (it) {
+      return { title: it.title.slice(0, NEWS_TITLE_MAX), source: typeof it.source === 'string' ? it.source.slice(0, NEWS_SOURCE_MAX) : '' };
+    });
+    if (nItems.length) {
+      out.news = { items: nItems, key: typeof raw.news.key === 'string' ? raw.news.key.slice(0, 400) : '',
+        fetchedAt: typeof raw.news.fetchedAt === 'number' && isFinite(raw.news.fetchedAt) ? raw.news.fetchedAt : 0 };
+    }
   }
   if (raw.i18n && typeof raw.i18n === 'object' && typeof raw.i18n.lang === 'string') {
     var clean = sanitizeStrings(raw.i18n.strings);
@@ -1010,7 +1026,12 @@ function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, win
     now_min: nowMin != null ? nowMin : null, // minutes since local midnight; the client decides whether/where to draw it
     orientation: (extra && extra.orientation) || 'auto', // auto | horizontal | vertical — client picks for auto from the canvas aspect
     hour12: !!(extra && extra.hour12),
-    i18n: (function (st) { return { today: tr(st, 'today'), tomorrow: tr(st, 'tomorrow'), now: tr(st, 'now'), next: tr(st, 'next'), everyone: tr(st, 'everyone'), more: tr(st, 'more'), earlier: tr(st, 'earlier'), rain_pct: tr(st, 'rain_pct'), feed_down: tr(st, 'feed_down'), weather_stale: tr(st, 'weather_stale'), draw_failed: tr(st, 'notice_error') }; })((extra && extra.strings) || I18N.en),
+    i18n: (function (st) { return { today: tr(st, 'today'), tomorrow: tr(st, 'tomorrow'), now: tr(st, 'now'), next: tr(st, 'next'), everyone: tr(st, 'everyone'), more: tr(st, 'more'), earlier: tr(st, 'earlier'), rain_pct: tr(st, 'rain_pct'), feed_down: tr(st, 'feed_down'), weather_stale: tr(st, 'weather_stale'), draw_failed: tr(st, 'notice_error'), quiet_day: tr(st, 'quiet_day') }; })((extra && extra.strings) || I18N.en),
+    // THE HEADLINES, for the platform display along the foot of the map:
+    // { items: [{ title, source }], max } or null where no feed is set. The
+    // board draws as many rows of it as the panel can spare, up to `max`
+    // (draw.js); the transform has already read, sorted and cut them.
+    news: (extra && extra.news) || null,
     header_weather: headerWeather,
     // The forecast is the last one the API answered with rather than
     // today's, and it is old enough to say so. A board that quietly shows
@@ -2155,6 +2176,140 @@ async function fetchFeedText(url, deadline, headers) {
     if (!resp || !resp.ok) return { ok: false, text: '', status: resp ? resp.status : 0 };
     return { ok: true, text: await resp.text() };
   } catch (e) { return null; }
+}
+
+// ---------------------------------------------------------------------
+// THE NEWS. A few headlines from RSS or Atom feeds the household names --
+// the local paper, the school, the club -- drawn along the foot of the map
+// like the platform display under a station's departure board. Read here,
+// with no XML parser to lean on: a feed's leaf elements never nest a tag
+// of their own name, so finding each <item> or <entry> and then its <title>
+// inside it is enough (the shape the comic library plugin reads with).
+// ---------------------------------------------------------------------
+
+var NEWS_MAX_ITEMS = 6;          // what travels: the board draws at most a few rows
+var NEWS_TITLE_MAX = 140;
+var NEWS_SOURCE_MAX = 40;
+var NEWS_STALE_AFTER_S = 6 * 3600;   // older than this and a saved headline is dropped rather than shown
+
+function xmlAttrs(str) {
+  var attrs = {}, re = /([\w:-]+)\s*=\s*"([^"]*)"|([\w:-]+)\s*=\s*'([^']*)'/g, m;
+  while ((m = re.exec(str || '')) !== null) attrs[(m[1] || m[3]).replace(/^[\w-]+:/, '')] = m[2] !== undefined ? m[2] : m[4];
+  return attrs;
+}
+
+// Every <localName> directly in `xml`, with any namespace prefix: { attrs, content }.
+function xmlElements(xml, localName) {
+  var out = [], openRe = new RegExp('<(?:[\\w-]+:)?' + localName + '\\b([^>]*?)(\\/)?>', 'gi'), m;
+  while ((m = openRe.exec(xml)) !== null) {
+    if (m[2]) { out.push({ attrs: xmlAttrs(m[1]), content: null }); continue; }
+    var rest = xml.slice(openRe.lastIndex);
+    var close = rest.match(new RegExp('<\\/(?:[\\w-]+:)?' + localName + '\\s*>', 'i'));
+    if (close) { out.push({ attrs: xmlAttrs(m[1]), content: rest.slice(0, close.index) }); openRe.lastIndex += close.index + close[0].length; }
+    else out.push({ attrs: xmlAttrs(m[1]), content: '' });
+  }
+  return out;
+}
+
+// The words of an element: CDATA unwrapped, markup stripped, entities read,
+// whitespace folded. A headline is one line of plain text or it is nothing.
+function xmlText(content) {
+  if (content == null) return '';
+  var s = String(content);
+  var cd = s.match(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/);
+  if (cd) s = cd[1];
+  s = s.replace(/<[^>]*>/g, ' ');
+  s = s.replace(/&(#x([0-9a-f]+)|#(\d+)|amp|lt|gt|quot|apos|nbsp);/gi, function (all, body, hex, dec) {
+    if (hex) return String.fromCharCode(parseInt(hex, 16));
+    if (dec) return String.fromCharCode(parseInt(dec, 10));
+    return { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }[body.toLowerCase()] || all;
+  });
+  // ...twice, for a feed that escaped its escapes ("&amp;quot;")
+  s = s.replace(/&(amp|lt|gt|quot|apos);/gi, function (all, body) { return { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }[body.toLowerCase()]; });
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+// A feed's name as the band prints it: the site, not its slogan. "VRT NWS -
+// Binnenland" is the section, which the headline already implies.
+function newsSourceName(title) {
+  var t = xmlText(title).replace(/\s*[|\u2013\u2014-]\s*(rss|atom|feed|news|nieuws|actualit\u00e9s|nachrichten|noticias|notizie|wiadomo\u015bci|not\u00edcias)\b.*$/i, '');
+  var cut = t.split(/\s+[|\u2013\u2014-]\s+/)[0].trim();
+  return (cut || t).slice(0, NEWS_SOURCE_MAX);
+}
+
+function parseNewsFeed(xml) {
+  var s = String(xml || '');
+  if (/<rss[\s>]/i.test(s) || /<channel[\s>]/i.test(s)) {
+    var ch = xmlElements(s, 'channel')[0];
+    if (!ch) return null;
+    var chXml = ch.content || '', firstItem = chXml.search(/<(?:[\w-]+:)?item\b/i);
+    var head = firstItem < 0 ? chXml : chXml.slice(0, firstItem);
+    var t0 = xmlElements(head, 'title')[0];
+    return { title: newsSourceName(t0 ? t0.content : ''), items: xmlElements(chXml, 'item').map(function (el) {
+      var ix = el.content || '', tt = xmlElements(ix, 'title')[0], pd = xmlElements(ix, 'pubDate')[0] || xmlElements(ix, 'date')[0];
+      return { title: xmlText(tt ? tt.content : ''), at: pd ? Date.parse(xmlText(pd.content)) : NaN };
+    }) };
+  }
+  if (/<feed[\s>]/i.test(s)) {
+    var fd = xmlElements(s, 'feed')[0];
+    if (!fd) return null;
+    var fXml = fd.content || '', firstEntry = fXml.search(/<(?:[\w-]+:)?entry\b/i);
+    var fHead = firstEntry < 0 ? fXml : fXml.slice(0, firstEntry);
+    var ft = xmlElements(fHead, 'title')[0];
+    return { title: newsSourceName(ft ? ft.content : ''), items: xmlElements(fXml, 'entry').map(function (el) {
+      var ex = el.content || '', et = xmlElements(ex, 'title')[0];
+      var when = xmlElements(ex, 'published')[0] || xmlElements(ex, 'updated')[0];
+      return { title: xmlText(et ? et.content : ''), at: when ? Date.parse(xmlText(when.content)) : NaN };
+    }) };
+  }
+  return null;
+}
+
+// The News setting: one link per row, a `#` starting a remark, and any words
+// beside the link ignored so a pasted "VRT https://..." still reads.
+function newsLinks(raw) {
+  var out = [];
+  String(raw || '').split(/\r?\n/).forEach(function (line) {
+    var t = line.replace(/#.*$/, '').trim();
+    if (!t) return;
+    t.split(/\s+/).forEach(function (w) { if (/^(https?:\/\/|webcal:\/\/)/i.test(w) && out.indexOf(w) < 0) out.push(feedUrl(w)); });
+  });
+  return out.slice(0, 8);
+}
+
+// Every feed asked at once inside the render's deadline; the newest headline
+// of each feed in turn, so a busy wire does not drown the school's one
+// notice a week; and what was read last time where nothing answers now.
+async function fetchNews(urls, deadline, state, nowS, max) {
+  if (!urls.length) return null;
+  var key = urls.join('\n');
+  var got = await Promise.all(urls.map(async function (u) {
+    var r = await fetchFeedText(u, deadline);
+    if (!r || !r.ok) { warn('the news feed ' + u + ' ' + (r ? 'answered HTTP ' + r.status : 'did not answer')); return null; }
+    var f = parseNewsFeed(r.text);
+    if (!f) { warn('the news feed ' + u + ' is not RSS or Atom'); return null; }
+    f.items = f.items.filter(function (it) { return it.title; })
+      .sort(function (p, q) { return (isFinite(q.at) ? q.at : 0) - (isFinite(p.at) ? p.at : 0); });
+    return f;
+  }));
+  var feeds = got.filter(function (f) { return f && f.items.length; });
+  var items = [];
+  for (var round = 0; items.length < NEWS_MAX_ITEMS; round++) {
+    var any = false;
+    feeds.forEach(function (f) {
+      if (items.length >= NEWS_MAX_ITEMS || round >= f.items.length) return;
+      any = true;
+      items.push({ title: f.items[round].title.slice(0, NEWS_TITLE_MAX), source: f.title });
+    });
+    if (!any) break;
+  }
+  if (items.length) {
+    if (state) state.news = { items: items, key: key, fetchedAt: nowS };
+    return { items: items, max: max };
+  }
+  var saved = state && state.news;
+  if (saved && saved.key === key && nowS - saved.fetchedAt <= NEWS_STALE_AFTER_S) return { items: saved.items, max: max };
+  return null;
 }
 
 // Unfold RFC5545 continuation lines (a line starting with a space/tab
@@ -4341,6 +4496,12 @@ async function run(input) {
     var u = feedUrl(cal.url), k = feedKey(u, cal.headers);
     if (!prefetched[k]) prefetched[k] = fetchFeedText(u, deadline, cal.headers);
   });
+  // ...AND THE NEWS, which needs neither a calendar nor a location.
+  var newsUrls = newsLinks(cf(input, 'news_feeds'));
+  var newsMax = Math.max(1, Math.min(5, parseInt(cf(input, 'news_count'), 10) || 3));
+  var newsStarted = newsUrls.length
+    ? fetchNews(newsUrls, deadline, state, Math.floor(Date.now() / 1000), newsMax).catch(function () { return null; })
+    : null;
   var wxStarted = null, wxOpts = null;
   if (latLonRaw) {
     try {
@@ -4361,8 +4522,9 @@ async function run(input) {
   // The thresholds are read in the board's own unit, so "cold at or below
   // 0" means 0 of whatever the header is showing.
   var alertOpts = alertSettings(input, tempUnit, strings, hour12);
+  var news = newsStarted ? await newsStarted : null;
   var extra = { orientation: orientation, locale: locale, strings: strings, hour12: hour12,
-    tempUnit: tempUnit, deadline: deadline, alertOpts: alertOpts, prefetched: prefetched };
+    tempUnit: tempUnit, deadline: deadline, alertOpts: alertOpts, prefetched: prefetched, news: news };
 
   // Every exit returns through here. The runtime stores what comes back as
   // `trmnl_state` and hands it to the next render as `input.trmnl.state`, so

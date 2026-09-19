@@ -40,5 +40,6 @@
   "notice_feeds_failed": "Nenhum calendário pôde ser lido: {n}",
   "notice_nothing": "Nada nos calendários hoje ou amanhã.",
   "notice_demo_failed": "Não foi possível carregar o dia de exemplo. Adicione os seus calendários nas definições do plugin.",
-  "notice_error": "Desta vez não foi possível desenhar os calendários. Volta a tentar na próxima atualização."
+  "notice_error": "Desta vez não foi possível desenhar os calendários. Volta a tentar na próxima atualização.",
+  "quiet_day": "Nada marcado. Dia livre!"
 }

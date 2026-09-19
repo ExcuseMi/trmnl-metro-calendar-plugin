@@ -130,6 +130,22 @@ applies when something changes.
    earlier" was its twin at the leading edge and is no longer drawn; the
    wash over the past says it.)
 
+2i. **The headlines are the platform display.** A household that names
+   RSS or Atom feeds in the News setting gets a band of ink along the foot
+   of the map, one row a headline with its source as a small pill in front
+   of it: the display under a station's departure board. As many rows as
+   the panel can spare up to the setting (one on a small panel, none on a
+   board standing up), and the rails end above it. A headline too long for
+   its row is cut with an ellipsis, never wrapped. The transform reads the
+   feeds, newest first and the feeds in turn, and keeps the last good
+   headlines for a refresh on which nothing answers.
+2j. **The clock's mark on the strip is a little train**, its wheels on the
+   strip's rail under the clock pill, facing the way the day goes. The now
+   line starts under it.
+2k. **A free day says so.** A board with a clock and nothing timed on it
+   draws one friendly line in the middle of the map, with the day's own
+   sky beside it ("Nothing planned. Free day!"), instead of four flat rails
+   and nothing to read them by.
 2b. **The night is not drawn.** It was, for a long time: ten at night to
    six in the morning as a corridor of upright hairlines the depth of the
    board, because a board covering two days is one continuous scale and

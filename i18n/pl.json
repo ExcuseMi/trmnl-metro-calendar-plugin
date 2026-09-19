@@ -40,5 +40,6 @@
   "notice_feeds_failed": "Nie udało się odczytać żadnego kalendarza: {n}",
   "notice_nothing": "Nic w kalendarzach dzisiaj ani jutro.",
   "notice_demo_failed": "Nie udało się wczytać przykładowego dnia. Dodaj swoje kalendarze w ustawieniach wtyczki.",
-  "notice_error": "Tym razem nie udało się narysować kalendarzy. Kolejna próba przy następnym odświeżeniu."
+  "notice_error": "Tym razem nie udało się narysować kalendarzy. Kolejna próba przy następnym odświeżeniu.",
+  "quiet_day": "Nic w planach. Wolny dzień!"
 }

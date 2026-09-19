@@ -141,6 +141,27 @@ custom_fields:
   group: Weather
   description: "In the unit above. Leave it empty to be warned at 30°C / 86°F. For heatwaves only, try 35°C / 95°F."
   optional: true
+- keyname: news_feeds
+  field_type: text
+  group: News
+  name: News Feeds
+  placeholder: |-
+    https://www.vrt.be/vrtnws/nl.rss.articles.xml
+    https://www.example-school.be/news/feed
+  description: 'Headlines along the foot of the map, like the platform display under a departure board. One RSS or Atom link per row: the local paper, the school, the club. Leave it empty for none.'
+  optional: true
+- keyname: news_count
+  field_type: select
+  group: News
+  name: Headlines
+  description: How many rows the news may take on a full panel. A small panel shows one.
+  options:
+  - One: 1
+  - Two: 2
+  - Three: 3
+  - Four: 4
+  default: 3
+  optional: true
 - keyname: demo_set
   field_type: select
   name: Example Day

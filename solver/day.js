@@ -1218,8 +1218,20 @@ function specFor(metro, view, opts) {
   }) : [];
   skyMarks.sort(function (p, q) { return p.at_min - q.at_min; });
   var skyH = skyMarks.length ? rowH0 + 6 : 0;
+  // THE PLATFORM DISPLAY along the foot of the map: a row per headline, as
+  // many as the panel can spare up to the setting, one on a small panel,
+  // none standing up (a band across a standing board's foot would cut the
+  // hours, not the cross axis). Reserved here, off the cross extent, so
+  // the rails end above it and nothing is drawn under it.
+  var newsIn = metro.news && metro.news.items && metro.news.items.length ? metro.news : null;
+  var newsRows = 0;
+  if (newsIn && !opts.standing) {
+    var newsMax = Math.max(1, Math.min(5, newsIn.max || 3));
+    newsRows = Math.min(newsIn.items.length, tiny ? 1 : view.h >= 600 ? newsMax : Math.min(newsMax, 2));
+  }
+  var newsH = newsRows ? Math.round(newsRows * rowH0 * 1.25 + 8) : 0;
   var cross = { c0: (opts.bandLo != null ? opts.bandLo : stripH) + alertH + skyH,
-                c1: view.h - pad };
+                c1: view.h - pad - newsH };
   opts = Object.assign({}, opts, { showWeather: wantWx, stripH: stripH, richWx: richWx, levelNames: levelNames,
                                    skyH: skyH, sky: skyMarks, railRow: railRow });
   var scale = scaleFor({ from: metro.day_start_min, to: metro.day_end_min,
@@ -1265,6 +1277,8 @@ function specFor(metro, view, opts) {
            edgeRing: opts && opts.edgeRing != null ? opts.edgeRing : undefined,
            edgeRingR: opts && opts.edgeRingR != null ? opts.edgeRingR : undefined,
            railRow: opts && opts.railRow != null ? opts.railRow : 0,
+           // THE HEADLINES' BAND: rows and depth, at the foot of the map.
+           news: newsRows ? { rows: newsRows, h: newsH, items: newsIn.items } : null,
            // THE BOARD'S OWN INK, DECLARED BEFORE THE SOLVE. See Furniture.
            // Everything here takes paper and cannot move, so the caption
            // search has to be told about it up front rather than have it
