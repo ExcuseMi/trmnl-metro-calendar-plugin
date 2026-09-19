@@ -36,10 +36,17 @@ ESBUILD="$ROOT/tools/node_modules/.bin/esbuild"
 # exactly where that belongs.
 BRANCH="$(git -C "$ROOT" branch --show-current 2>/dev/null || true)"
 PLUGIN_ID="$(sed -n 's/^id: *//p' "$HERE/src/settings.yml" | tr -d "'\"")"
+# ...AND THE TESTING PLUGIN IS AN OVERRIDE, NOT A COMMITTED DIFFERENCE. Off
+# main, a settings.yml carrying the live id is uploaded to the testing
+# plugin instead (METRO_TESTING_ID, 481781 by default), rewritten in the
+# working copy the trap below puts back. Carried in the branch's own commit,
+# the testing id rode every merge into main and one deploy of main went to
+# the testing plugin.
+TESTING_ID="${METRO_TESTING_ID:-481781}"
+RETARGET=""
 if [ "$BRANCH" != "main" ] && [ "$PLUGIN_ID" = "471753" ]; then
-  echo "push.sh: on '${BRANCH:-a detached HEAD}', not main, with the live plugin's id -- nothing was uploaded." >&2
-  echo "         The panel is fed from main only (AGENTS.md). Merge first, or blank the id for a testing plugin." >&2
-  exit 1
+  RETARGET="$TESTING_ID"
+  echo "push.sh: on '${BRANCH:-a detached HEAD}', not main: uploading to the testing plugin $TESTING_ID, not the live one."
 fi
 
 "$HERE/lint.sh" || { echo "trmnlp lint is not clean; nothing was uploaded" >&2; exit 1; }
@@ -55,6 +62,9 @@ BAK="$(mktemp -d)"
 cp "$HERE"/src/* "$BAK/"
 restore() { cp "$BAK"/* "$HERE/src/"; rm -rf "$BAK"; }
 trap restore EXIT
+if [ -n "$RETARGET" ]; then
+  sed -i "s/^id: 471753$/id: $RETARGET\nname: Metro Calendar (testing)/" "$HERE/src/settings.yml"
+fi
 
 [ -x "$ESBUILD" ] || (cd "$ROOT/tools" && npm install --no-audit --no-fund --silent)
 [ -x "$ESBUILD" ] || { echo "no esbuild in tools/node_modules; run 'npm install' in tools/" >&2; exit 1; }
