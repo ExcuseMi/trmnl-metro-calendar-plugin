@@ -3339,31 +3339,34 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // A STATION EVERY HOUR OR TWO, BIG WITH WORDS AND SMALL WITHOUT ("have
     // the dots every 2 or 1 hours. Small without label and big with
     // label"). The words keep the step they have room for; the stations
-    // run on the finest clock step that divides it and leaves the dots a
-    // few of their own widths apart at the day's rate. The night runs at a
-    // quarter of that, so there a small dot closer than that to the one
-    // before it is left off: the rail keeps the clock's rhythm, and a gap
-    // in the words reads as a quiet stretch rather than hours gone missing
-    // ("hours on the timeline are not very consistent, many are missing").
-    var DOT_GAP = 12 * S, dotStep = step;
-    [1, 2].some(function (d) {
-      if (step % d === 0 && d * 60 * perMin >= DOT_GAP) { dotStep = d; return true; }
-      return false;
-    });
+    // run on ONE clock step the whole rail, the finest that divides the
+    // words' step and still leaves the dots a few of their own widths apart
+    // where the scale runs SLOWEST. Chosen at the day's rate, the day ran
+    // hourly and the squeezed night and morning were thinned to every two,
+    // and a rail that changes rhythm half way reads as dots gone missing
+    // ("6am only has 1 dot and it's 10am"). Where even two hours are too
+    // tight, a dot closer than that to the one before it is left off.
+    // ...AND THE WORDS FOLLOW IT: hourly labels over two-hourly dots are
+    // the same broken rhythm, so the labels' step is rounded up to a
+    // multiple of the dots'.
+    var DOT_GAP = 12 * S, dotStep = 2;
+    var slowest = widths.length ? widths[0] : perMin;
+    if (60 * slowest >= DOT_GAP) dotStep = 1;
+    while (step % dotStep) step++;
     for (var h = Math.ceil(from / 60); h * 60 <= to; h++) {
       if (h % dotStep !== 0) continue;
       var hA = spec.scale.at(h * 60);
-      if (h % step !== 0) { minors.push(hA); continue; }
+      if (h % step !== 0) { minors.push([hA, h]); continue; }
       // Not on a midnight the strip changes panel at: the day's own title
       // names that minute, and the label would be half on each panel. (Its
       // station stays: "missing the 00:00 dot".)
-      if (dayCuts.length && ((spec.metro.days || []).some(function (d, di) { return di && d.start_min === h * 60; }))) { midnights.push(hA); continue; }
+      if (dayCuts.length && ((spec.metro.days || []).some(function (d, di) { return di && d.start_min === h * 60; }))) { midnights.push([hA, h]); continue; }
       // (the window's last hour asks for most of a regular step: it is the
       // one label with nothing after it to balance a tight gap before it,
       // and a compressed night puts it a fraction of a step past its
       // neighbour)
       var need = h * 60 >= to - 59 ? Math.max(room, step * 60 * perMin * 0.85) : room;
-      if (hA - lastA < need) { minors.push(hA); continue; }
+      if (hA - lastA < need) { minors.push([hA, h]); continue; }
       var lab = html('metro-hour label' + STRIP_SM + ' text--bold text-stroke',
                      ctx.clock((h % 24) * 60));
       lab.setAttribute('data-metro-hour', h);   // the strip's scale, readable back
@@ -3372,7 +3375,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // ("6am" stood with its "6" under the diagonal)
       if (slantW && horizontal) {
         var hHalf = lab.offsetWidth / 2, hReach = slantAt(cHour - rowH / 2);
-        if (dayCuts.some(function (cut) { return hA > cut && hA - hHalf < cut + hReach + 2 * S; })) { lab.remove(); minors.push(hA); continue; }
+        if (dayCuts.some(function (cut) { return hA > cut && hA - hHalf < cut + hReach + 2 * S; })) { lab.remove(); minors.push([hA, h]); continue; }
       }
       if (!horizontal) cHour = hoursFx.c1 - lab.offsetWidth / 2 - 2 * S;
       var got = place(lab, hA, cHour, 'centre');
@@ -3392,28 +3395,32 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       if (free(got)) {
         taken.push(got);
         lastA = hA + slid;
-        majors.push(hA);
-      } else { lab.remove(); minors.push(hA); }
+        majors.push([hA, h]);
+      } else { lab.remove(); minors.push([hA, h]); }
     }
     if (strip && horizontal) {
       // ...and the stations on the rail: a hollow stop, paper inside, big
       // under words and small where there are none
       var railC = strip.c1 + RAIL_W / 2;
-      majors.forEach(function (ma) {
-        var hq = xy(ma, railC);
+      majors.forEach(function (mj) {
+        var hq = xy(mj[0], railC);
         var hs = svgEl(doc, 'circle', { cx: hq[0], cy: hq[1], r: NODE_R * 0.75, 'stroke-width': NODE_STROKE * 0.7 });
         hs.style.fill = PAPER; hs.style.stroke = INK;
+        hs.setAttribute('data-metro-hour', mj[1]);
         put(hs, 'hour-station');
       });
-      // (the midnight first, so a squeezed night thins round it)
-      var drawn = majors.slice();
-      midnights.concat(minors.sort(function (p, q) { return p - q; })).forEach(function (mi) {
-        if (drawn.some(function (da) { return Math.abs(da - mi) < DOT_GAP; })) return;
+      // (the midnight first, and kept wherever it does not overlap a
+      // station, so a squeezed night thins round it)
+      var drawn = majors.map(function (mj) { return mj[0]; });
+      midnights.concat(minors.sort(function (p, q) { return p[0] - q[0]; })).forEach(function (mn) {
+        var mi = mn[0], clear = midnights.indexOf(mn) >= 0 ? NODE_R * 1.3 : DOT_GAP;
+        if (drawn.some(function (da) { return Math.abs(da - mi) < clear; })) return;
         if (mi < NODE_R || mi > alongPx - NODE_R) return;
         drawn.push(mi);
         var mq = xy(mi, railC);
         var ms = svgEl(doc, 'circle', { cx: mq[0], cy: mq[1], r: NODE_R * 0.45, 'stroke-width': NODE_STROKE * 0.55 });
         ms.style.fill = PAPER; ms.style.stroke = INK;
+        ms.setAttribute('data-metro-hour', mn[1]);
         put(ms, 'hour-station-minor');
       });
       // THE TRAIN RIDES OVER THE STATION IT IS AT ("draw the now metro over

@@ -168,11 +168,13 @@ applies when something changes.
    label is left off. Elsewhere a label closer to the last one than a
    label is wide is left off the same way.
    A STATION EVERY HOUR OR TWO, BIG WITH WORDS AND SMALL WITHOUT ("have
-   the dots every 2 or 1 hours"): the stations run on the finest clock step
-   that divides the labels' step and leaves them a few dots apart at the
-   day's rate. In a squeezed night a small one too close to the last is
-   left off, so the night reads as stops close together rather than hours
-   gone. The midnight the panels change at has its dot; the train rides
+   the dots every 2 or 1 hours"): one clock step along the whole rail, the
+   finest that divides the labels' step and leaves the dots a few of their
+   own widths apart where the scale runs slowest, so the rhythm never
+   changes half way ("6am only has 1 dot and it's 10am" was an hourly day
+   beside a two-hourly night). The labels' step is rounded up to a
+   multiple of the dots'. Where even two hours are too tight a small dot
+   too close to the last is left off; the midnight's dot is kept. The midnight the panels change at has its dot; the train rides
    over the station it is at. A label a few pixels short of room beside
    the clock pill slides up to a third of its width off its hour instead of
    going; its station stays on the hour.
