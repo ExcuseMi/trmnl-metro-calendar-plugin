@@ -234,9 +234,14 @@ applies when something changes.
    into its end. A task (VTODO) is drawn with a square: its stop, and the
    rings of a shared one. A leader never passes through a ring.
 2c. **Each day names itself on the hour strip, and the strip is the
-   header.** The day the board is on is a panel in the framework's
-   `inverse`; the day it reaches into is a light wash beside it, with a gap
-   of paper at the midnight between them. An hour label says only the time, and "09:00" on a 36-hour
+   header, and the strip is a line.** The strip is paper on every day; its
+   foot is a rail at the rails' weight, every labelled hour a hollow stop on
+   it, and the clock a solid mark on it where the now line leaves it: the
+   day drawn the way the people are. The day the board is on is told by the
+   clock's pill and the wash over the past below, each day by its own title
+   at its head of the rail. (It was a panel in the framework's `inverse` for today and a grey
+   wash for tomorrow, with a rule and a gap of paper at the midnight between
+   them: "the black is too much", and the grey was mass without meaning.) An hour label says only the time, and "09:00" on a 36-hour
    board is two different mornings, so the day a midnight opens is written
    at that midnight, among the hours rather than loose on the map -- as a
    badge carrying that day's date, what the day IS, and what the sky is

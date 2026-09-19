@@ -227,12 +227,19 @@ module.exports = function (test, h) {
     assertEqual(roles(built, 'guardrail', 'sam').length, 0, 'a bridge has pillars');
     const W = +roles(built, 'track', 'sam')[0].getAttribute('stroke-width');
     const ys = pieces.map((n) => [Math.min(+n.getAttribute('y1'), +n.getAttribute('y2')), Math.max(+n.getAttribute('y1'), +n.getAttribute('y2'))]);
+    // the nearest piece each side of the rail; a side with no piece within a
+    // few decks of it (the bar cut there for a name) is not a bridge's gap
     const above = Math.max(...ys.map((p) => p[1]).filter((v) => v <= y)), below = Math.min(...ys.map((p) => p[0]).filter((v) => v >= y));
-    for (const gap of [y - W / 2 - above, below - y - W / 2]) {
+    for (const gap of [y - W / 2 - above, below - y - W / 2].filter((g) => g < W * 3)) {
       assert(gap > 1, 'the bar touches the deck (' + gap.toFixed(2) + ')');
       assert(gap <= W * 0.6, 'the bar stops ' + gap.toFixed(2) + ' short of a deck ' + W.toFixed(2) + ' wide, which reads as a hole');
     }
-    assertEqual(roles(built, 'portal', pl.id).filter((n) => Math.abs(+n.getAttribute('y1') - y) < 20).length, 0, 'a bridge has tunnel mouths');
+    // ...unless a name was cut into the bar beside the rail, in which case the
+    // bar tunnels under rail and name in one (draw.js besideName), which is
+    // the rule and not a fault
+    const mouths = roles(built, 'portal', pl.id).filter((n) => Math.abs(+n.getAttribute('y1') - y) < 20).length;
+    const nameBeside = built.board.caps.some((cp) => { const b = cp.box(); return b.a0 <= x + 10 && b.a1 >= x - 10 && Math.abs((b.c0 + b.c1) / 2 - y) < 60; });
+    assert(mouths === 0 || nameBeside, 'a bridge has tunnel mouths');
   });
 
   test('a line with an event on it where a bar crosses has the bar go under it: a tunnel with mouths, no pillars', () => {

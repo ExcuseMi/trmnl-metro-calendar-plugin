@@ -489,6 +489,8 @@ function draw(board, spec, ctx) {
   // black on white, dark enough to bound the band on a 1-bit panel.
   var strip = null;
   (board.fixed || []).forEach(function (fx) { if (fx.kind === 'hours') strip = fx; });
+  // the row the hours' rail takes at the strip's foot (day.js railRow)
+  var RAIL_ROW = horizontal && strip && spec.railRow ? spec.railRow : 0;
   // ONE PANEL PER DAY, IN INVERSE. A single wash from edge to edge made a
   // two-day board's strip one undivided band with two badges on it: "header
   // looks boring, no clear separation per day". Each day the board draws
@@ -516,11 +518,21 @@ function draw(board, spec, ctx) {
       // THE DAY THE BOARD IS ON IN INVERSE, the day it reaches into in a light
       // wash: "don't inverse the second day". Tomorrow is the quieter half.
       // Not `metro-gen`: the panel is paper for words, not words.
-      panel.className = 'metro-strip absolute ' + (pi ? 'bg--gray-75' : 'inverse bg--canvas');
+      // PAPER FOR THE DAY IT REACHES INTO, not a grey block: the title says
+      // which day it is, the rule under it says where the strip ends, and
+      // a second field of grey beside the ink one was mass without meaning
+      // ("something nicer than that"). The ink panel's far corners are
+      // rounded like the pills on it, so it ends as a shape and not a cut.
+      // ...AND PAPER FOR TODAY TOO. The board's own day was a band of ink
+      // across the top of every panel, and once the roundels and the rails
+      // carry the weight below it, "the black is too much": the date pill
+      // and the clock pill are the strip's ink now, and the wash over the
+      // past says which half of the board is today.
+      panel.className = 'metro-strip absolute bg--canvas';
       panel.style.left = px0 + 'px'; panel.style.top = py0 + 'px';
       panel.style.width = pw + 'px'; panel.style.height = ph + 'px';
       canvas.insertBefore(panel, svg);
-      panels.push({ el: panel, a0: pa0, a1: pa1, x: px0, y: py0, w: pw, inverse: !pi });
+      panels.push({ el: panel, a0: pa0, a1: pa1, x: px0, y: py0, w: pw, inverse: false });
       // The band's extent, for anything that asks where the scale ends.
       var band = svgEl(doc, 'rect', { x: px0, y: py0, width: pw, height: ph,
         stroke: 'none', 'fill-opacity': 0 });
@@ -532,9 +544,12 @@ function draw(board, spec, ctx) {
       // carries its edge down by the same amount, so the two bottoms are one
       // line ("the black has no line so it looks uneven").
       {
+        // THE STRIP'S EDGE IS A RAIL: the day itself, drawn as a line at the
+        // rails' weight, with the hours as its stations and the clock as the
+        // train on it (below). "Something metro and or train themed."
         var e0 = xy(pa0, strip.c1), e1 = xy(pa1, strip.c1);
         var rule = svgEl(doc, 'line', { x1: e0[0], y1: e0[1], x2: e1[0], y2: e1[1],
-          'stroke-width': 1.5 * S, 'stroke-linecap': 'butt' });
+          'stroke-width': RAIL_W, 'stroke-linecap': 'butt' });
         rule.style.stroke = INK;
         put(rule, 'strip-edge');
       }
@@ -590,9 +605,8 @@ function draw(board, spec, ctx) {
         // lighter label never touches its neighbour; on the ink panel and on
         // 1-bit they stay bold, where thin letters break up.
         if (!ONE_BIT && /\bmetro-hour\b/.test(n.className) && !/metro-wx/.test(n.className)) n.classList.remove('text--bold');
-        [n].concat(Array.prototype.slice.call(n.querySelectorAll('.text-stroke'))).forEach(function (el) {
-          if (el.classList.contains('text-stroke')) el.classList.add('text-stroke--gray-75');
-        });
+        // (the panel is paper now, and the framework's outline is paper by
+        // default: nothing to swap)
         // ...AND SO IS AN IMAGE'S. The moon is a black disc with the lit part
         // cut white out of it, rimmed in white so the dark of it has an edge
         // on the ink panel. On tomorrow's panel that rim is the ground's own
@@ -779,6 +793,12 @@ function draw(board, spec, ctx) {
     // pill's rounded ends let the line show at its corners, so the line
     // stops a hair short of each name it would cross and picks up again
     // past it.
+    if (strip && horizontal) {
+      var tq = xy(a, strip.c1);
+      var train = svgEl(doc, 'circle', { cx: tq[0], cy: tq[1], r: NODE_R * 1.1, 'stroke-width': NODE_STROKE * 0.7 });
+      train.style.fill = INK; train.style.stroke = PAPER;
+      put(train, 'now-train');
+    }
     var cFrom = strip ? strip.c1 : fx.c0, cTo = fx.c1, runs = [[cFrom, cTo]];
     function cutRuns(g0, g1) {
       var next = [];
@@ -1321,6 +1341,8 @@ function draw(board, spec, ctx) {
       var cut = svgEl(doc, 'rect', { x: Math.min(cq0[0], cq1[0]) - 0.5, y: Math.min(cq0[1], cq1[1]),
         width: Math.abs(cq1[0] - cq0[0]) + 1, height: Math.abs(cq1[1] - cq0[1]), fill: 'none', stroke: 'none' });
       put(cut, 'midnight-cut');
+      // (no gap of paper between the panels any more: both are paper, and
+      // the rail along the strip's foot runs through the midnight whole)
     });
   }
   if (MIDNIGHT_RULE && days.length > 1 && spec.scale && spec.cross) {
@@ -2335,7 +2357,7 @@ function draw(board, spec, ctx) {
   // header please". Its size, where the day has one and the header has the
   // title band to hold it; the forecast stands this much further in.
   function titleBand() {
-    var above = hoursFx ? hoursFx.c1 - rowH - 8 : 0;
+    var above = hoursFx ? hoursFx.c1 - RAIL_ROW - rowH - 8 : 0;
     return horizontal && above >= rowH * 1.6 ? above : 0;
   }
   function moonSize(dix) {
@@ -2370,7 +2392,7 @@ function draw(board, spec, ctx) {
       // the date. A day the board crossed into wears `metro-daybreak`.
       var dayIx = fx.id === 'date' ? 0 : parseInt(String(fx.id).slice(4), 10) || 0;
       // The rows above the hours, where a big panel has two of them.
-      var above = hoursFx ? hoursFx.c1 - rowH - 8 : 0;
+      var above = hoursFx ? hoursFx.c1 - RAIL_ROW - rowH - 8 : 0;
       var titleRoom = horizontal && above >= rowH * 1.6 ? above : 0;
       var hol = null;
       ((spec.metro && spec.metro.holidays) || []).forEach(function (hd) {
@@ -2416,7 +2438,9 @@ function draw(board, spec, ctx) {
           badge.appendChild(tt);
         }
         var d = doc.createElement('span');
-        d.className = 'metro-axis-note metro-date metro-pill' + (titled[fi] ? ' metro-pill--quiet label label--small' : ' label' + STRIP_SM) + ' text--bold';
+        // an outlined tag on every day, so the clock's solid pill is the one
+        // solid mark on the strip; small beside a title, the strip's size alone
+        d.className = 'metro-axis-note metro-date metro-pill metro-pill--quiet' + (titled[fi] ? ' label label--small' : ' label' + STRIP_SM) + ' text--bold';
         d.textContent = fx.text;
         badge.appendChild(d);
         if (forms[fi] > 0) {
@@ -3067,7 +3091,7 @@ function draw(board, spec, ctx) {
     // ...and no higher than that: "3:47pm" sat above "3pm" and "5pm" either
     // side of it. On the hours' own line where it fits, raised only as far
     // as keeps its edge a pixel inside the strip.
-    var cRow = horizontal ? Math.min(hoursFx.c1 - rowH / 2, hoursFx.c1 - pill.offsetHeight / 2 - 1)
+    var cRow = horizontal ? Math.min(hoursFx.c1 - rowH / 2, hoursFx.c1 - pill.offsetHeight / 2 - 1) - RAIL_ROW
       : hoursFx.c1 - pill.offsetWidth / 2;
     var r = place(pill, (nowFx.a0 + nowFx.a1) / 2, cRow, 'centre');
     // Clear of the midnight that ends its day, before anything else books
@@ -3097,7 +3121,7 @@ function draw(board, spec, ctx) {
     for (var ni = 0; ni < forms.length * 2 && !done; ni++) {
       var nt = html('metro-axis-note label' + STRIP_SM + ' text--bold text-stroke', forms[ni % forms.length]);
       if (!horizontal && hoursFx && nt.offsetWidth > hoursFx.c1 && ni % forms.length < forms.length - 1) { nt.remove(); continue; }
-      var nc = hoursFx ? hoursFx.c1 - (horizontal ? rowH : nt.offsetWidth) / 2 : (fx.c0 + fx.c1) / 2;
+      var nc = hoursFx ? hoursFx.c1 - (horizontal ? rowH : nt.offsetWidth) / 2 - RAIL_ROW : (fx.c0 + fx.c1) / 2;
       var right = fx.align === 'right', at0 = right ? fx.a1 : fx.a0;
       if (ni >= forms.length) {
         // ...past what is on ITS row only: judged along the axis alone it
@@ -3190,7 +3214,7 @@ function draw(board, spec, ctx) {
     for (var si = 0; si < STEPS.length; si++) {
       if (STEPS[si] * 60 * perMin >= room) { step = STEPS[si]; break; }
     }
-    var cHour = hoursFx.c1 - rowH / 2;
+    var cHour = hoursFx.c1 - rowH / 2 - RAIL_ROW;
     // A STRETCH THAT RUNS FAST IS LABELLED FOUR TIMES AS SPARSELY: one step
     // for the whole strip put five labels in the compressed night where the
     // busy morning had three -- "we show more hours in speed mode than non
@@ -3212,7 +3236,16 @@ function draw(board, spec, ctx) {
       lab.setAttribute('data-metro-hour', h);   // the strip's scale, readable back
       if (!horizontal) cHour = hoursFx.c1 - lab.offsetWidth / 2 - 2 * S;
       var got = place(lab, spec.scale.at(h * 60), cHour, 'centre');
-      if (free(got)) taken.push(got); else lab.remove();
+      if (free(got)) {
+        taken.push(got);
+        // ...and a station on the rail under it: a hollow stop, paper inside
+        if (strip && horizontal) {
+          var hq = xy(spec.scale.at(h * 60), strip.c1);
+          var hs = svgEl(doc, 'circle', { cx: hq[0], cy: hq[1], r: NODE_R * 0.75, 'stroke-width': NODE_STROKE * 0.7 });
+          hs.style.fill = PAPER; hs.style.stroke = INK;
+          put(hs, 'hour-station');
+        }
+      } else lab.remove();
     }
   }
 

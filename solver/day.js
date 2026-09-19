@@ -1176,6 +1176,11 @@ function specFor(metro, view, opts) {
   // (the clock pill, an hour): the date and the forecast sit at its two ends
   // along the axis rather than in rows across it. The caller measures it.
   if (opts.standing && opts.stripThick > 0) stripH = opts.stripThick;
+  // ...AND A ROW FOR THE RAIL UNDER THE HOURS on a lying board: the strip's
+  // edge is drawn as a line with the hours as its stations (draw.js), and
+  // the labels sit a mark's height above it rather than on it.
+  var railRow = !opts.standing ? Math.round(((opts && opts.markR) || 8) * 1.2) : 0;
+  stripH += railRow;
   // A BIG PANEL GIVES THE FORECAST TWO ROWS: "you have plenty of room to make
   // the weather stats look nicer for the TRMNL X". The icon two rows tall and
   // the high set large, where a small panel keeps the one-line sentence.
@@ -1230,7 +1235,7 @@ function specFor(metro, view, opts) {
   var cross = { c0: (opts.bandLo != null ? opts.bandLo : stripH) + alertH + skyH,
                 c1: view.h - pad };
   opts = Object.assign({}, opts, { showWeather: wantWx, stripH: stripH, richWx: richWx, levelNames: levelNames,
-                                   skyH: skyH, sky: skyMarks });
+                                   skyH: skyH, sky: skyMarks, railRow: railRow });
   var scale = scaleFor({ from: metro.day_start_min, to: metro.day_end_min,
                          a0: axis.a0, a1: axis.a1,
                          // Off by asking, so a caller that wants the plain
@@ -1273,6 +1278,7 @@ function specFor(metro, view, opts) {
            // `Draw.edgeRing` is where the number is (draw.js).
            edgeRing: opts && opts.edgeRing != null ? opts.edgeRing : undefined,
            edgeRingR: opts && opts.edgeRingR != null ? opts.edgeRingR : undefined,
+           railRow: opts && opts.railRow != null ? opts.railRow : 0,
            // THE BOARD'S OWN INK, DECLARED BEFORE THE SOLVE. See Furniture.
            // Everything here takes paper and cannot move, so the caption
            // search has to be told about it up front rather than have it
@@ -1392,8 +1398,10 @@ function fixedFor(metro, scale, axis, cross, opts) {
   // first band. See specFor: the room is already reserved.
   var skyH = (opts && opts.skyH) || 0;
   var lip = cross.c0 - skyH;
+  // ...and the rows of words on the strip sit a rail's row above its foot
+  var lipRows = lip - ((opts && opts.railRow) || 0);
   out.push({ id: 'hours', kind: 'hours', a0: axis.a0, a1: axis.a1,
-             c0: lip - rowH - 8 - deep, c1: lip - 2, text: 'hours' });
+             c0: lipRows - rowH - 8 - deep, c1: lip - 2, text: 'hours' });
   // ...AND THE MOMENTS THE SKY CHANGES, in it.
   //
   // Each one keeps its place on the scale and gives way along it: two
@@ -1580,14 +1588,14 @@ function fixedFor(metro, scale, axis, cross, opts) {
       out.push({ id: 'date', kind: 'date', text: dl, align: 'left',
                  a0: axis.edge0 != null ? axis.edge0 : axis.a0,
                  a1: (axis.edge0 != null ? axis.edge0 : axis.a0) + dl.length * cell,
-                 c0: lip - rowH * 2 - 10, c1: lip - rowH - 10 });
+                 c0: lipRows - rowH * 2 - 10, c1: lipRows - rowH - 10 });
     }
   } else {
     // EACH DAY NAMED WHERE IT BEGINS, in the row the strip keeps for it
     // above the forecast: a two-day board with no date on it at all was
     // the first thing seen on the device -- "header shows no date when it
     // should show 2 days."
-    var dc1 = lip - rowH - 10 - hasWx, dc0 = dc1 - rowH;
+    var dc1 = lipRows - rowH - 10 - hasWx, dc0 = dc1 - rowH;
     metro.days.forEach(function (d, di) {
       var t = d.date_label;
       if (!t) return;
@@ -1650,13 +1658,13 @@ function fixedFor(metro, scale, axis, cross, opts) {
     var et = (i18n.earlier || '+{n} earlier').replace('{n}', early);
     out.push({ id: 'earlier', kind: 'note', text: et, align: 'left',
                a0: axis.a0, a1: axis.a0 + et.length * cell,
-               c0: lip - rowH - 4, c1: lip - 2 });
+               c0: lipRows - rowH - 4, c1: lipRows - 2 });
   }
   if (late) {
     var lt = (i18n.more || '+{n} more').replace('{n}', late);
     out.push({ id: 'later', kind: 'note', text: lt, align: 'right',
                a0: axis.a1 - lt.length * cell, a1: axis.a1,
-               c0: lip - rowH - 4, c1: lip - 2 });
+               c0: lipRows - rowH - 4, c1: lipRows - 2 });
   }
 
   // THE WEATHER BELONGS TO A DAY, so it goes at that day's own end of the
@@ -1691,12 +1699,12 @@ function fixedFor(metro, scale, axis, cross, opts) {
     if (opts && opts.richWx) {
       out.push({ id: 'wx' + di, kind: 'weather', text: t, align: 'right', rich: true,
                  a0: end - rowH * 2 - 12 * cell - 4, a1: end - 4,
-                 c0: 2, c1: lip - rowH - 10 });
+                 c0: 2, c1: lipRows - rowH - 10 });
       return;
     }
     out.push({ id: 'wx' + di, kind: 'weather', text: t, align: 'right',
                a0: end - t.length * cell - 4, a1: end - 4,
-               c0: lip - rowH * 2 - 10, c1: lip - rowH - 10 });
+               c0: lipRows - rowH * 2 - 10, c1: lipRows - rowH - 10 });
   });
   return out;
 }
