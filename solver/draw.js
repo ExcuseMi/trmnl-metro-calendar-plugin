@@ -2796,7 +2796,8 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // pixel or two taller than its row reached back up into the strip.
       // And inside its own day: a marker never runs past its midnight.
       var skyLen = horizontal ? sky.offsetWidth : sky.offsetHeight, skyA = fx.a0;
-      (spec.cuts || []).forEach(function (cut) {
+      // (the moon excepted: it belongs to the midnight and stands on it)
+      if (!/wi-moon/.test(fx.icon || '')) (spec.cuts || []).forEach(function (cut) {
         if (fx.a0 < cut && skyA + skyLen > cut - 4) skyA = cut - 4 - skyLen;
       });
       // (a rail's width down: the strip's rail runs along the top of this row)

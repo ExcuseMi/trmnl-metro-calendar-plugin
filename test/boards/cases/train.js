@@ -39,6 +39,8 @@ module.exports = function (test, h) {
       assert(/wi-moon-alt-waxing-gibbous-1\.svg$/.test(moons[0].getAttribute('src')), v + ': the phase ' + moons[0].getAttribute('src'));
       const fx = built.board.fixed.find((x) => x.kind === 'sky' && /wi-moon/.test(x.icon || ''));
       assert(fx && fx.min === 1440, v + ': the moon is not at the midnight');
+      // centred on it, "on 12 midnight"
+      assert(Math.abs((fx.a0 + fx.a1) / 2 - built.spec.scale.at(1440)) < 1, v + ': the moon is off the midnight');
       const mid = built.doc.querySelector('[data-metro-hour="24"]');
       assert(!mid || mid.tagName.toLowerCase() === 'circle', v + ': the midnight station is not a dot');
     }

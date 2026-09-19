@@ -184,8 +184,11 @@ applies when something changes.
    EACH DAY'S SUNSET IS A SKY MARK too, TRMNL's sunset glyph at its minute,
    and WHILE IT RAINS THE ROW RAINS: a trail of small drops from the glyph
    that says it starts to the one that says it stops (or the day's end),
-   clear of every glyph and of the clock's line. Where two glyphs want the
-   same room the weather keeps it, then the moon, then the sunset.
+   clear of every glyph and of the clock's line. The moon stands centred
+   on the midnight ("on 12 midnight"). Where two glyphs want the same
+   minute the weather keeps it, then the moon, then the sunset, and the
+   one that gives way stands snug beside it, off the clock's line; it goes
+   only where neither side has room.
    THE ROW IS THE WEATHER'S: a moon and a sunset alone do not buy a row
    across the board (it cost an evening board every caption's time); they
    stand in their own small boxes at the top of the map instead. The midnight the panels change at has its dot; the train rides

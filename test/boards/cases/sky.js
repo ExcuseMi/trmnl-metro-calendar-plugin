@@ -56,10 +56,18 @@ module.exports = function (test, h) {
     const sets = skyOf(built).filter((f) => /wi-sunset/.test(f.icon));
     assert(sets.length === 2, sets.length + ' sunsets');
     assert(sets[0].min === 1180 && sets[1].min === 1440 + 1170, 'the sunsets are not at their minutes: ' + sets.map((f) => f.min));
-    // a storm on the sunset's minute keeps the room; the sunset goes
+    // a storm on the sunset's minute keeps its place; the sunset stands
+    // beside it, snug, rather than going ("a solution when there's a
+    // weather event at the same time")
     const storm = { type: 'weather', at_min: 1180, icon: ICON + 'wi-day-thunderstorm.svg', label: 'Storms 19:40', kind: 'storms' };
     const both = build(Object.assign({}, metro, { weather: [storm] }), 'x-landscape');
     const at = skyOf(both).filter((f) => f.min === 1180);
-    assert(at.length === 1 && /thunderstorm/.test(at[0].icon), 'the sunset took the storm\'s room');
+    const st = at.find((f) => /thunderstorm/.test(f.icon)), sun = at.find((f) => /wi-sunset/.test(f.icon));
+    assert(st && sun, 'both glyphs should be drawn: ' + at.map((f) => f.icon).join(', '));
+    const s = both.spec.scale.at(1180);
+    assert(Math.abs((st.a0 + st.a1) / 2 - s) < 1, 'the storm left its minute');
+    assert(sun.a1 <= st.a0 + 0.5 || sun.a0 >= st.a1 - 0.5, 'the two glyphs overlap');
+    const gap = Math.min(Math.abs(sun.a1 - st.a0), Math.abs(sun.a0 - st.a1));
+    assert(gap <= st.a1 - st.a0, 'the sunset is not beside the storm: ' + Math.round(gap) + 'px off');
   });
 };
