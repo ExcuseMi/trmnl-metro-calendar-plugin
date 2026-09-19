@@ -662,7 +662,12 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // grey for it. Behind every rail and every word, across the map only; the
   // strip says the same with its own panels. From each day's forecast, so a
   // board without one simply has no shade.
-  if (spec.scale && spec.cross && spec.metro) {
+  // ...AND THEN NOT DRAWN AT ALL. Two grey columns across a board that now
+  // washes its past and boxes its news read as a third kind of grey with
+  // nothing to say ("can you remove the night bg? I'm not sure it looks
+  // that clean"). The strip says which day it is; the map stays paper.
+  var NIGHT_SHADE = false;
+  if (NIGHT_SHADE && spec.scale && spec.cross && spec.metro) {
     var m0min = spec.metro.day_start_min, m1min = spec.metro.day_end_min;
     var dayList = (spec.metro.days && spec.metro.days.length) ? spec.metro.days
       : [{ start_min: Math.floor(m0min / 1440) * 1440, weather: spec.metro.header_weather }];
@@ -2787,12 +2792,18 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       }
       // THE ROUTE ROW under the name: what this line IS today (rule 54),
       // behind rule 28's concentric rings.
-      var rt = html('metro-route label label--small text--bold text--black flex flex--row flex--center-y gap--xsmall');
+      // AS AN OUTLINED PILL, the quiet twin of the roundel under it: set as a
+      // line of small print it "kinda fades away" beside the solid name, and
+      // a state is the one thing said about that line all day.
+      var rt = html('metro-route metro-pill metro-pill--quiet label label--small text--bold flex flex--row flex--center-y gap--xsmall');
       var rs = svgEl(doc, 'svg', { width: 12, height: 12, viewBox: '0 0 12 12', 'class': 'metro-route-ring no-shrink' });
       [5, 2.5].forEach(function (rr) {
         rs.appendChild(svgEl(doc, 'circle', { cx: 6, cy: 6, r: rr, fill: 'none',
           stroke: 'currentColor', 'stroke-width': 1.5 }));
       });
+      // (the pill is an inline block, so the row's gap class does not reach
+      // the ring: a hair of margin and the ring on the words' middle)
+      rs.style.marginRight = Math.round(2.5 * S) + 'px'; rs.style.verticalAlign = 'middle';
       rt.appendChild(rs);
       // ON THE LINES day.js BROKE IT INTO, no more than two, each whole.
       var rw = doc.createElement('span');
@@ -3631,8 +3642,10 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // map means: nothing planned, go and play. One friendly line in the
   // middle of the map, with the day's own sky beside it, only where there
   // is a clock (a board about today) and nothing timed on it at all.
+  // (...and nothing declared at a head either: with "Weekend weg" on one
+  // line, "nothing planned" is not true)
   var quietText = spec.metro && !spec.metro.board_notice && spec.metro.now_min != null
-    && !((spec.wants || []).length) && (spec.metro.i18n || {}).quiet_day;
+    && !((spec.wants || []).length) && !((spec.states || []).length) && (spec.metro.i18n || {}).quiet_day;
   if (quietText && horizontal && spec.cross) {
     var qBox = doc.createElement('div');
     qBox.className = 'metro-gen metro-quiet absolute flex flex--col flex--center text--center';

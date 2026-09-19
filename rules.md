@@ -179,13 +179,11 @@ applies when something changes.
    only vertical the reader has to name.
 
    The model still tracks the night. It is how the axis knows a run has one.
-2b-i. **The dark hours are shaded, not ruled.** Before sunrise and after
-   sunset the map's paper is a light grey, from each day's own forecast:
-   "a gray shade bg before sunset and after sundown". It is a tone behind
-   everything, not a mark, so it asks the reader to name nothing -- which is
-   what the night corridor of hairlines failed at. No forecast, no shade.
-   And no shade behind the clock: the past is washed (2a) and the dark
-   begins at now, or a morning board carried three nights.
+2b-i. **The dark hours are not shaded either.** They were, for a while, a
+   light grey from each day's forecast ("a gray shade bg before sunset and
+   after sundown"); beside the past wash (2a) and the news box the two
+   columns were a third grey with nothing to say ("I'm not sure it looks
+   that clean"). The map is paper; the strip says which day it is.
 2b-ii. **No moon.** The board drew the night's phase for a while, in the
    header and then in the sky row; it was ambient, it cost the forecast its
    corner, and nobody read it ("do we actually need a moon phase icon?").

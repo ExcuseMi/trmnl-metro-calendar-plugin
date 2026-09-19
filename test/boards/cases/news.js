@@ -69,6 +69,9 @@ module.exports = function (test, h) {
     const q = build(quiet, 'x-landscape');
     const line = canvasOf(q).querySelector('.metro-quiet');
     assert(line && /Free day/.test(line.textContent), 'the free day is not said');
+    // ...but not with a state at somebody's head: "Weekend weg" is a plan
+    const away = Object.assign({}, quiet, { all_day: [{ title: 'Weekend away', owners: [five.metro.legend[0].key], days: [0] }] });
+    assert(!canvasOf(build(away, 'x-landscape')).querySelector('.metro-quiet'), 'a free day over an all-day state');
     const busy = build(Object.assign({}, five.metro, { i18n: Object.assign({}, five.metro.i18n || {}, say) }), 'x-landscape');
     assert(!canvasOf(busy).querySelector('.metro-quiet'), 'a free day on a busy board');
   });

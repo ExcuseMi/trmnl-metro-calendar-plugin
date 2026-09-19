@@ -51,7 +51,7 @@ const CLASSES = {
   small: 'metro-title-text text--small text--bold',
   name: 'metro-terminus metro-pill label label--base text--bold',
   // a line's badge, in the type it is drawn in (draw.js, the route row)
-  route: 'metro-route label label--small text--bold text--black',
+  route: 'metro-route metro-pill metro-pill--quiet label label--small text--bold',
 };
 
 const builds = path.join(CACHE, 'builds');
