@@ -15,7 +15,7 @@
 //   - with nothing on AND nothing left today, the first of tomorrow, labelled
 //     tomorrow rather than Next
 
-const base = require('../../layout/fixtures').find(function (f) { return f.name === 'three-day'; });
+const base = require('../../layout/fixtures').find(function (f) { return f.name === 'two-day'; });
 
 module.exports = function (test, h) {
   const { build, assert } = h;

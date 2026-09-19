@@ -1040,14 +1040,7 @@ test('every real day solves within its second', function () {
   // the boards that hold everyone unhurried.
   // What each board sheds given all the time in the world: the two
   // synthetic days that do not fit at this size, and nothing else.
-  // `three-day-holiday` joined them when the window stopped being the
-  // payload's. A three-day fixture used to be drawn across the whole width at
-  // three days to the board; it is now opened near its own `now_min` and cut
-  // to what the view holds, like every other board, so the same width carries
-  // a day instead of three and one caption does not fit in it. That is the
-  // product behaviour -- "no point in showing 5 days because there's only 1
-  // event" -- showing up in a fixture that predates it.
-  var known = { 'crew-day': 2, 'seven-lines': 3, 'three-day-holiday': 1 };
+  var known = { 'crew-day': 2, 'seven-lines': 3 };
   var slow = [], worse = [];
   fixtures.forEach(function (f) {
     var spec = Day.specFor(f.metro, { w: 730, h: 480 },

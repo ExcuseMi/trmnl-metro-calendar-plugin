@@ -43,7 +43,7 @@ module.exports = function (test, h) {
   // draw; this is not that -- the day is the same day.
   [['double-booked', 'og-landscape', 'Design Review'],
    ['double-booked', 'og-half', '1:1 with Priya'],
-   ['three-day-holiday', 'og-half', 'Team Standup'],
+   ['two-day-holiday', 'og-half', 'Team Standup'],
    ['seven-lines', 'x-portrait', 'Good News Everyone']].forEach(function (row) {
     test('a name is not left along the rail from its stop: ' + row[2] + ' ' + row[0] + '/' + row[1], () => {
       const rep = layout(fix(row[0]), row[1]);

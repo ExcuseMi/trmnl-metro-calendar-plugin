@@ -27,6 +27,14 @@ module.exports = function (test, h) {
         if (!rep.debug || !rep.debug.horizontal) return;
         const stations = (rep.circles || []).filter((c) => c.role === 'hour-station' || c.role === 'hour-station-minor')
           .map((c) => c.x + c.w / 2).sort((p, q) => p - q);
+        // the midnight the panels change at has its station ("missing the
+        // 00:00 dot")
+        const bands = (rep.rects || []).filter((r) => r.role === 'river').sort((p, q) => p.x - q.x);
+        if (bands.length > 1) {
+          const cut = bands[1].x;
+          assert(stations.some((s) => Math.abs(s - cut) <= 3), 'no station at the midnight (' + Math.round(cut) + ')');
+        }
+        // and the train rides over its station, not in a gap left for it
         const labs = textLabels(rep).filter((l) => (' ' + l.cls + ' ').indexOf(' metro-hour ') >= 0 && hourOf(l.text) != null)
           .map((l) => ({ x: l.x + l.w / 2, w: l.w, hr: hourOf(l.text), text: l.text })).sort((p, q) => p.x - q.x);
         if (labs.length < 2) return;
@@ -48,14 +56,20 @@ module.exports = function (test, h) {
           assert(off <= (atEdge ? l.w * 0.6 : l.w / 3) + 3, '"' + l.text + '" has no station under it');
           return best;
         });
-        // and the hours between two words are stations, bar the midnight the
-        // panels change at, the slope and the train (two at most)
+        // and no stretch of the rail is bare: no two neighbouring stations
+        // are further apart than one step of the labels at the day's
+        // fullest rate, the widest a station step can ever be (a squeezed
+        // night is thinned to a dot's width apart, never more)
+        // (per step of the labels, over every pair of neighbouring labels:
+        // the scale runs at more than one rate, so the widest step is
+        // wherever the day is busiest)
+        let full = 0;
         for (let i = 1; i < labs.length; i++) {
-          const a = labs[i - 1], b = labs[i];
-          const hidden = (b.abs - a.abs) / step - 1;
-          if (hidden <= 0) continue;
-          const between = own[i] - own[i - 1] - 1;
-          assert(between >= hidden - 2, hidden + ' hour(s) between "' + a.text + '" and "' + b.text + '" and ' + between + ' station(s)');
+          full = Math.max(full, (stations[own[i]] - stations[own[i - 1]]) / ((labs[i].abs - labs[i - 1].abs) / step));
+        }
+        if (!full) return;
+        for (let i = 1; i < stations.length; i++) {
+          assert(stations[i] - stations[i - 1] <= full + 3, 'a bare stretch of rail: ' + Math.round(stations[i - 1]) + ' to ' + Math.round(stations[i]) + ', over the ' + Math.round(full) + ' of a full step');
         }
       });
     }

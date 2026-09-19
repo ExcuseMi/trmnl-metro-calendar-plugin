@@ -8,7 +8,7 @@
 // reading -- on the high where the two stack, after the low where they are on
 // one line -- so it covers both numbers without being written twice.
 
-const base = require('../../layout/fixtures').find(function (f) { return f.name === 'three-day'; });
+const base = require('../../layout/fixtures').find(function (f) { return f.name === 'two-day'; });
 
 module.exports = function (test, h) {
   const { build, assert } = h;

@@ -194,7 +194,7 @@ module.exports = function (test, h) {
   // "we should only time compress between midnight and the earliest event and
   // after the last event till midnight", and "remove the speed lines" from the
   // strip and the rails.
-  for (const f of ['rolling-quiet', 'quiet-day', 'busy-day', 'three-day']) {
+  for (const f of ['rolling-quiet', 'quiet-day', 'busy-day', 'two-day']) {
     test('only the ends of a day run fast, and no speed lines are drawn: ' + f, () => {
       const fx = fixtures.find((x) => x.name === f);
       const rep = layout(fx, 'x-landscape');
