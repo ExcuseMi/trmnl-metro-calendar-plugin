@@ -53,7 +53,10 @@ module.exports = function (test, h) {
     });
     assert(/Citadelpark/.test(rows[0].textContent), 'the headline is missing');
     assert(/Pyjamadag/.test(rows[1].textContent), 'the feeds are not taken in turn');
-    assert(band.className.indexOf('inverse') >= 0, 'the band is not ink');
+    // ...ON PAPER, because the ink belongs to the alert. A section's ground
+    // is what tells it from the next one, and the interruption is the one
+    // that gets the dark half of the sign.
+    assert(band.className.indexOf('inverse') < 0, 'the headlines took the alert\'s ink');
   });
 
   test('a weather alert is the first row of the box, above the headlines', () => {

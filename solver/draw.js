@@ -3930,17 +3930,28 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     var alHere = spec.metro && spec.metro.service_alert;
     // (a wrapped alert -- a long translation on a slot -- needs its two
     // rows' worth, the way the box reserved it)
-    if (alHere && newsSpec.alertRows) secs.push({ kind: 'alert', h: newsSpec.alertRows * rowH * (newsSpec.alertRows > 1 ? 2.3 : 1.9) });
-    if (newsSpec.taskRows) secs.push({ kind: 'tasks', h: rowH * 1.45 });
-    if (newsSpec.rows) secs.push({ kind: 'news', h: newsSpec.rows * rowH * 1.45 });
+    // ONE RHYTHM DOWN THE BAR: a row of one section is as deep as a row of
+    // any other, so every section keeps the same air above and below its
+    // words. The alert used to buy itself more and read as a band that had
+    // wandered in from somewhere else.
+    var SEC_ROW = 1.45;
+    if (alHere && newsSpec.alertRows) secs.push({ kind: 'alert', h: newsSpec.alertRows * rowH * SEC_ROW });
+    if (newsSpec.taskRows) secs.push({ kind: 'tasks', h: rowH * SEC_ROW });
+    if (newsSpec.rows) secs.push({ kind: 'news', h: newsSpec.rows * rowH * SEC_ROW });
     var secH = secs.reduce(function (acc, sc) { return acc + sc.h; }, 0) + nbGap * Math.max(0, secs.length - 1);
     var nbTop0 = H - Math.max(newsSpec.h, secH);
     var boxes = {};
+    // A SECTION'S GROUND IS WHAT TELLS IT FROM THE NEXT. The alert keeps
+    // the ink, because it is the interruption; what the household owes and
+    // what the world is doing are quieter statements and take the paper,
+    // divided from each other by an ink hairline.
+    function inkSec(i) { return secs[i].kind === 'alert'; }
     secs.forEach(function (sc, si) {
       var top = nbTop0 + secs.slice(0, si).reduce(function (acc, q) { return acc + q.h + nbGap; }, 0);
       var bx = doc.createElement('div');
       bx.className = 'metro-strip metro-news metro-news--' + sc.kind
-        + ' absolute inverse bg--canvas' + (si ? '' : ' rounded--small');
+        + ' absolute bg--canvas' + (inkSec(si) ? ' inverse' : '')
+        + (si ? '' : ' rounded--small');
       bx.style.left = nbIn + 'px'; bx.style.top = Math.round(top) + 'px';
       bx.style.width = nbW + 'px'; bx.style.height = Math.round(sc.h) + 'px';
       canvas.insertBefore(bx, svg);
@@ -3951,10 +3962,10 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       boxes[sc.kind] = { el: bx, h: Math.round(sc.h) };
       // the hairline between two sections, in the paper the sign's colour
       // change stands for
-      if (si) {
+      if (si && inkSec(si) === inkSec(si - 1)) {
         var dv = svgEl(doc, 'line', { x1: nbIn, y1: Math.round(top), x2: nbIn + nbW, y2: Math.round(top),
           'stroke-width': Math.max(1.5 * S, 2), 'stroke-linecap': 'butt' });
-        dv.style.stroke = PAPER;
+        dv.style.stroke = inkSec(si) ? PAPER : INK;
         put(dv, 'news-divide');
       }
     });
@@ -4017,25 +4028,25 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       var ar = doc.createElement('div');
       // (the banner's own size on every panel, a slot included: it is the
       // one sentence on the board, and the long translations wrap there)
-      ar.className = 'metro-gen metro-banner metro-news-row title inverse bg--canvas rounded--small flex flex--row flex--left flex--center-y gap--small absolute';
+      ar.className = 'metro-gen metro-banner metro-news-row inverse bg--canvas rounded--small flex flex--row flex--left flex--center-y gap--small absolute';
       ar.setAttribute('data-metro-alert', al.kind || '');
       if (al.icon) {
         var ai = doc.createElement('img');
-        ai.className = 'metro-banner-icon image--adaptive flex-none';
+        ai.className = 'metro-banner-icon metro-news-glyph image--adaptive flex-none';
         ai.src = al.icon;
         ai.style.setProperty('--framework-icon-src', 'url("' + al.icon + '")');
         ai.setAttribute('data-adaptive', 'true');
         ar.appendChild(ai);
       } else if (al.kind === 'feed') {
         // a calendar gone a day: the one alert with nothing to fetch
-        var fs = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-banner-icon flex-none', 'aria-hidden': 'true' });
+        var fs = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-banner-icon metro-news-glyph flex-none', 'aria-hidden': 'true' });
         fs.appendChild(svgEl(doc, 'path', { d: 'M8 1.5 15 14H1z', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linejoin': 'round' }));
         fs.appendChild(svgEl(doc, 'path', { d: 'M8 6v3.6', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }));
         fs.appendChild(svgEl(doc, 'circle', { cx: 8, cy: 11.9, r: 0.95, fill: 'currentColor' }));
         ar.appendChild(fs);
       }
       var at = doc.createElement('span');
-      at.className = 'metro-banner-text';
+      at.className = 'metro-banner-text ' + nbType;
       if (al.parts && al.parts.length) {
         al.parts.forEach(function (pc) {
           if (pc.s === 'b' || pc.s === 'q') {
@@ -4068,7 +4079,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // news?"): a little paper, drawn here like the feed alert's triangle
     // so it owes nobody a credit line; in the box's paper, like the words.
     function newsIcon() {
-      var sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-news-icon flex-none', 'aria-hidden': 'true' });
+      var sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-news-icon metro-news-glyph flex-none', 'aria-hidden': 'true' });
       sv.appendChild(svgEl(doc, 'path', { d: 'M2.5 3h11v9a1.5 1.5 0 0 1-1.5 1.5H2.5z M2.5 13.5A1.5 1.5 0 0 1 1 12V6',
         fill: 'none', stroke: 'currentColor', 'stroke-width': 1.4, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
       sv.appendChild(svgEl(doc, 'rect', { x: 4.5, y: 5.2, width: 3.6, height: 3.2, fill: 'currentColor' }));
@@ -4086,8 +4097,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // clamp the headlines use. A task is a thing with no time, so it says
     // itself in the display and takes no stop on the map (rule 2q).
     function tickBox(done) {
-      var z = Math.round(rowH * 0.78), sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-task-box flex-none', 'aria-hidden': 'true' });
-      sv.style.width = z + 'px'; sv.style.height = z + 'px';
+      var sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-task-box metro-news-glyph flex-none', 'aria-hidden': 'true' });
       sv.appendChild(svgEl(doc, 'rect', { x: 2.2, y: 2.2, width: 11.6, height: 11.6, rx: 3,
         fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6 }));
       if (done) sv.appendChild(svgEl(doc, 'path', { d: 'M4.8 8.4 7.2 10.9 11.6 5.4', fill: 'none',
