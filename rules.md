@@ -739,6 +739,33 @@ applies when something changes.
     which is the right answer: a name crammed against the last event of the
     day is worse than no second name.
 
+33g. **A line is named at its head and marked at its tail.** Every sign in
+    `style/` names a route with a filled roundel carrying its letter, and
+    never in words where a bullet will do: the 6 on the platform band, the
+    2 and 3 under "Park Place Station", the grid on the Exit sign, one on
+    every row of the countdown screen, the same mark repeated along every
+    line on the map. This board drew that mark at an interchange and
+    nowhere else. The NAME keeps the head, where it has always been and
+    where the solver books its width, and the BULLET goes to the end of the
+    rail, standing where the terminal slash stood so no board gives up a
+    minute for it: a map puts the route's bullet on its last station.
+    Put in FRONT of the name instead it made every head wider, and on a
+    board with no room at the edge a wider head is shoved into the day --
+    "Work" went from seven pixels in to ninety-three -- which is a legend
+    that has wandered off the edge to make room for a mark that was there
+    to help find it.
+    THE BULLET IS FULL INK on whatever rung its rail sits. Filled in the
+    rail's own tone the pale lines came out as a wash with white letters on
+    it, which is text knocked out of a texture (STYLEGUIDE 2); the letter
+    says which line, and the tone is already saying it along the rail.
+    ...AND WHERE THE NAME WILL NOT FIT, THE HEAD IS A BULLET TOO. The board
+    already gives up the word and shows the letters when a name is wider
+    than its clamp; set in the name's own box those letters read as a very
+    short name, and set round they read as what they are. The letters are
+    the ring's own, from the one place that spells them (board.js), so the
+    head, the ring and the tail all say the same thing. A board with one
+    line has no bullet anywhere: there is nothing to tell apart.
+
 33f. **A caption may not be written across a midnight.** Position along this
     axis means WHEN, and the midnight bar is the one place on the board
     where it also means WHICH DAY, so a name that straddles it is read on
