@@ -216,7 +216,12 @@ const noBuild = process.argv.indexOf('--no-build') > 0;
     process.exit(2);
   }
 
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'metro-sheet-'));
+  // on the disk rather than in /tmp, which is a tmpfs here: a sheet is a
+  // pile of full-size pages and they were being held in RAM (see the note
+  // by SCRATCH in test/layout/run.js)
+  const scratch = process.env.METRO_TMPDIR || path.join(CACHE, 'tmp');
+  fs.mkdirSync(scratch, { recursive: true });
+  const dir = fs.mkdtempSync(path.join(scratch, 'metro-sheet-'));
 
   // ONE PICTURE PER VIEW, under its own name, for `docs/`.
   //
