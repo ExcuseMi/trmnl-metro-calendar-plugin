@@ -4,11 +4,26 @@ How this board should look, and why. `rules.md` says what the board draws;
 this says how it is meant to read. Where the two disagree, `rules.md` wins
 on behaviour and this wins on ink.
 
-It is written from photographs of the real thing: platform signs, departure
-boards, a station map legend, the tape along a platform edge. Those pictures
-live in `style/`, which is deliberately untracked, so everything here
-describes what a picture shows rather than pointing at a file nobody else
-has.
+It is written from five photographs in `style/`, which is deliberately
+untracked, so everything here describes what a picture shows rather than
+pointing at a file nobody else has. They are named here so a later reader
+knows what was being looked at:
+
+- `sign.png` — a platform at 6th and Bronx: the overhead black sign band,
+  an Exit sign in red, and the yellow tape along the platform edge.
+- `sign2.png` — an overhead Exit sign: one bar in three butted sections,
+  black arrow, red Exit, black bullets and destination.
+- `sign3.png` — two OUTFRONT screens side by side: a live countdown board
+  and a full system map. The closest thing in the set to what this plugin
+  is, and the one worth arguing with.
+- `entrance.png` — a street entrance: "Park Place Station" in white on
+  black with two red bullets under it.
+- `plan.png` — the system map itself, at the scale a person reads it.
+
+An earlier version of this file was written from a description of similar
+pictures rather than from pictures. It got the letter of several rules
+right and the point of them wrong, which is worth remembering before
+trusting anything here that does not name an image.
 
 The one sentence behind all of it: **a sign is read at a glance by someone
 who is not looking for it.** Every rule below is a way of buying that.
@@ -99,174 +114,148 @@ knocked out of a texture.
 
 ## 3. Type
 
-The signs in `style/` are almost all **sentence case, set bold**: "Spring
-Street Subway Station", "Downtown & Brooklyn", "Valid Fare Required Beyond
-This Point". Capitals appear only where the word IS the mark, on a short
-word like Exit and on route letters in roundels. That is the rule here too.
+Every sign in the set is **sentence case, set bold**. "Uptown & The Bronx",
+"To Pelham Bay Pk or Parkchester", "Port Authority Bus Terminal", "Park
+Place Station", "Happening now". Not one of them shouts. Capitals appear
+in exactly two places: on the word **Exit**, which is one syllable doing a
+sign's whole job, and on route letters inside their bullets.
 
 - **Sentence case, bold, for anything that is read.** Headlines, tasks, the
-  weather sentence, captions. Capitals are for a word doing a sign's job in
-  one or two syllables, which on this board means the line names
-  (`.metro-terminus`) and a date marker among the numbers
-  (`.metro-daybreak`). A row of capitals in a headline is a wall.
+  weather sentence, captions, names. A row of capitals is a wall, and the
+  photographs avoid it everywhere except on Exit.
 - **One type per band.** A bar that mixes two sizes reads as two bars that
-  failed to line up. The foot already does this: `nbType` in
-  `solver/draw.js` sets every row in the box in the alert's own `title`,
-  because when the headlines were `label` and the alert was `title` the two
-  rows did not look related.
-- **Sizes come from the framework's classes**, never from a number in this
-  repository: `label--small` (12-16px CSS), `label` (16px), `title--small`
-  (16px), `title` (21-26px), `value--small` (26px), each already multiplied
-  by `--text-ui-scale` for the panel. This is also what makes measurement
-  honest: `solver/measure-dom.js` measures the same class the drawing will
-  use.
-- **Minimum legible size.** On the 800x480 panels nothing that matters may
-  be set below `label--small`, and a quadrant or a half slot should stay at
-  `label--small` rather than inventing something smaller. On the X, one step
-  up is free and should be taken: the panel is read from further away.
-- **Never two fonts in one bar**, and never a second face anywhere. The
-  framework's stack is the board's voice.
-- **Numbers are never quieter than the words they belong to.** A time is the
-  one thing a reader came for; `rules.md` 38a already says it is bold black.
+  failed to line up.
+- **Weight carries emphasis inside a sentence, not size.** The platform
+  sign sets "Uptown & The Bronx via Local" in one size and bolds only
+  "Local". The board does the same in its weather line: the thing bold,
+  the clock plain, the joining words quiet.
+- **Sizes come from the framework's classes**, never a number in this
+  repository, so `solver/measure-dom.js` measures the class the drawing
+  will actually use.
+- **Numbers are never quieter than the words they belong to**, and on a
+  countdown board they are louder. See section 4.
 
-## 4. Signage grammar
+## 4. What the countdown screen does
 
-What the photographs actually do, turned into rules for this board.
+`sign3.png` is the one picture in the set that is doing this plugin's job,
+so its row anatomy is worth copying almost literally. Each row is:
 
-**A bar is one bar, and its sections are butted.** The Green Line sign is a
-single horizontal bar whose dark section and red section touch: no gap, no
-paper between them, no second frame. The change of ground IS the divider.
-This board's foot follows the shape already (`metro-news--alert`,
-`metro-news--tasks`, `metro-news--news` stacked with `nbGap = 0` and a paper
-hairline between them) but not yet the substance: every section is
-`inverse bg--canvas`, so all three have the same ground and only the
-hairline separates them. See the changes at the end.
+    (bullet)  Destination            NN
+              sub-line              MIN
 
-**An icon leads its section, at the type's own height.** The weather cloud
-and the newspaper glyph are both `1.7em` now, which is what makes every row
-in the box start its words on the same x. Any new section gets the same
-treatment: one glyph, leading, at 1.7em, and the words after it.
+- a **filled roundel** with the route knocked out of it, leading the row;
+- the **destination in bold**, the biggest words on the row;
+- a **quieter, smaller sub-line** under it, naming the same thing more
+  precisely ("Brooklyn Bridge" under "Downtown");
+- the **number, large and ranged right**, with its unit set tiny beneath
+  it, so the eye finds every row's number in one vertical sweep;
+- rows divided by a **hairline**, on a ground that alternates faintly.
 
-**Every section's words start on one line.** A column of icons with the text
-starting at three different places is the single most common way a sign
-looks amateur. One left edge, and everything in the bar ranges on it.
+Three things follow for this board.
 
-**A route is a filled roundel with the letter knocked out.** The C and E on
-the Spring Street sign, the A/C/B/D on the Downtown sign. This board's
-interchange rings carry initials the same way (`rules.md` 38b), and the
-source pill in the foot is the same device at small size.
+**The number is the point.** A person crossing the kitchen wants the time,
+and on our board the time is currently the same size as everything else
+around it. The screen makes it the largest thing in the row and ranges it
+right so the column reads as a column.
 
-**A station name is a box, not a pill.** The NYC signs name a station in a
-plain rectangle of ground; a pill is a route bullet, and using a pill for
-both makes the two read as the same kind of thing. `.metro-terminus`
-currently inherits `.metro-pill`'s 999px corner, so a line name and a route
-bullet share a shape. The framework's `label--filled` is the box: filled
-ground, knocked-out text, a 4px corner that reads as square at this size.
+**A section gets a name.** Below the departures the screen says "Happening
+now" and then lists disruptions. It is a plain bold sentence-case label,
+not a rule and not a coloured band. The foot of our board has three
+sections and names none of them.
 
-**Express and local stations differ by fill, not by size.** The map legend
-draws an express station as a hollow ring and a local as a solid dot, both
-the same diameter. That is a shape difference that survives 1 bit, and it is
-the model for any two-state mark on this board: a task's tick box is empty
-or ticked, never grey or black.
+**The sub-line is a real device.** Two lines, same left edge, second one
+smaller and quieter. `sign2.png` does it in three: "Port Authority / Bus
+Terminal / 42 St-40 St".
 
-**The platform edge tape is a warning stripe with a rhythm.** Yellow,
-regular, unbroken, running the length of the platform: it says "the edge is
-here" without a word. The strip's rail is this board's platform edge, and
-its stations are the rhythm along it. Two lessons: the rhythm must be even
-(`rules.md` 2n: one clock step along the whole rail), and on BWRY the strip
-rail is the one place yellow would be honest.
+## 5. Signage grammar
 
-## 5. Layout
+**A route is a filled bullet with the letter knocked out, and it is the
+primary identifier.** This is the most consistent thing in the whole set.
+The 6 on the platform sign, the 2 and 3 under "Park Place Station", the
+grid of a dozen bullets on the Exit sign, the bullet on every row of the
+countdown board, the bullets repeated along every line on the map. A route
+is never named in words where a bullet will do, and the bullet is never
+decoration: it is how you know which line you are being told about.
+
+Our board announces a person's line with a rectangular name box instead,
+and keeps roundels for interchanges only. That is backwards from every
+photograph here.
+
+**A bullet sits inside running text, not beside it.** The platform sign
+reads "Late nights (4) to Woodlawn also stops here" with the bullet set
+in the line like a word. They are sized to the type, not to the panel.
+
+**A station name is a box, not a pill.** `entrance.png`: "Park Place
+Station" is plain white type on a black rectangle. The pill shape is
+reserved for route bullets, so using it for both makes a name and a route
+read as the same kind of thing.
+
+**A bar is one bar, and its sections are butted.** `sign2.png` is the
+cleanest example in the set: black arrow, red Exit, black destination,
+touching, no paper between them, no second frame. The change of ground IS
+the divider. The foot of our board follows this now.
+
+**Red is for the way out and for what has gone wrong.** Exit is red on
+both signs. On the countdown screen the disruption notice is the only
+thing that breaks the rhythm. Red is never spent on a route bullet that
+happens to be red-coded in the real system, because on a four-colour panel
+we have one red and only one thing worth stopping someone with.
+
+**The platform edge is yellow, tactile and unbroken.** `sign.png` shows it
+running the full length of the platform with a regular bumped texture. Two
+lessons: the rhythm along it must be even, and on BWRY the strip rail is
+the one place yellow is honest.
+
+**The map tints its grounds.** `plan.png` uses pale fills for parks, water
+and boroughs behind the lines. On one bit this is unavailable, but the X
+has sixteen greys and currently spends almost none of them.
+
+## 6. Layout
 
 - **One margin, and it is the paper's.** The foot boxes run the full width
-  and sit flush against the map; the map's own gutter is the legend column.
-  A box set in from the edges reads as a widget on a page, which is what the
-  board is not.
-- **A column ranges on one left edge.** The legend, the task stacks under
-  it, and the words in the foot bar all start on the same x as the thing
-  above them. When a task stack was ranged on the badge's outer edge and the
-  badge's letters sat 8px further in, the column looked broken.
+  and sit flush against the map.
+- **A column ranges on one left edge**, and a column of numbers ranges on
+  one right edge. The countdown screen does both at once.
 - **A divider is a hairline in the ground's opposite colour**, at least 1.5
-  CSS pixels, never a gap. Paper on ink, ink on paper. A gap between two
-  statements makes two objects; a hairline makes one object with two things
-  to say.
-- **Two statements are separated by their ground, not by space.** This is
-  the Green Line sign's whole trick and the thing to reach for before
-  reaching for a gap.
+  CSS pixels, never a gap.
+- **Two statements are separated by their ground, not by space.**
 - **Nothing is centred that could be ranged left.** A sign centres a word
   only when the word is the whole sign.
 
-## 6. What the board already does, and what it does not
+## 7. What the board already does
 
 Checked against the code, not remembered.
 
-Already right:
-
-- `ONE_BIT` forces every rail solid and lets texture do the telling apart
-  (`solver/draw.js`), which is the 1-bit rule above.
+- `ONE_BIT` forces every rail solid and lets texture do the telling apart.
 - The 4-bit tone ladder is mixed from the theme's ink and paper with
-  `color-mix`, so it follows dark mode and needs nothing from the paint API.
-- BWRY is read from `screen--color-4bwry` and the rails after the anchor
-  take the panel's real colours, in the order the class names them.
-- Texture and tone are two channels answering two questions, and the anchor
-  line is full ink on every panel.
-- The foot bar's sections are butted with no gap and divided by a paper
-  hairline; only the first section carries `rounded--small`.
-- One type through the whole foot bar (`nbType`), and both glyphs at 1.7em
-  so the rows' words start together.
-- Type sizes come from framework classes throughout, and the offline ruler
-  measures the same classes.
-- A task's state is a shape: an empty or ticked box (`.metro-task-box`),
-  not a tone.
-- The line name is set in capitals and tracked wider, so a name reads as a
-  different kind of thing from a caption.
+  `color-mix`, so it follows dark mode.
+- BWRY is read from `screen--color-4bwry`, not from the depth field.
+- The foot is one bar: sections butted, the alert on ink and the rest on
+  paper, one glyph box, one type, one depth per row.
+- A task's state is a shape, not a tone: an empty or ticked box.
+- The line name is a filled box (`label--filled`), not a pill.
+- Interchange rings carry initials, which is the bullet device in the one
+  place the board already uses it.
 
-Not right yet:
+## 8. What to change next, in order
 
-- The foot sections all share one ground (`inverse bg--canvas`), so the sign's
-  own device, a change of ground, is unused. They are told apart only by a
-  hairline.
-- `.metro-terminus` is a `.metro-pill`, so a line name has the same 999px
-  corner as a route bullet. The sign grammar wants a box for the name and
-  the pill shape kept for bullets.
-- Red and yellow are handed to rails by rung order on a BWRY panel. Nothing
-  reserves red for the thing that interrupts, so an alert on a BWRY board is
-  the same black as everything else while a rail is red.
-- No board suite renders a BWRY panel or a 2-bit panel: `tools/sheet.js` and
-  `test/layout/run.js` build 1-bit OG and 4-bit X only, and `screen--2bit`
-  appears in exactly one case (`test/layout/cases/banner.js`). The palette
-  code is therefore drawn by nobody.
-- `.metro-cut` and the quiet-task treatment use `text-decoration` and
-  `text--muted`, which at 1 bit is the framework's `text--default`. That is
-  handled, but any new "quieter" state needs the same check rather than a
-  grey.
-
-## 7. What to change next, in order
-
-1. **Give each foot section its own ground.** `solver/draw.js`, the `secs`
-   loop that builds `metro-news--alert` / `--tasks` / `--news`: keep the
-   alert section `inverse bg--canvas` (it is the interruption), and set the
-   news section to paper with an ink hairline above it, so the two read as
-   two statements the way the dark and red halves of the Green Line sign do.
-   Keep the hairline; drop nothing else.
-2. **Make the line name a box.** `solver/draw.js` where the terminus is
-   built (`metro-terminus metro-pill label label--base text--bold`): swap
-   `metro-pill` for the framework's `label--filled`, and in
-   `plugin/src/shared.liquid` drop the pill's corner from `.metro-terminus`.
-   Then rerun `test/boards/calibrate.js`, because the padding changes what a
-   name measures.
-3. **Reserve red on BWRY.** `solver/draw.js` `palette` handling: take red out
-   of the rail ladder and give it to the alert row and to a clash mark, so
-   the one colour that means "stop" is spent on stopping. Rails keep black,
-   yellow and the textures.
-4. **Render the panels nobody renders.** `tools/sheet.js` VIEWS and
-   `test/layout/run.js`: add an `og-2bit` board and an `og-bwry` board
-   (`screen--og screen--md screen--density-1x screen--color-4bwry`) so the
-   palette branch and the two-grey branch are drawn by the suite.
-5. **Say the depth rules in `rules.md`.** They live in code comments and in
-   this file; the one place a future change will look is the rules. One
-   short rule: what carries meaning at each depth, and that colour is never
-   the only difference.
-6. **Check the strip rail against the tape.** `solver/draw.js` strip
-   drawing: on a BWRY panel the rail and its stations are the one place
-   yellow is honest. Worth a render before it is worth an edit.
+1. **Give every line a bullet.** `solver/draw.js` where the terminus name
+   is built: a filled roundel carrying the person's initial, leading the
+   name box, the same mark the interchange rings already draw. This is the
+   single most consistent thing in the photographs and the board does not
+   do it.
+2. **Make the next thing a big number.** The countdown screen's row: the
+   time ranged right and set large, its unit tiny beneath it. Today the
+   time is the same size as the words beside it.
+3. **Name the foot's sections.** A plain bold sentence-case label, the way
+   the screen says "Happening now". Sentence case, not capitals.
+4. **A quiet sub-line under a caption** where there is room, for the place
+   a thing is happening.
+5. **Spend the X's greys.** A faint ground for the evening, or behind
+   alternate rows, the way the map tints its boroughs and the countdown
+   screen alternates its rows.
+6. **Reserve red, and lay yellow tape.** On BWRY take red out of the rail
+   ladder and give it to the alert; give the strip rail the yellow.
+7. **Render the panels nobody renders.** `tools/sheet.js` and
+   `test/layout/run.js` build 1-bit OG and 4-bit X only, so the palette
+   branch and the two-grey branch are drawn by nobody.

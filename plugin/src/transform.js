@@ -2031,8 +2031,18 @@ function wetRun(hours, from, wet) {
 function serviceAlert(snap, opts) {
   if (!opts || !opts.enabled || !snap || typeof snap !== 'object') return null;
   var strings = opts.strings || I18N.en;
+  // A CERTAINTY IS NOT NEWS. "Rain until 2pm (100%)" spends the end of the
+  // line saying again what the start of it already said, and the one line
+  // the board keeps for weather is too dear for that. Every language puts
+  // the chance in a bracket of its own, so at 100 the bracket goes and the
+  // sentence closes on the clock, which is what the reader came for.
+  function sure(tpl, vars) {
+    return vars && vars.p >= 100
+      ? String(tpl).replace(/\s*[(（][^)）]*\{p\}[^)）]*[)）]/, '')
+      : tpl;
+  }
   function banner(kind, key, vars, styles, tail) {
-    var tpl = tr(strings, key) + (tail || '');
+    var tpl = sure(tr(strings, key), vars) + (tail || '');
     return { kind: kind, icon: WEATHER_ICON_BASE + ALERT_ICON[kind],
              text: fmt(tpl, vars),
              // the same sentence in pieces, for the banner to set (see segments)

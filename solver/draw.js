@@ -1634,7 +1634,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // (the ring letters, from the one place that spells them: board.js)
   var initials = B.initialsFor((spec.metro && spec.metro.legend) || []);
   var ringFace = null;
-  function initialIn(q, k, scale) {
+  function initialIn(q, k, scale, ink) {
     if (spec.oneName || !initials[k]) return;
     scale = scale == null ? 1 : scale;
     var txt = initials[k], two = txt.length > 1;
@@ -1649,7 +1649,8 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // more than most: a pair of capitals set tight is one wide glyph.
     if (two) t.style.letterSpacing = (NODE_R * 0.08 * scale) + 'px';
     t.textContent = txt;
-    t.style.fill = INK;
+    // (knocked out of a filled bullet, ink on a hollow ring)
+    t.style.fill = ink || INK;
     // in the face the board's words are in: an SVG text is set in the
     // browser's default serif unless it is told otherwise
     if (ringFace == null) {
@@ -2360,6 +2361,32 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // (0.7 of the width: at 0.9 the heavier rail's slash reached the name
       // set a row above it)
       var sw = railStroke(ln, ln.key).width, rr = Math.max(r, sw * 0.7);
+      // ...AND AT THE FAR END THE MARK IS THE ROUTE'S OWN BULLET (rule 33g).
+      // Every sign in `style/` names a route with a filled roundel carrying
+      // its letter, and a map puts that bullet on the line's last station.
+      // The board drew the mark at an interchange and nowhere else, so it
+      // goes here too: the name says whose line this is where the day
+      // starts, and the bullet says it again where the day ends, in the one
+      // place that costs the day nothing -- it stands where the slash
+      // stood, so no board gives up a minute for it.
+      if (end && !spec.oneName && initials[ln.key]) {
+        var bR = Math.max(rr * 1.25, sw * 0.95);
+        var bc = xy(p[0] - bR * 0.15, p[1]);
+        var bHalo = svgEl(doc, 'circle', { cx: bc[0], cy: bc[1], r: bR + Math.max(1.5 * S, sw * 0.35), stroke: 'none' });
+        bHalo.style.fill = PAPER;
+        put(bHalo, 'terminal-halo', ln.key);
+        var bDisc = svgEl(doc, 'circle', { cx: bc[0], cy: bc[1], r: bR, stroke: 'none' });
+        // FULL INK, WHATEVER RUNG THE RAIL IS ON. Filled in the rail's own
+        // tone the pale lines came out as a wash with white letters on it,
+        // which is text knocked out of a texture and the one thing the
+        // panel cannot hold. The letter is what says which line; the tone
+        // is doing that job along the rail already.
+        bDisc.style.fill = INK;
+        put(bDisc, 'terminal-bullet', ln.key);
+        edgeFill(bDisc, 'terminal-bullet');
+        initialIn([bc[0], bc[1]], ln.key, bR / NODE_R * 0.86, PAPER);
+        return;
+      }
       // EVERY SLASH STANDS IN A GAP. Drawn in the rail's own ink at nearly
       // its weight, a solid rail's slash fused with the end into one
       // arrow-shaped blob ("something feels off"); a shaded or hollow rail's
@@ -2941,13 +2968,34 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // own filled label is the black box with the letters knocked out, and
       // a line's name reads as a sign on the track rather than as one more
       // route bullet.
-      var tn = turn(html('metro-terminus label label--base label--filled text--bold', fx.text));
+      // A LINE IS NAMED AT ITS HEAD AND MARKED AT ITS TAIL (rule 33g).
+      // Every sign in `style/` names a route with a filled roundel carrying
+      // its letter, and this board drew that mark at an interchange and
+      // nowhere else. The name keeps the head, where it has always been and
+      // where the solver books its width; the bullet goes to the end of the
+      // rail, which costs the day nothing. And where the name will not fit
+      // its clamp -- where the board has already given up the word and is
+      // showing the letters instead -- the letters are set as the bullet
+      // they are, round, rather than as a box pretending to be a name.
+      var tn = turn(html('metro-terminus metro-head flex flex--row flex--center-y gap--xsmall'));
+      function piece(cls, text) {
+        var n = doc.createElement('span');
+        n.className = cls;
+        n.textContent = text;
+        tn.appendChild(n);
+        return n;
+      }
+      var asLetters = !spec.oneName && initials[fx.line] && fx.text === initials[fx.line];
+      var tname = piece('metro-name label label--base text--bold '
+        + (asLetters ? 'metro-bullet metro-pill text--center' : 'label--filled'), fx.text);
       // ONE LINE, NO WIDER THAN THE SOLVER BOOKED IT: a name longer than a
       // share of the panel is cut with an ellipsis (the stylesheet) rather
       // than pushing the legend's column out over the day (day.js nameMax).
+      // The bullet comes out of that booking rather than being added to
+      // it, so a head is the width the solver already kept for it.
       if (fx.nameMax != null) {
-        if (horizontal) tn.style.maxWidth = fx.nameMax + 'px';
-        else tn.style.maxHeight = fx.nameMax + 'px';
+        if (horizontal) tname.style.maxWidth = fx.nameMax + 'px';
+        else tname.style.maxHeight = fx.nameMax + 'px';
       }
       // ...AND HOW MANY OF THIS LINE'S STOPS IT COULD NOT NAME.
       //
@@ -3288,6 +3336,15 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           b.style.lineHeight = '1';
           b.textContent = bg.text;
           line.appendChild(b);
+          // A ROUND BADGE, like the bullet at the head and the ring at an
+          // interchange: one letter is a route bullet and the card was the
+          // one place on the board setting it as a little oval. Given as
+          // much width as it has height it comes out a disc, and a badge of
+          // more than one letter ("All") keeps the pill it needs, because
+          // this is a floor and not a size.
+          b.classList.add('text--center');
+          b.style.setProperty('--metro-pill-x', '2px');
+          b.style.minWidth = b.offsetHeight + 'px';
         });
         card.appendChild(line);
         return { line: line, lead: lead, body: body, text: rw[1] };
@@ -3930,17 +3987,28 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     var alHere = spec.metro && spec.metro.service_alert;
     // (a wrapped alert -- a long translation on a slot -- needs its two
     // rows' worth, the way the box reserved it)
-    if (alHere && newsSpec.alertRows) secs.push({ kind: 'alert', h: newsSpec.alertRows * rowH * (newsSpec.alertRows > 1 ? 2.3 : 1.9) });
-    if (newsSpec.taskRows) secs.push({ kind: 'tasks', h: rowH * 1.45 });
-    if (newsSpec.rows) secs.push({ kind: 'news', h: newsSpec.rows * rowH * 1.45 });
+    // ONE RHYTHM DOWN THE BAR: a row of one section is as deep as a row of
+    // any other, so every section keeps the same air above and below its
+    // words. The alert used to buy itself more and read as a band that had
+    // wandered in from somewhere else.
+    var SEC_ROW = 1.45;
+    if (alHere && newsSpec.alertRows) secs.push({ kind: 'alert', h: newsSpec.alertRows * rowH * SEC_ROW });
+    if (newsSpec.taskRows) secs.push({ kind: 'tasks', h: rowH * SEC_ROW });
+    if (newsSpec.rows) secs.push({ kind: 'news', h: newsSpec.rows * rowH * SEC_ROW });
     var secH = secs.reduce(function (acc, sc) { return acc + sc.h; }, 0) + nbGap * Math.max(0, secs.length - 1);
     var nbTop0 = H - Math.max(newsSpec.h, secH);
     var boxes = {};
+    // A SECTION'S GROUND IS WHAT TELLS IT FROM THE NEXT. The alert keeps
+    // the ink, because it is the interruption; what the household owes and
+    // what the world is doing are quieter statements and take the paper,
+    // divided from each other by an ink hairline.
+    function inkSec(i) { return secs[i].kind === 'alert'; }
     secs.forEach(function (sc, si) {
       var top = nbTop0 + secs.slice(0, si).reduce(function (acc, q) { return acc + q.h + nbGap; }, 0);
       var bx = doc.createElement('div');
       bx.className = 'metro-strip metro-news metro-news--' + sc.kind
-        + ' absolute inverse bg--canvas' + (si ? '' : ' rounded--small');
+        + ' absolute bg--canvas' + (inkSec(si) ? ' inverse' : '')
+        + (si ? '' : ' rounded--small');
       bx.style.left = nbIn + 'px'; bx.style.top = Math.round(top) + 'px';
       bx.style.width = nbW + 'px'; bx.style.height = Math.round(sc.h) + 'px';
       canvas.insertBefore(bx, svg);
@@ -3951,10 +4019,10 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       boxes[sc.kind] = { el: bx, h: Math.round(sc.h) };
       // the hairline between two sections, in the paper the sign's colour
       // change stands for
-      if (si) {
+      if (si && inkSec(si) === inkSec(si - 1)) {
         var dv = svgEl(doc, 'line', { x1: nbIn, y1: Math.round(top), x2: nbIn + nbW, y2: Math.round(top),
           'stroke-width': Math.max(1.5 * S, 2), 'stroke-linecap': 'butt' });
-        dv.style.stroke = PAPER;
+        dv.style.stroke = inkSec(si) ? PAPER : INK;
         put(dv, 'news-divide');
       }
     });
@@ -4017,25 +4085,25 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       var ar = doc.createElement('div');
       // (the banner's own size on every panel, a slot included: it is the
       // one sentence on the board, and the long translations wrap there)
-      ar.className = 'metro-gen metro-banner metro-news-row title inverse bg--canvas rounded--small flex flex--row flex--left flex--center-y gap--small absolute';
+      ar.className = 'metro-gen metro-banner metro-news-row inverse bg--canvas rounded--small flex flex--row flex--left flex--center-y gap--small absolute';
       ar.setAttribute('data-metro-alert', al.kind || '');
       if (al.icon) {
         var ai = doc.createElement('img');
-        ai.className = 'metro-banner-icon image--adaptive flex-none';
+        ai.className = 'metro-banner-icon metro-news-glyph image--adaptive flex-none';
         ai.src = al.icon;
         ai.style.setProperty('--framework-icon-src', 'url("' + al.icon + '")');
         ai.setAttribute('data-adaptive', 'true');
         ar.appendChild(ai);
       } else if (al.kind === 'feed') {
         // a calendar gone a day: the one alert with nothing to fetch
-        var fs = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-banner-icon flex-none', 'aria-hidden': 'true' });
+        var fs = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-banner-icon metro-news-glyph flex-none', 'aria-hidden': 'true' });
         fs.appendChild(svgEl(doc, 'path', { d: 'M8 1.5 15 14H1z', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linejoin': 'round' }));
         fs.appendChild(svgEl(doc, 'path', { d: 'M8 6v3.6', stroke: 'currentColor', 'stroke-width': 1.5, 'stroke-linecap': 'round' }));
         fs.appendChild(svgEl(doc, 'circle', { cx: 8, cy: 11.9, r: 0.95, fill: 'currentColor' }));
         ar.appendChild(fs);
       }
       var at = doc.createElement('span');
-      at.className = 'metro-banner-text';
+      at.className = 'metro-banner-text ' + nbType;
       if (al.parts && al.parts.length) {
         al.parts.forEach(function (pc) {
           if (pc.s === 'b' || pc.s === 'q') {
@@ -4068,7 +4136,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // news?"): a little paper, drawn here like the feed alert's triangle
     // so it owes nobody a credit line; in the box's paper, like the words.
     function newsIcon() {
-      var sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-news-icon flex-none', 'aria-hidden': 'true' });
+      var sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-news-icon metro-news-glyph flex-none', 'aria-hidden': 'true' });
       sv.appendChild(svgEl(doc, 'path', { d: 'M2.5 3h11v9a1.5 1.5 0 0 1-1.5 1.5H2.5z M2.5 13.5A1.5 1.5 0 0 1 1 12V6',
         fill: 'none', stroke: 'currentColor', 'stroke-width': 1.4, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
       sv.appendChild(svgEl(doc, 'rect', { x: 4.5, y: 5.2, width: 3.6, height: 3.2, fill: 'currentColor' }));
@@ -4086,8 +4154,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // clamp the headlines use. A task is a thing with no time, so it says
     // itself in the display and takes no stop on the map (rule 2q).
     function tickBox(done) {
-      var z = Math.round(rowH * 0.78), sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-task-box flex-none', 'aria-hidden': 'true' });
-      sv.style.width = z + 'px'; sv.style.height = z + 'px';
+      var sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-task-box metro-news-glyph flex-none', 'aria-hidden': 'true' });
       sv.appendChild(svgEl(doc, 'rect', { x: 2.2, y: 2.2, width: 11.6, height: 11.6, rx: 3,
         fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6 }));
       if (done) sv.appendChild(svgEl(doc, 'path', { d: 'M4.8 8.4 7.2 10.9 11.6 5.4', fill: 'none',

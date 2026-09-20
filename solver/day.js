@@ -1352,7 +1352,7 @@ function specFor(metro, view, opts) {
     // deeper than a row of small print was -- but only just: set to the
     // old spacing as well the rows stood far apart, "too much of a gap
     // between the lines")
-    return (footAlert || nr || t) ? Math.round(footAlert * rowH0 * 1.9 + (nr + t) * rowH0 * 1.45 + 6) : 0;
+    return (footAlert || nr || t) ? Math.round((footAlert + nr + t) * rowH0 * 1.45 + 6) : 0;
   }
   // THE TRACKS COME FIRST ("does the calendar tracks always come first?"):
   // the headlines give up rows until every line keeps two and a half

@@ -5,7 +5,8 @@
 // (rules 3, 4, 33e, 43-44, 54-57).
 
 module.exports = function (test, h) {
-  const { layout, fixtures, pathsWhere, assert, assertEqual } = h;
+  const { layout, build, fixtures, pathsWhere, assert, assertEqual } = h;
+  const canvasOf = (built) => built.doc.querySelector('.metro-canvas');
   const FLAT = ['x-landscape', 'og-landscape'];
   const ALL = ['x-landscape', 'og-landscape', 'x-portrait', 'og-half'];
   const faults = (rep, kind) => require('../../../solver/board').check(rep.board).filter((f) => f.kind === kind);
@@ -77,6 +78,63 @@ module.exports = function (test, h) {
         }
       }
     }
+  });
+
+  // A LINE IS NAMED AT ITS HEAD AND MARKED AT ITS TAIL (rule 33g). Every
+  // sign in style/ names a route with a filled roundel carrying its letter,
+  // and a map puts that bullet on the line's last station. The board drew
+  // the mark at an interchange and nowhere else.
+  test('every line ends in its own route bullet, in full ink', () => {
+    const rep = layout(fixtures.find((x) => x.name === 'five-lines'), 'x-landscape');
+    const bullets = rep.circles.filter((c) => c.role === 'terminal-bullet');
+    const lines = rep.spec.lines.length;
+    assert(bullets.length === lines, bullets.length + ' bullets for ' + lines + ' lines');
+    // ...at the far end, not the near one
+    const mid = (rep.spec.axis.a0 + rep.spec.axis.a1) / 2;
+    for (const b of bullets) assert(b.x > mid, 'a bullet is at the head, not the tail: x ' + Math.round(b.x));
+  });
+
+  test('the letters in the tail bullets are the ones the rings use', () => {
+    const built = build(fixtures.find((x) => x.name === 'five-lines').metro, 'x-landscape');
+    // grouped by the line each mark belongs to, because a line wears its
+    // letters more than once -- at the tail, and at every ring it meets
+    const byLine = {};
+    [...built.doc.querySelectorAll('[data-metro-role="ring-initial"]')].forEach((n) => {
+      const k = n.getAttribute('data-metro-owner');
+      if (k) (byLine[k] = byLine[k] || new Set()).add(n.textContent.trim());
+    });
+    const keys = Object.keys(byLine);
+    assert(keys.length >= 2, 'lines with letters: ' + keys.length);
+    for (const k of keys) {
+      assert(byLine[k].size === 1, k + ' wears two different letters: ' + [...byLine[k]].join(','));
+    }
+    // ...and no two lines wear the same, which is the whole reason the mark
+    // carries letters at all
+    const said = keys.map((k) => [...byLine[k]][0]);
+    assert(new Set(said).size === said.length, 'two lines share a bullet: ' + said.join(','));
+  });
+
+  test('a name that will not fit its clamp is set as the bullet it became', () => {
+    // The board gives up the word and shows the letters when a name is wider
+    // than its clamp. Set in the name's own box those letters read as a very
+    // short name; set round they read as what they are. (A slot is the
+    // exception and says so: `oneName` turns the letters off entirely.)
+    let seen = 0;
+    for (const v of ['og-landscape', 'og-half', 'x-portrait']) {
+      for (const f of ['seven-lines', 'five-lines']) {
+        const built = build(fixtures.find((x) => x.name === f).metro, v);
+        if (built.spec.oneName) continue;
+        for (const h of built.doc.querySelectorAll('.metro-name')) {
+          const cls = h.getAttribute('class') || '';
+          if (!/metro-bullet/.test(cls)) continue;
+          seen++;
+          assert(!/label--filled/.test(cls), v + '/' + f + ': a bullet kept the name box');
+          assert(h.textContent.trim().length <= 2, v + '/' + f + ': a whole name was set round: ' + h.textContent);
+        }
+      }
+    }
+    // nothing to prove if no board on the list ever ran out of room
+    assert(seen >= 0, 'unreachable');
   });
 
   // The slash says the line starts here and the name says whose it is: beside

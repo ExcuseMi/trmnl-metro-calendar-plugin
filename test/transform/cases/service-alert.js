@@ -626,8 +626,17 @@ module.exports = function (test, h) {
     }, fields));
   }
 
-  async function alertAt(now, body, fields) {
-    const r = await runTransform(netAt(body), now).run(inputAt(now, Object.assign({}, ON, fields)));
+  async function alertAt(now, body, fields, lang) {
+    const i = inputAt(now, Object.assign({}, ON, fields));
+    if (lang) i.trmnl.user.locale = lang.code;
+    const net = lang
+      ? async (url) => {
+          if (String(url).indexOf('api.open-meteo.com') >= 0) return body == null ? fail(500) : okText(body);
+          if (String(url).indexOf('/i18n/') >= 0) return okText(lang.text);
+          return okText(BOTH_DAYS);
+        }
+      : netAt(body);
+    const r = await runTransform(net, now).run(i);
     return r.data.service_alert;
   }
 
@@ -658,6 +667,44 @@ module.exports = function (test, h) {
     assertEqual((late || {}).text, 'Rain until 16:00 (85%)', 'got ' + JSON.stringify(late));
     const over = await alertAt(at(16), body);
     assertEqual(over, null, 'an hour that ended still alerted: ' + JSON.stringify(over));
+  });
+
+  test('a certainty says nothing about its chance', async () => {
+    // "Rain until 16:00 (100%)" ends the one weather line the board keeps
+    // by repeating its own first word. The bracket goes; the sentence
+    // closes on the clock.
+    const a = await alertAt(at(15), forecastDays([{ date: D0, by: { 15: 100 } }]));
+    assertEqual((a || {}).text, 'Rain until 16:00', 'got ' + JSON.stringify(a));
+    assert(!(a.parts || []).some((p) => /%/.test(p.t)), 'a piece still carries a per-cent: ' + JSON.stringify(a.parts));
+    // ...and anything short of certain still says how sure it is
+    const nearly = await alertAt(at(15), forecastDays([{ date: D0, by: { 15: 99 } }]));
+    assertEqual((nearly || {}).text, 'Rain until 16:00 (99%)', 'got ' + JSON.stringify(nearly));
+  });
+
+  test('every language drops its own bracket at a certainty', async () => {
+    // The bracket is the translator's, not this file's: German and French
+    // put a space before the per-cent sign, and one language could yet
+    // word it differently. What must hold is that the number and whatever
+    // encloses it both go, and that the rest of the sentence is untouched.
+    for (const file of fs.readdirSync(I18N_DIR).filter((f) => f.endsWith('.json'))) {
+      const code = file.replace(/\.json$/, '');
+      const lang = { code: code, text: fs.readFileSync(path.join(I18N_DIR, file), 'utf8') };
+      const sure = await alertAt(at(15), forecastDays([{ date: D0, by: { 15: 100 } }]), null, lang);
+      const not = await alertAt(at(15), forecastDays([{ date: D0, by: { 15: 90 } }]), null, lang);
+      assert(sure && not, code + ': no alert');
+      // ...and this is really that language, not English quietly standing
+      // in for a file that failed to load, which would make the whole loop
+      // assert the English sentence eight times.
+      const words = JSON.parse(lang.text);
+      const said = words.alert_until.replace('{what}', words.alert_kind_rain)
+        .replace('{u}', '16:00').replace('{p}', '90');
+      assertEqual(not.text, said, code + ': the board did not read in its own language');
+      assert(!/[%\d]/.test(sure.text.replace(/\d+:\d+/g, '')), code + ': a chance survived: ' + sure.text);
+      assert(not.text.indexOf('90') >= 0, code + ': the chance was dropped when it was not certain: ' + not.text);
+      // the sentence up to the bracket is the same in both
+      assert(not.text.indexOf(sure.text) === 0, code + ': the sentence changed, not just its bracket: '
+        + JSON.stringify([sure.text, not.text]));
+    }
   });
 
   // -------------------------------------------------------------------
