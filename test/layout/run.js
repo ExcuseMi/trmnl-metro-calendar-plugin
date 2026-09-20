@@ -331,8 +331,24 @@ const REPORTER = `
       // reaches the panel as "8:15an". textContent still reports the whole
       // string, so a test reading text alone cannot see it at all.
       var tt = n.querySelector && n.querySelector('.metro-time-tag');
+      // A ROW'S OWN PIECES. A row of headlines is one label to the report,
+      // so a piece squeezed narrower than its words -- which then prints
+      // over the piece beside it, because these never wrap -- is invisible
+      // in the row's own box and its run-together text. Each piece says
+      // how wide it is and whether its words fit it.
+      var parts = [];
+      if (/metro-news-row/.test(String(n.className))) {
+        Array.prototype.forEach.call(n.children, function (c) {
+          var q = c.getBoundingClientRect();
+          if (!q.width || !q.height) return;
+          parts.push(Object.assign(rel(q), { cls: c.getAttribute('class') || '',
+            text: (c.textContent || '').trim(),
+            clamp: c.getAttribute && c.getAttribute('data-clamp') != null,
+            over: c.scrollWidth > c.clientWidth + 1 }));
+        });
+      }
       labels.push(Object.assign(rel(r), { cls: n.className, text: (n.textContent || '').trim(),
-        clipped: !!(tt && tt.scrollWidth > tt.clientWidth + 1) }));
+        parts: parts, clipped: !!(tt && tt.scrollWidth > tt.clientWidth + 1) }));
     });
     function ctmPts(el, pts) {
       var m = el.getScreenCTM();

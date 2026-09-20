@@ -104,6 +104,15 @@ module.exports = function (test, h) {
     assert(pills.length === NEWS.items.length, pills.length + ' sources on the row');
     assert(/Citadelpark.*\u00b7.*Pyjamadag/.test(rows[0].textContent), 'the headlines are not separated by a dot');
     assert(pills[0].className.indexOf('metro-pill--quiet') < 0, 'the source pill is not solid');
+    // EVERY PIECE IS HELD AT ITS OWN WIDTH. The row is a flex box, and once
+    // it is given a width a piece gives way by default: the headlines were
+    // squeezed and, never wrapping, printed over one another. Nothing here
+    // is clamped (the offline ruler measures nothing, so everything fits),
+    // so every piece must be held. The layout suite proves the cut one.
+    for (const kid of rows[0].children) {
+      assert(/\bflex-none\b/.test(kid.getAttribute('class') || ''),
+        'a piece of the row can be squeezed: ' + (kid.getAttribute('class') || ''));
+    }
   });
 
   test('one source is not named: the pills only say which paper when there are two', () => {
