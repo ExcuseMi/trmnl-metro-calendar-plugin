@@ -39,7 +39,7 @@ module.exports = function (test, h) {
     const stops = d.events.filter((e) => e.todo).map((e) => e.title).sort();
     const owed = (d.tasks || []).map((t) => t.title + (t.done ? ' (done)' : '') + (t.overdue ? ' (overdue)' : '')).sort();
     assert(stops.join(',') === 'Bins out,Homework', 'the stops: ' + stops.join(','));
-    assert(owed.join(' | ') === 'Mow the lawn | Library books (overdue)', 'what is owed: ' + owed.join(' | '));
+    assert(owed.join(' | ') === 'Library books (overdue) | Mow the lawn', 'what is owed: ' + owed.join(' | '));
     // done today keeps its stop and says so; done yesterday is gone; cancelled never was
     const done = d.events.filter((e) => e.todo && e.done).map((e) => e.title);
     assert(done.join(',') === 'Homework', 'ticked stops: ' + done.join(','));
