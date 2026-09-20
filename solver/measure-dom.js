@@ -106,17 +106,20 @@ function tiersAt(titleCls) {
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' },
              { kind: 'time', cls: TIME_CLS }], size: 1, rung: 0.95,
       clip: 0.5 },
-    // THE TIME IS NOT PRICED ABOVE TWO SIZES, AND HERE IS WHY IT CANNOT BE.
+    // THE TIME IS WORTH MORE THAN TWO SIZES, once drifting is priced.
     // Dropping it saves a whole ROW, so where the band is short it is the
-    // only form that fits and the rung never gets a say. Priced above two
-    // steps to force the issue, the caption search stopped dropping the
-    // time and started dropping its PLACE instead: "Team Standup" slid
-    // sixty-one pixels along its rail looking for room for the taller
-    // form, against a twelve pixel allowance (test/boards/cases/adrift.js,
-    // which says plainly that these were kept as failures rather than
-    // re-baselined). Measured: 1.1 holds, 1.2 drifts, and at 1.1 nothing
-    // changes. A name far from its own mark is worse than a name with no
-    // time under it, so the time row stays where it is.
+    // only form that fits and the rung never gets a say -- and where
+    // several fit it was cheaper than stepping down twice, so a late-night
+    // board came out with sixteen names and one time between them.
+    //
+    // Priced here ALONE this made things worse, not better: the search
+    // stopped dropping the time and started dropping the caption's PLACE
+    // instead, sliding "Team Standup" sixty-one pixels off its own event.
+    // That was not this number's fault. Drifting was costing about a
+    // hundred points against a rung at 18000 because `driftPrice` was
+    // wired to nothing (bands.js). With drift priced, this one pays for
+    // itself: the same board keeps all sixteen times and every name stays
+    // on its mark. The two numbers only work together.
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' }], size: 1, rung: 1 },
   ];
 }
@@ -169,7 +172,22 @@ var XL_TIERS = tiersAt('text--xlarge').concat(LARGE_TIERS.map(function (t) {
 var XL_PART_TIERS = partTiersAt('text--xlarge').concat(LARGE_PART_TIERS.map(function (t) {
   return Object.assign({}, t, { rung: t.rung + 0.8 });
 }));
-function tiersFor(large, parts, crowdLen, xl) {
+// A BOARD WITH DEPTH TO SPEND KEEPS ITS TIMES; A CRAMPED ONE DOES NOT ARGUE.
+//
+// Dropping the time row saves a whole ROW, so it is the form that fits when
+// nothing else does. Priced dearly it is the last thing a caption gives up --
+// which is right where there is room, and wrong where there is not: on seven
+// lines in four hundred and eighty pixels a caption CANNOT hold both rows, and
+// insisting only spends the second the search has (solver/cases.js 29, which
+// went from three shed to eleven on exactly that board). So the price is not a
+// constant: it is paid by boards that can afford it.
+function keepTime(ts) {
+  return ts.map(function (t) {
+    var only = t.rows && t.rows.length === 1 && t.rows[0].kind === 'title';
+    return only ? Object.assign({}, t, { rung: t.rung + 0.7 }) : t;
+  });
+}
+function tiersFor(large, parts, crowdLen, xl, roomy) {
   if (crowdLen > 1) {
     var out = [];
     (large ? LARGE_PART_TIERS : PART_TIERS).forEach(function (t) {
@@ -192,7 +210,8 @@ function tiersFor(large, parts, crowdLen, xl) {
   // bins came off the board altogether rather than being set a size down.
   // A list keeps the large tiers, which is the size it was designed at.
   if (parts) return large ? LARGE_PART_TIERS : PART_TIERS;
-  return xl ? XL_TIERS : large ? LARGE_TIERS : TIERS;
+  var ts = xl ? XL_TIERS : large ? LARGE_TIERS : TIERS;
+  return roomy ? keepTime(ts) : ts;
 }
 
 // Where a two-or-more word name folds: at the space that leaves the two
@@ -342,7 +361,7 @@ function domMeasure(doc, opts) {
   function measure(ev, o) {
     var title = ev.title || '';
     var forms = [];
-    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0, opts.xl).forEach(function (t) {
+    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0, opts.xl, opts.roomy).forEach(function (t) {
       var halves = t.fold ? foldTitle(title) : null;
       if (t.fold && (!halves || ev.stack)) return;
       var rows = stackRows(ev, t, halves, o && o.timeText);

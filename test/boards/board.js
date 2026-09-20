@@ -118,6 +118,11 @@ function specOf(metro, v, o, extra) {
   // the 800x480 the large tiers were chosen against (measure-dom).
   var measure = metrics.measure({ dev: o.dev, base: o.base, maxWidth: Math.round(o.along * 0.3), large: !v.slot,
                                   xl: !v.slot && o.along >= 950,
+                                  // ROOM PER LINE, which is what decides whether a
+                                  // caption can hold its time row at all (measure-dom
+                                  // `keepTime`): the map's depth shared out among the
+                                  // people on it.
+                                  roomy: o.across / Math.max(1, ((metro.legend || []).length)) >= 100,
                                   hour12: !!metro.hour12, clock: clockFor(metro) });
   var probe = measure.plain('Mg');
   // A NAME IN ITS OWN CLASS AS WELL AS THE TITLE'S, which is what the template

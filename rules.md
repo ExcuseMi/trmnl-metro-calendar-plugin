@@ -753,6 +753,17 @@ applies when something changes.
 
 34. **A caption belongs beside its own rail**, on the outside, starting at the
     stop it names.
+    ...AND IT IS PRICED AGAINST THE LADDER IT COMPETES WITH. Choosing a
+    caption's SHAPE and choosing its PLACE are one search, so the two have
+    to be priced in the same money. They were not: a form's rung cost
+    18000 and drifting off the event cost about a hundred points for sixty
+    pixels, so a caption would walk clean off the thing it names to save a
+    fifth of a rung -- and a crowded board would rather drop every time row
+    than widen a box by forty units. `driftPrice` existed for this and was
+    read by nothing. Wired, one number fixes both: a whole board of names
+    with no times gets them all back, and the names stay on their marks.
+    The balance is narrow enough to be measured rather than guessed (see
+    the note in bands.js).
 33e. **A line is named at BOTH ends, where there is room.** A transit map
     letters both termini; this board lettered only the head, so on a wide
     panel the far end of a line is a hand's span of paper away from the one

@@ -24,10 +24,12 @@ module.exports = function (test, h) {
 
   // (five lines on a quadrant have no row to spare: the tracks come first)
   // ...AND ONE ROW FEWER ON THE X THAN IT ONCE HELD. Its captions are a size
-  // larger (measure-dom's XL tiers), so a line wants more depth of map and
-  // the headlines give a row back to it. That is the order the board is
-  // asked to keep -- "we should show user content over alert and news at
-  // all times". The OG is unchanged: it never got the bigger type.
+  // larger (measure-dom's XL tiers) and, having the depth to afford it, they
+  // hold their time rows rather than give them up -- so a line wants more of
+  // the map and the headlines give a row back to it. That is the order the
+  // board is asked to keep: "we should show user content over alert and news
+  // at all times". Five lines on an OG have seventy units a line, which is
+  // not enough to argue about, so that board is unchanged.
   for (const [v, rows] of [['x-landscape', 2], ['og-landscape', 2], ['og-quadrant', 0]]) {
     test('the headlines take a band at the foot, ' + rows + ' row(s) on ' + v, () => {
       const built = build(withNews(), v);

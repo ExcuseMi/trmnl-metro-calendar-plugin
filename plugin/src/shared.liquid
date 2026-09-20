@@ -2160,6 +2160,13 @@ function readable(p, board, near) {
 // reader pairing the words with the right stop. Lower is better.
 
 var OVER_BAR = 1, LEFT_OF_MARK = 7000, RAIL_HALF = 3.5;
+// HOW DEARLY A CAPTION PAYS FOR LEAVING ITS EVENT. `spec.driftPrice` scaled
+// to the coefficient this function was written with: 12 is the 0.04 it always
+// used, and anything above that buys the caption's PLACE against the form
+// ladder it is competing with (bands.js prices a rung at 18000, so at 0.04 a
+// caption would wander sixty pixels to save a fifth of a rung).
+var DRIFT_K = 0.04;
+function setDrift(v) { DRIFT_K = (v != null && v > 0 ? v : 12) / 300; }
 function price(p) {
   var w = p.want;
   // HOW FAR THE WORDS ARE FROM THE STRETCH OF RAIL THAT IS THEIR EVENT.
@@ -2213,7 +2220,7 @@ function price(p) {
   // preference the search will spend anything on, only the answer to a tie,
   // and the answer the board this replaces gave -- the name over its mark,
   // read down onto the rail.
-  return along * 0.04 + Math.max(0, along - 6) * Math.max(0, along - 6) * 0.04
+  return along * DRIFT_K + Math.max(0, along - 6) * Math.max(0, along - 6) * DRIFT_K
        + off * off * 25 + Math.abs(p.slide) * 0.01 + (p.side > 0 ? 0.5 : 0) + (p.overBar ? OVER_BAR : 0)
        // WHOLLY BEHIND ITS OWN STOP, the last resort: "2 line the label and
        // move to the right". Priced past a folded name (a form's rung, see
@@ -2320,6 +2327,7 @@ function muddledAt(p, i, dots, minLift, cache) {
 }
 
 function solve(wants, board, opts) {
+  setDrift(opts && opts.driftPrice);
   opts = opts || {};
   var n = wants.length;
   var cache = opts.cache || null;
@@ -2741,7 +2749,7 @@ function apply(board, wants, sol) {
 }
 
 
-module.exports = { Want: Want, positions: positions, readable: readable,
+module.exports = { Want: Want, positions: positions, readable: readable, setDrift: setDrift,
                    price: price, solve: solve, apply: apply, posBox: posBox };
 
     return module.exports;
@@ -4691,7 +4699,7 @@ function boardCost(spec, b, sol) {
 }
 
 function trial(spec, b, st) {
-  var sol = C.solve(spec.wants, b, { iters: 0, minLift: spec.minLift, muddlePrice: spec.muddlePrice,
+  var sol = C.solve(spec.wants, b, { iters: 0, minLift: spec.minLift, muddlePrice: spec.muddlePrice, driftPrice: spec.driftPrice,
                                      cache: spec._cands });
   b.straddles = straddles(spec, b, st);
   b.edgeSlack = edgeSlack(st.gaps);
@@ -4875,7 +4883,7 @@ function solveBands(spec, opts) {
     // on the caption's own geometry (bands.js:1412), so filling it from here
     // changes nothing about what is returned, only how many times it is
     // recomputed.
-    var sol = C.solve(spec.wants, b, { iters: 0, minLift: spec.minLift, muddlePrice: spec.muddlePrice,
+    var sol = C.solve(spec.wants, b, { iters: 0, minLift: spec.minLift, muddlePrice: spec.muddlePrice, driftPrice: spec.driftPrice,
                                        cache: spec._cands });
     var bad = {};
     spec.wants.forEach(function (w, i) {
@@ -5233,7 +5241,29 @@ function solve(spec, opts) {
   spec.edgePrice = spec.edgePrice != null ? spec.edgePrice : 0.4;
   spec.bumpNear = spec.bumpNear != null ? spec.bumpNear : 60;
   spec.straddlePrice = spec.straddlePrice != null ? spec.straddlePrice : 1200;
-  spec.driftPrice = spec.driftPrice != null ? spec.driftPrice : 12;
+  // HOW DEARLY A CAPTION PAYS FOR LEAVING ITS EVENT, and it was a knob
+  // wired to nothing: set here, listed in two tables of tunables, and read
+  // by no line of code in the repository. The caption search meanwhile
+  // priced drift with a hardcoded coefficient worth about a hundred points
+  // for sixty pixels, against a form rung at 18000 -- so a caption would
+  // walk clean off the thing it names to save a fifth of a rung, and a
+  // board would rather drop every time row than widen a box.
+  //
+  // Wired (captions.js `setDrift`, and every place bands asks that file to
+  // place something), 12 reproduces the old coefficient exactly, so the
+  // number is calibrated against its own history.
+  //
+  // AND IT IS NOT ONE NUMBER, because no one number does. Measured across
+  // the whole range: at 12 "Team Standup" drifts sixty-one pixels on a
+  // two-day half; at 150 it does not, and seven lines in four hundred and
+  // eighty pixels then shed eleven captions inside their second instead of
+  // three; at 300 a seven-line portrait drifts as well. What separates the
+  // boards is not the panel but the DEPTH EACH LINE GETS: the half has a
+  // hundred and twenty units a line to argue in, the seven-line board has
+  // seventy and no argument worth having. So a board with room pays the
+  // full price for wandering, and a cramped one keeps the old one and its
+  // second. Re-measure rather than re-guess if the form ladder moves.
+  spec.driftPrice = spec.driftPrice != null ? spec.driftPrice : (spec.roomy ? 150 : 12);
   spec.stepPrice = spec.stepPrice != null ? spec.stepPrice : 0.15;
   // WHAT A STEP IS WORTH, and the ceiling is not a matter of taste.
   //
@@ -5282,7 +5312,7 @@ function solve(spec, opts) {
     var bb = boardFor(spec, cand.st);
     var co = {};
     Object.keys(opts || {}).forEach(function (k) { co[k] = opts[k]; });
-    co.minLift = spec.minLift; co.muddlePrice = spec.muddlePrice;
+    co.minLift = spec.minLift; co.muddlePrice = spec.muddlePrice; co.driftPrice = spec.driftPrice;
     var ss = C.solve(spec.wants, bb, co);
     C.apply(bb, spec.wants, ss);
     // Judged on what a reader gets: names not drawn first, then anything
@@ -6886,6 +6916,11 @@ function specFor(metro, view, opts) {
            // keep the hours above it (fixedFor puts the rail under both)
            skyH: skyH,
            nameGutter: tookGutter,
+           // HOW MUCH DEPTH EACH LINE HAS, which is what decides whether a
+           // caption can afford to hold its time row and whether the search
+           // can afford to argue about where a caption sits (measure-dom
+           // `keepTime`, bands `driftPrice`).
+           roomy: (cross.c1 - cross.c0) / Math.max(1, legendN) >= nameH0 * 4,
            regut: opts.nameRoom != null || opts.nameGutter ? null : function () {
              return specFor(asked, view, Object.assign({}, askedOpts, { nameGutter: true }));
            },
@@ -7519,17 +7554,20 @@ function tiersAt(titleCls) {
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' },
              { kind: 'time', cls: TIME_CLS }], size: 1, rung: 0.95,
       clip: 0.5 },
-    // THE TIME IS NOT PRICED ABOVE TWO SIZES, AND HERE IS WHY IT CANNOT BE.
+    // THE TIME IS WORTH MORE THAN TWO SIZES, once drifting is priced.
     // Dropping it saves a whole ROW, so where the band is short it is the
-    // only form that fits and the rung never gets a say. Priced above two
-    // steps to force the issue, the caption search stopped dropping the
-    // time and started dropping its PLACE instead: "Team Standup" slid
-    // sixty-one pixels along its rail looking for room for the taller
-    // form, against a twelve pixel allowance (test/boards/cases/adrift.js,
-    // which says plainly that these were kept as failures rather than
-    // re-baselined). Measured: 1.1 holds, 1.2 drifts, and at 1.1 nothing
-    // changes. A name far from its own mark is worse than a name with no
-    // time under it, so the time row stays where it is.
+    // only form that fits and the rung never gets a say -- and where
+    // several fit it was cheaper than stepping down twice, so a late-night
+    // board came out with sixteen names and one time between them.
+    //
+    // Priced here ALONE this made things worse, not better: the search
+    // stopped dropping the time and started dropping the caption's PLACE
+    // instead, sliding "Team Standup" sixty-one pixels off its own event.
+    // That was not this number's fault. Drifting was costing about a
+    // hundred points against a rung at 18000 because `driftPrice` was
+    // wired to nothing (bands.js). With drift priced, this one pays for
+    // itself: the same board keeps all sixteen times and every name stays
+    // on its mark. The two numbers only work together.
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' }], size: 1, rung: 1 },
   ];
 }
@@ -7582,7 +7620,22 @@ var XL_TIERS = tiersAt('text--xlarge').concat(LARGE_TIERS.map(function (t) {
 var XL_PART_TIERS = partTiersAt('text--xlarge').concat(LARGE_PART_TIERS.map(function (t) {
   return Object.assign({}, t, { rung: t.rung + 0.8 });
 }));
-function tiersFor(large, parts, crowdLen, xl) {
+// A BOARD WITH DEPTH TO SPEND KEEPS ITS TIMES; A CRAMPED ONE DOES NOT ARGUE.
+//
+// Dropping the time row saves a whole ROW, so it is the form that fits when
+// nothing else does. Priced dearly it is the last thing a caption gives up --
+// which is right where there is room, and wrong where there is not: on seven
+// lines in four hundred and eighty pixels a caption CANNOT hold both rows, and
+// insisting only spends the second the search has (solver/cases.js 29, which
+// went from three shed to eleven on exactly that board). So the price is not a
+// constant: it is paid by boards that can afford it.
+function keepTime(ts) {
+  return ts.map(function (t) {
+    var only = t.rows && t.rows.length === 1 && t.rows[0].kind === 'title';
+    return only ? Object.assign({}, t, { rung: t.rung + 0.7 }) : t;
+  });
+}
+function tiersFor(large, parts, crowdLen, xl, roomy) {
   if (crowdLen > 1) {
     var out = [];
     (large ? LARGE_PART_TIERS : PART_TIERS).forEach(function (t) {
@@ -7605,7 +7658,8 @@ function tiersFor(large, parts, crowdLen, xl) {
   // bins came off the board altogether rather than being set a size down.
   // A list keeps the large tiers, which is the size it was designed at.
   if (parts) return large ? LARGE_PART_TIERS : PART_TIERS;
-  return xl ? XL_TIERS : large ? LARGE_TIERS : TIERS;
+  var ts = xl ? XL_TIERS : large ? LARGE_TIERS : TIERS;
+  return roomy ? keepTime(ts) : ts;
 }
 
 // Where a two-or-more word name folds: at the space that leaves the two
@@ -7755,7 +7809,7 @@ function domMeasure(doc, opts) {
   function measure(ev, o) {
     var title = ev.title || '';
     var forms = [];
-    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0, opts.xl).forEach(function (t) {
+    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0, opts.xl, opts.roomy).forEach(function (t) {
       var halves = t.fold ? foldTitle(title) : null;
       if (t.fold && (!halves || ev.stack)) return;
       var rows = stackRows(ev, t, halves, o && o.timeText);
@@ -12816,7 +12870,10 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
       large: (canvas.getAttribute('data-metro-view') || '1') === '1',
       // ...and a size up again on a panel the size of the X, which is read
       // from further away than the board the large tiers were chosen on
-      xl: (canvas.getAttribute('data-metro-view') || '1') === '1' && along >= 950
+      xl: (canvas.getAttribute('data-metro-view') || '1') === '1' && along >= 950,
+      // room per line: the map's depth shared out among the people on it,
+      // which is what decides whether a caption can hold its time row
+      roomy: across / Math.max(1, ((METRO.legend || []).length)) >= 100
     });
     // HOW TALL A LINE'S NAME IS, IN THE FACE THIS PANEL HAS.
     //

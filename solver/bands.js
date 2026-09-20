@@ -1634,7 +1634,7 @@ function boardCost(spec, b, sol) {
 }
 
 function trial(spec, b, st) {
-  var sol = C.solve(spec.wants, b, { iters: 0, minLift: spec.minLift, muddlePrice: spec.muddlePrice,
+  var sol = C.solve(spec.wants, b, { iters: 0, minLift: spec.minLift, muddlePrice: spec.muddlePrice, driftPrice: spec.driftPrice,
                                      cache: spec._cands });
   b.straddles = straddles(spec, b, st);
   b.edgeSlack = edgeSlack(st.gaps);
@@ -1818,7 +1818,7 @@ function solveBands(spec, opts) {
     // on the caption's own geometry (bands.js:1412), so filling it from here
     // changes nothing about what is returned, only how many times it is
     // recomputed.
-    var sol = C.solve(spec.wants, b, { iters: 0, minLift: spec.minLift, muddlePrice: spec.muddlePrice,
+    var sol = C.solve(spec.wants, b, { iters: 0, minLift: spec.minLift, muddlePrice: spec.muddlePrice, driftPrice: spec.driftPrice,
                                        cache: spec._cands });
     var bad = {};
     spec.wants.forEach(function (w, i) {
@@ -2176,7 +2176,29 @@ function solve(spec, opts) {
   spec.edgePrice = spec.edgePrice != null ? spec.edgePrice : 0.4;
   spec.bumpNear = spec.bumpNear != null ? spec.bumpNear : 60;
   spec.straddlePrice = spec.straddlePrice != null ? spec.straddlePrice : 1200;
-  spec.driftPrice = spec.driftPrice != null ? spec.driftPrice : 12;
+  // HOW DEARLY A CAPTION PAYS FOR LEAVING ITS EVENT, and it was a knob
+  // wired to nothing: set here, listed in two tables of tunables, and read
+  // by no line of code in the repository. The caption search meanwhile
+  // priced drift with a hardcoded coefficient worth about a hundred points
+  // for sixty pixels, against a form rung at 18000 -- so a caption would
+  // walk clean off the thing it names to save a fifth of a rung, and a
+  // board would rather drop every time row than widen a box.
+  //
+  // Wired (captions.js `setDrift`, and every place bands asks that file to
+  // place something), 12 reproduces the old coefficient exactly, so the
+  // number is calibrated against its own history.
+  //
+  // AND IT IS NOT ONE NUMBER, because no one number does. Measured across
+  // the whole range: at 12 "Team Standup" drifts sixty-one pixels on a
+  // two-day half; at 150 it does not, and seven lines in four hundred and
+  // eighty pixels then shed eleven captions inside their second instead of
+  // three; at 300 a seven-line portrait drifts as well. What separates the
+  // boards is not the panel but the DEPTH EACH LINE GETS: the half has a
+  // hundred and twenty units a line to argue in, the seven-line board has
+  // seventy and no argument worth having. So a board with room pays the
+  // full price for wandering, and a cramped one keeps the old one and its
+  // second. Re-measure rather than re-guess if the form ladder moves.
+  spec.driftPrice = spec.driftPrice != null ? spec.driftPrice : (spec.roomy ? 150 : 12);
   spec.stepPrice = spec.stepPrice != null ? spec.stepPrice : 0.15;
   // WHAT A STEP IS WORTH, and the ceiling is not a matter of taste.
   //
@@ -2225,7 +2247,7 @@ function solve(spec, opts) {
     var bb = boardFor(spec, cand.st);
     var co = {};
     Object.keys(opts || {}).forEach(function (k) { co[k] = opts[k]; });
-    co.minLift = spec.minLift; co.muddlePrice = spec.muddlePrice;
+    co.minLift = spec.minLift; co.muddlePrice = spec.muddlePrice; co.driftPrice = spec.driftPrice;
     var ss = C.solve(spec.wants, bb, co);
     C.apply(bb, spec.wants, ss);
     // Judged on what a reader gets: names not drawn first, then anything
