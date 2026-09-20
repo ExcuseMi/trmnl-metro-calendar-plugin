@@ -1166,6 +1166,15 @@ function specFor(metro, view, opts) {
     // (tight where the column exists only for a connector: the rings stand
     // at the first minute and need no room in it)
     nameRoom = Math.round(widest + cell * (flatSlot ? 2.5 : 1));
+    // ...AND THE CLAMP FOLLOWS THE COLUMN THAT WAS CUT FOR IT. The column
+    // is measured from the whole names, so a name that fits it was still
+    // being cut to its initials by a clamp left at the narrow share: on a
+    // board that opens inside a shared event, a nine-letter name came out
+    // as a lone "C" beside three neighbours that kept their words. The
+    // column is the room, so it is also the limit -- up to the same share
+    // a name standing over its own rail gets, past which the column would
+    // be eating the day.
+    nameMax = Math.max(nameMax, Math.min(widest, Math.round((view.w - pad * 2) * NAME_SHARE_OVER)));
   }
   // ONE NAME A LINE ON A SMALLER VIEW: "quadrant shouldn't show the track
   // labels twice". Both ends is for a board read from across the room; a

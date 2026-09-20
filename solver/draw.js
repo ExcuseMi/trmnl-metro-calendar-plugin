@@ -290,6 +290,10 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // full ink (the dots need it), the railway line at 40, the beaded rail
   // at 70. The second time round the ladder starts one rung along.
   var TONES = [55, 100, 40, 70];
+  // what the framework's gray-65 comes to, for a renderer that has not
+  // loaded its variables (the offline ruler, a bare page)
+  var BAND_GREY = 'color-mix(in srgb, ' + INK + ' 20%, ' + PAPER + ')';
+  function tint(pct) { return 'color-mix(in srgb, ' + INK + ' ' + pct + '%, ' + PAPER + ')'; }
   var COLOURS = { r: '#ff0000', y: '#ffcc00', b: '#0033ff', g: '#00a000' };
   var palette = null;
   if (screenEl) {
@@ -727,8 +731,11 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     var sb0 = xy(0, skyBand[0]), sb1 = xy(horizontal ? W : H, skyBand[1]);
     var sbg = svgEl(doc, 'rect', { x: Math.min(sb0[0], sb1[0]), y: Math.min(sb0[1], sb1[1]),
       width: Math.abs(sb1[0] - sb0[0]), height: Math.abs(sb1[1] - sb0[1]),
-      stroke: 'none', 'fill-opacity': 0.04 });
-    sbg.style.fill = INK;
+      stroke: 'none' });
+    // (the framework's own faintest grey rather than a hint of ink at four
+    // per cent: an opacity is a wish, a grey is a value the panel has been
+    // given -- see the band by `bandW` above)
+    sbg.style.fill = 'var(--bg-gray-75-color, ' + tint(7) + ')';
     put(sbg, 'sky-band');
   }
   if (NIGHT_SHADE && spec.scale && spec.cross && spec.metro) {
@@ -1012,16 +1019,45 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     var ln = board.lineByKey(st.owners[0]);
     var from = Math.max(st.from, spec.metro.day_start_min), to = Math.min(st.to, spec.metro.day_end_min);
     if (!ln || !(to > from)) return;
-    var ba0 = spec.scale.at(from), ba1 = spec.scale.at(to), steps = 24, pts = [];
+    var bandW = NODE_R * 3.2;
+    var ba0 = spec.scale.at(from), ba1 = spec.scale.at(to), steps = 24, pts = [], edge0 = [], edge1 = [];
     for (var bi = 0; bi <= steps; bi++) {
       var ba = ba0 + (ba1 - ba0) * bi / steps, bc = ln.cAt(ba);
-      if (bc != null) pts.push(xy(ba, bc));
+      if (bc == null) continue;
+      pts.push(xy(ba, bc));
+      edge0.push(xy(ba, bc - bandW / 2));
+      edge1.push(xy(ba, bc + bandW / 2));
     }
     if (pts.length < 2) return;
-    var band = svgEl(doc, 'path', { d: 'M ' + pts.map(function (q) { return q[0] + ' ' + q[1]; }).join(' L '),
-      fill: 'none', 'stroke-width': NODE_R * 3.2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-      'stroke-opacity': 0.13 });
-    band.style.stroke = INK;
+    var dOf = function (qs) { return 'M ' + qs.map(function (q) { return q[0] + ' ' + q[1]; }).join(' L '); };
+    // AT ONE BIT A BAND IS ITS EDGES. There are no tones on that panel, so
+    // a grey is not a quieter mark, it is a mark the panel has to guess at
+    // -- and the guess is white, which is no band at all. Shape is the
+    // channel that survives (STYLEGUIDE 2), so the stretch is drawn as the
+    // two hairlines it runs between and the rail keeps the middle.
+    if (ONE_BIT) {
+      [edge0, edge1].forEach(function (eg) {
+        var ed = svgEl(doc, 'path', { d: dOf(eg), fill: 'none',
+          'stroke-width': Math.max(1.5 * S, 2), 'stroke-linecap': 'round' });
+        ed.style.stroke = INK;
+        // its own role: a band is one mark and this is two, and everything
+        // that counts bands counts them per ambient state
+        put(ed, 'band-edge', ln.key);
+      });
+      return;
+    }
+    var band = svgEl(doc, 'path', { d: dOf(pts),
+      fill: 'none', 'stroke-width': bandW, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+    // THE FRAMEWORK'S OWN GREY, NOT AN OPACITY ("never use opacity, use
+    // trmnl gray classes"). An opacity is a wish: the panel resolves it
+    // however it likes and at one bit that is arbitrary speckle. The
+    // framework's greys are built per depth -- a real tone where there are
+    // tones and a dither where there are not -- and they follow the theme,
+    // so dark mode needs nothing from here. At 0.13 of ink this band was a
+    // rumour anyway ("kantoor needs a darker shade of gray"); gray-65 is a
+    // band, and still well under the quiet rails' own tone, so the rail and
+    // its stops keep their contrast against it.
+    band.style.stroke = 'var(--bg-gray-65-color, ' + BAND_GREY + ')';
     put(band, 'band', ln.key);
   });
   // ...AND A GROUP EVENT IS THE SAME BAND, ON EVERY LINE IN IT (prototype).
@@ -1140,8 +1176,13 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           wipe._metroOwner = k;
           away.push(wipe);
           var quiet = svgEl(doc, 'path', { d: dMid, fill: 'none', 'stroke-width': wq,
-            'stroke-linecap': 'butt', 'stroke-linejoin': 'round', 'stroke-opacity': 0.42 });
-          quiet.style.stroke = inkOf(k);
+            'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
+          // ITS OWN TONE, MIXED, NOT ITS INK AT FORTY-TWO PER CENT. It is
+          // drawn on a paper wipe, so the two came out the same colour --
+          // but one of them is a value and the other is a wish the panel
+          // grants how it likes. Mixed, the rail keeps whichever rung of
+          // the ladder says which line it is, quieter.
+          quiet.style.stroke = 'color-mix(in srgb, ' + inkOf(k) + ' 42%, ' + PAPER + ')';
           quiet._metroOwner = k;
           away.push(quiet);
           var tq = treatment(tr.style, S, wq);
@@ -1809,7 +1850,15 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           put(wipe5, 'edge-clear', k5);
           // ...and never through a name set LEVEL with its rail, which is
           // what the column holds on a flat slot.
-          var eN = eBack && !nameLevel[k5] ? Math.max(3, Math.floor((eLane - eDr) / eGap)) : 3;
+          // ...AND NO DOTS ALONG THE RAIL ITSELF WHILE THE EVENT RUNS. They
+          // said the shared event was already going before the paper
+          // opened, in three marks, back when its branch arrived flat out
+          // of the edge and nothing else said it. The branch leaves the
+          // ring on a curve now (rails.js) and the ring stands at the
+          // minute: three dots strung along the member's own rail beside
+          // it are a fourth telling of the same thing, and they read as
+          // marks on the rail rather than as a lead into it.
+          var eN = 0;
           var eDir = eBack && !nameLevel[k5] ? -1 : 1;
           for (var d5 = 1; d5 <= eN; d5++) {
             var t5 = xy(pl.a + eDir * (eRingR + eGap * d5), c5);
@@ -1858,7 +1907,20 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         // above" fallback was written, measured at the same sixteen, and
         // dropped as a path nothing reaches.
         var shC = pl.c1 + shHalf + LINE_GAP + TUBE_W / 2;
-        if (shTo != null && shTo > pl.a + NODE_R * 3) {
+        // ...AND ONLY WHERE THE EVENT HAS NO BAR OF ITS OWN. This shelf
+        // exists for a shared event that is drawn as nothing but a tie:
+        // "delivery run doesn't have a shelf which it should". An event
+        // whose caption took its own branch already has one, and drawing
+        // both put two bars of the same length one above the other under
+        // the same name -- read, correctly, as one event drawn twice ("2
+        // shared lines for kermis"). A caption that hangs off this tie
+        // still carries `pill`; one that went its own way has let it go,
+        // which is the difference, and it is already in the model.
+        var shEv = /t$/.test(pl.id) ? pl.id.slice(0, -1) : null;
+        var shOwn = shEv && (board.caps || []).some(function (cp3) {
+          return cp3.id === shEv && !cp3.pill;
+        });
+        if (shTo != null && !shOwn && shTo > pl.a + NODE_R * 3) {
           var shClear = (board.caps || []).every(function (cp3) {
             var cb3 = cp3.box();
             return !(cb3.a0 < shTo + NODE_R && cb3.a1 > pl.a - NODE_R
@@ -2164,7 +2226,18 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         drop.style.stroke = inkOf(st.line);
         put(drop, 'edge-drop', st.line);
       }
-      if (offPaper) return;
+      // ONE MARK FOR ONE END, AND A RING IS THAT MARK. The half dot says the
+      // event was already running when the board opened; where the branch
+      // leaves a connector, the connector's ring stands on that very minute
+      // and says it, and the dot is drawn inside the ring over the initial
+      // -- the same reason the arrow and the slash give way to a ring
+      // (rule 55). Leaving flat off the paper's edge the two were never in
+      // the same place, which is why this only shows up now.
+      var inRing = (board.pills || []).some(function (pt) {
+        return pt.tie && own && own.branchOf && Math.abs(pt.a - st.a) < (spec.markR || 8) * 1.7
+          && (pt.lines || []).indexOf(own.branchOf) >= 0;
+      });
+      if (offPaper || inRing) return;
       var q = xy(st.a + 1, st.c);
       var dx = q[0] - p[0], dy = q[1] - p[1], len = Math.hypot(dx, dy) || 1;
       dx /= len; dy /= len;
@@ -3491,7 +3564,17 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       widths.push((spec.scale.at(pm + 60) - spec.scale.at(pm)) / 60);
     }
     widths.sort(function (p, q) { return p - q; });
-    var perMin = widths.length ? widths[Math.floor(widths.length / 2)] : 0;
+    // AT THE RATE THE ROOMIER HOURS RUN AT. The median was the day "as it
+    // mostly is", and on a board that reaches into tomorrow most of the
+    // hours are a compressed night: the median picked a night hour, the
+    // step came out at six, and a thirty-six hour rail carried three
+    // labels. The spacing rule below is what thins a compressed stretch --
+    // it drops any label closer to the last than a label is wide -- so the
+    // step should be chosen where there is ROOM and left to that rule where
+    // there is not. Three quarters of the way up rather than the widest
+    // hour, which is the lead in front of the first event and is nobody's
+    // idea of the day's rate.
+    var perMin = widths.length ? widths[Math.min(widths.length - 1, Math.floor(widths.length * 0.75))] : 0;
     if (!(perMin > 0)) perMin = (spec.scale.at(from + 60) - spec.scale.at(from)) / 60;
     var probe = html('metro-hour label' + STRIP_SM + ' text--bold text-stroke', ctx.clock(0));
     var room = (horizontal ? probe.offsetWidth : probe.offsetHeight) + 10 * S;

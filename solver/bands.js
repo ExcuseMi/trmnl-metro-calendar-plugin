@@ -472,8 +472,12 @@ function boardFor(spec, st) {
       spec.lines.forEach(function (q) { if (q.key === fromK) fromLn = q; });
       if (!fromLn || !fromLn._trunk) return;
       var tdist = Math.max(spec.minLift, Math.min(fromLn._room, spec.shelfDepth));
+      // (`atTie`: there is a connector at this minute, so a branch that
+      // starts before the paper still leaves the trunk here rather than
+      // arriving flat out of the edge -- see rails.js)
       var tb = R.branch(fromK + '/' + w.id, fromLn._trunk, w.a0, w.a1, tdist,
-                        down ? 1 : -1, spec.axis, spec.leadCap, 0, w.a0, 0);
+                        down ? 1 : -1, spec.axis, spec.leadCap, 0, w.a0, 0,
+                        spec.markR * 0.9, true);
       if (!tb) return;
       b.addLine({ key: tb.key, pts: tb.pts, width: ln.width, branchOf: fromK,
                   style: ln.style, ink: w.line });

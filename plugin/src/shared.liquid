@@ -1391,7 +1391,7 @@ function travel(moves, baseC, axis, room, minLift, leadCap, share) {
 // "Design Review", a forty-two unit slope and a twenty-five unit run for a
 // seventy-three unit event, ninety-two per cent of it spent arriving. What a
 // reader sees is the whole shape, so the whole shape is what is bounded.
-function branch(key, trunk, a0, a1, dist, dir, axis, leadCap, pre, floor, corner, chamfer) {
+function branch(key, trunk, a0, a1, dist, dir, axis, leadCap, pre, floor, corner, chamfer, atTie) {
   leadCap = leadCap == null ? 1e9 : leadCap;
   var lead = dist <= leadCap ? dist : 0;
   var run = Math.max(0, pre || 0);
@@ -1418,7 +1418,16 @@ function branch(key, trunk, a0, a1, dist, dir, axis, leadCap, pre, floor, corner
   // drop off the trunk at the edge: it arrives from off the paper at its own
   // depth, under the half dot (rule 2g). Two of them dropping at the edge
   // was one column with two rails in it.
-  if (a0 <= axis.a0 + 0.5 && trunk.cAt(axis.a0) != null) {
+  // ...UNLESS THERE IS A CONNECTOR THERE TO LEAVE FROM. The rule above is
+  // for a spur arriving out of nowhere at the paper's edge, where a drop
+  // off the trunk would be a drop off nothing and two of them were one
+  // column with two rails in it. A shared event's tie stands at that very
+  // minute: the branch has something to leave, so it leaves it, with the
+  // same chamfered departure every other branch on the board is built
+  // with. Drawn flat instead, the renderer had to invent a stub to join
+  // the two, and a hand-made square corner beside a board full of proper
+  // ones is exactly as out of place as it sounds.
+  if (!atTie && a0 <= axis.a0 + 0.5 && trunk.cAt(axis.a0) != null) {
     push(pts, axis.a0, shelfC);
     push(pts, a1, shelfC);
     return { key: key, pts: pts, shelfC: shelfC, dist: dist, dir: dir, flat: axis.a0 };
@@ -3520,8 +3529,12 @@ function boardFor(spec, st) {
       spec.lines.forEach(function (q) { if (q.key === fromK) fromLn = q; });
       if (!fromLn || !fromLn._trunk) return;
       var tdist = Math.max(spec.minLift, Math.min(fromLn._room, spec.shelfDepth));
+      // (`atTie`: there is a connector at this minute, so a branch that
+      // starts before the paper still leaves the trunk here rather than
+      // arriving flat out of the edge -- see rails.js)
       var tb = R.branch(fromK + '/' + w.id, fromLn._trunk, w.a0, w.a1, tdist,
-                        down ? 1 : -1, spec.axis, spec.leadCap, 0, w.a0, 0);
+                        down ? 1 : -1, spec.axis, spec.leadCap, 0, w.a0, 0,
+                        spec.markR * 0.9, true);
       if (!tb) return;
       b.addLine({ key: tb.key, pts: tb.pts, width: ln.width, branchOf: fromK,
                   style: ln.style, ink: w.line });
@@ -6592,6 +6605,15 @@ function specFor(metro, view, opts) {
     // (tight where the column exists only for a connector: the rings stand
     // at the first minute and need no room in it)
     nameRoom = Math.round(widest + cell * (flatSlot ? 2.5 : 1));
+    // ...AND THE CLAMP FOLLOWS THE COLUMN THAT WAS CUT FOR IT. The column
+    // is measured from the whole names, so a name that fits it was still
+    // being cut to its initials by a clamp left at the narrow share: on a
+    // board that opens inside a shared event, a nine-letter name came out
+    // as a lone "C" beside three neighbours that kept their words. The
+    // column is the room, so it is also the limit -- up to the same share
+    // a name standing over its own rail gets, past which the column would
+    // be eating the day.
+    nameMax = Math.max(nameMax, Math.min(widest, Math.round((view.w - pad * 2) * NAME_SHARE_OVER)));
   }
   // ONE NAME A LINE ON A SMALLER VIEW: "quadrant shouldn't show the track
   // labels twice". Both ends is for a board read from across the room; a
@@ -7482,12 +7504,32 @@ function tiersAt(titleCls) {
     // caption's width with an ellipsis, over its time -- worth more than the
     // name alone, because when is the half a reader cannot guess. Offered only
     // where it differs from the whole name.
+    // ...AND A CUT NAME COSTS MORE THAN A SIZE. A size down is 0.8 (see the
+    // large and xl tiers, which are the size above with every smaller form
+    // behind them at that penalty), so at 0.5 the ladder took the ellipsis
+    // rather than the step: with the titles raised on the X, "Kermis
+    // Vichte" came out as "Kermis Vi…" on a shelf that had room for the
+    // whole word one size smaller. A reader can read a smaller word; they
+    // cannot read the half that is not there. Priced above the step, the
+    // clip is what it should be -- the answer at the SMALLEST size, where
+    // there is no step left to take.
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' },
-             { kind: 'time', cls: TIME_CLS }], size: 1, rung: 0.5,
+             { kind: 'time', cls: TIME_CLS }], size: 1, rung: 0.85,
       clip: 0.75 },
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' },
-             { kind: 'time', cls: TIME_CLS }], size: 1, rung: 0.65,
+             { kind: 'time', cls: TIME_CLS }], size: 1, rung: 0.95,
       clip: 0.5 },
+    // THE TIME IS NOT PRICED ABOVE TWO SIZES, AND HERE IS WHY IT CANNOT BE.
+    // Dropping it saves a whole ROW, so where the band is short it is the
+    // only form that fits and the rung never gets a say. Priced above two
+    // steps to force the issue, the caption search stopped dropping the
+    // time and started dropping its PLACE instead: "Team Standup" slid
+    // sixty-one pixels along its rail looking for room for the taller
+    // form, against a twelve pixel allowance (test/boards/cases/adrift.js,
+    // which says plainly that these were kept as failures rather than
+    // re-baselined). Measured: 1.1 holds, 1.2 drifts, and at 1.1 nothing
+    // changes. A name far from its own mark is worse than a name with no
+    // time under it, so the time row stays where it is.
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' }], size: 1, rung: 1 },
   ];
 }
@@ -7527,7 +7569,20 @@ var LARGE_PART_TIERS = partTiersAt('text--large').concat(PART_TIERS.map(function
 // step poorer. With only "four, or three and more, or two and more" a list
 // of six stood at two rows with room under it for two more ("why not show 2
 // more lines").
-function tiersFor(large, parts, crowdLen) {
+// ...AND A SIZE LARGER AGAIN ON A PANEL THE SIZE OF THE X. `text--large` was
+// chosen against an 800x480 board; the X is 1040x780 CSS pixels of the same
+// layout and is read from further away, so the step that is generous there is
+// merely ordinary here ("these captions could be larger on the X"). Offered
+// first with every large form still behind it, exactly as the large tiers sit
+// in front of the base ones: a crowded board gives the size back before it
+// gives a caption up.
+var XL_TIERS = tiersAt('text--xlarge').concat(LARGE_TIERS.map(function (t) {
+  return Object.assign({}, t, { rung: t.rung + 0.8 });
+}));
+var XL_PART_TIERS = partTiersAt('text--xlarge').concat(LARGE_PART_TIERS.map(function (t) {
+  return Object.assign({}, t, { rung: t.rung + 0.8 });
+}));
+function tiersFor(large, parts, crowdLen, xl) {
   if (crowdLen > 1) {
     var out = [];
     (large ? LARGE_PART_TIERS : PART_TIERS).forEach(function (t) {
@@ -7544,8 +7599,13 @@ function tiersFor(large, parts, crowdLen) {
     });
     return out;
   }
+  // ...BUT NOT FOR A LIST OF NAMES. The step up is for a caption that is one
+  // name; several merged at a stop are already the densest thing the board
+  // sets, and at the bigger size not one of their forms fitted -- the four
+  // bins came off the board altogether rather than being set a size down.
+  // A list keeps the large tiers, which is the size it was designed at.
   if (parts) return large ? LARGE_PART_TIERS : PART_TIERS;
-  return large ? LARGE_TIERS : TIERS;
+  return xl ? XL_TIERS : large ? LARGE_TIERS : TIERS;
 }
 
 // Where a two-or-more word name folds: at the space that leaves the two
@@ -7695,7 +7755,7 @@ function domMeasure(doc, opts) {
   function measure(ev, o) {
     var title = ev.title || '';
     var forms = [];
-    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0).forEach(function (t) {
+    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0, opts.xl).forEach(function (t) {
       var halves = t.fold ? foldTitle(title) : null;
       if (t.fold && (!halves || ev.stack)) return;
       var rows = stackRows(ev, t, halves, o && o.timeText);
@@ -7764,7 +7824,7 @@ function domMeasure(doc, opts) {
   return measure;
 }
 
-module.exports = { domMeasure: domMeasure, stackRows: stackRows, titleRow: titleRow, timeText: timeText, RANGE_MIN: RANGE_MIN, TIERS: TIERS, LARGE_TIERS: LARGE_TIERS, tiersFor: tiersFor };
+module.exports = { domMeasure: domMeasure, stackRows: stackRows, titleRow: titleRow, timeText: timeText, RANGE_MIN: RANGE_MIN, TIERS: TIERS, LARGE_TIERS: LARGE_TIERS, XL_TIERS: XL_TIERS, tiersFor: tiersFor };
 
     return module.exports;
   })();
@@ -8574,6 +8634,10 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
   // full ink (the dots need it), the railway line at 40, the beaded rail
   // at 70. The second time round the ladder starts one rung along.
   var TONES = [55, 100, 40, 70];
+  // what the framework's gray-65 comes to, for a renderer that has not
+  // loaded its variables (the offline ruler, a bare page)
+  var BAND_GREY = 'color-mix(in srgb, ' + INK + ' 20%, ' + PAPER + ')';
+  function tint(pct) { return 'color-mix(in srgb, ' + INK + ' ' + pct + '%, ' + PAPER + ')'; }
   var COLOURS = { r: '#ff0000', y: '#ffcc00', b: '#0033ff', g: '#00a000' };
   var palette = null;
   if (screenEl) {
@@ -9011,8 +9075,11 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     var sb0 = xy(0, skyBand[0]), sb1 = xy(horizontal ? W : H, skyBand[1]);
     var sbg = svgEl(doc, 'rect', { x: Math.min(sb0[0], sb1[0]), y: Math.min(sb0[1], sb1[1]),
       width: Math.abs(sb1[0] - sb0[0]), height: Math.abs(sb1[1] - sb0[1]),
-      stroke: 'none', 'fill-opacity': 0.04 });
-    sbg.style.fill = INK;
+      stroke: 'none' });
+    // (the framework's own faintest grey rather than a hint of ink at four
+    // per cent: an opacity is a wish, a grey is a value the panel has been
+    // given -- see the band by `bandW` above)
+    sbg.style.fill = 'var(--bg-gray-75-color, ' + tint(7) + ')';
     put(sbg, 'sky-band');
   }
   if (NIGHT_SHADE && spec.scale && spec.cross && spec.metro) {
@@ -9296,16 +9363,45 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     var ln = board.lineByKey(st.owners[0]);
     var from = Math.max(st.from, spec.metro.day_start_min), to = Math.min(st.to, spec.metro.day_end_min);
     if (!ln || !(to > from)) return;
-    var ba0 = spec.scale.at(from), ba1 = spec.scale.at(to), steps = 24, pts = [];
+    var bandW = NODE_R * 3.2;
+    var ba0 = spec.scale.at(from), ba1 = spec.scale.at(to), steps = 24, pts = [], edge0 = [], edge1 = [];
     for (var bi = 0; bi <= steps; bi++) {
       var ba = ba0 + (ba1 - ba0) * bi / steps, bc = ln.cAt(ba);
-      if (bc != null) pts.push(xy(ba, bc));
+      if (bc == null) continue;
+      pts.push(xy(ba, bc));
+      edge0.push(xy(ba, bc - bandW / 2));
+      edge1.push(xy(ba, bc + bandW / 2));
     }
     if (pts.length < 2) return;
-    var band = svgEl(doc, 'path', { d: 'M ' + pts.map(function (q) { return q[0] + ' ' + q[1]; }).join(' L '),
-      fill: 'none', 'stroke-width': NODE_R * 3.2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-      'stroke-opacity': 0.13 });
-    band.style.stroke = INK;
+    var dOf = function (qs) { return 'M ' + qs.map(function (q) { return q[0] + ' ' + q[1]; }).join(' L '); };
+    // AT ONE BIT A BAND IS ITS EDGES. There are no tones on that panel, so
+    // a grey is not a quieter mark, it is a mark the panel has to guess at
+    // -- and the guess is white, which is no band at all. Shape is the
+    // channel that survives (STYLEGUIDE 2), so the stretch is drawn as the
+    // two hairlines it runs between and the rail keeps the middle.
+    if (ONE_BIT) {
+      [edge0, edge1].forEach(function (eg) {
+        var ed = svgEl(doc, 'path', { d: dOf(eg), fill: 'none',
+          'stroke-width': Math.max(1.5 * S, 2), 'stroke-linecap': 'round' });
+        ed.style.stroke = INK;
+        // its own role: a band is one mark and this is two, and everything
+        // that counts bands counts them per ambient state
+        put(ed, 'band-edge', ln.key);
+      });
+      return;
+    }
+    var band = svgEl(doc, 'path', { d: dOf(pts),
+      fill: 'none', 'stroke-width': bandW, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' });
+    // THE FRAMEWORK'S OWN GREY, NOT AN OPACITY ("never use opacity, use
+    // trmnl gray classes"). An opacity is a wish: the panel resolves it
+    // however it likes and at one bit that is arbitrary speckle. The
+    // framework's greys are built per depth -- a real tone where there are
+    // tones and a dither where there are not -- and they follow the theme,
+    // so dark mode needs nothing from here. At 0.13 of ink this band was a
+    // rumour anyway ("kantoor needs a darker shade of gray"); gray-65 is a
+    // band, and still well under the quiet rails' own tone, so the rail and
+    // its stops keep their contrast against it.
+    band.style.stroke = 'var(--bg-gray-65-color, ' + BAND_GREY + ')';
     put(band, 'band', ln.key);
   });
   // ...AND A GROUP EVENT IS THE SAME BAND, ON EVERY LINE IN IT (prototype).
@@ -9424,8 +9520,13 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           wipe._metroOwner = k;
           away.push(wipe);
           var quiet = svgEl(doc, 'path', { d: dMid, fill: 'none', 'stroke-width': wq,
-            'stroke-linecap': 'butt', 'stroke-linejoin': 'round', 'stroke-opacity': 0.42 });
-          quiet.style.stroke = inkOf(k);
+            'stroke-linecap': 'butt', 'stroke-linejoin': 'round' });
+          // ITS OWN TONE, MIXED, NOT ITS INK AT FORTY-TWO PER CENT. It is
+          // drawn on a paper wipe, so the two came out the same colour --
+          // but one of them is a value and the other is a wish the panel
+          // grants how it likes. Mixed, the rail keeps whichever rung of
+          // the ladder says which line it is, quieter.
+          quiet.style.stroke = 'color-mix(in srgb, ' + inkOf(k) + ' 42%, ' + PAPER + ')';
           quiet._metroOwner = k;
           away.push(quiet);
           var tq = treatment(tr.style, S, wq);
@@ -10093,7 +10194,15 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           put(wipe5, 'edge-clear', k5);
           // ...and never through a name set LEVEL with its rail, which is
           // what the column holds on a flat slot.
-          var eN = eBack && !nameLevel[k5] ? Math.max(3, Math.floor((eLane - eDr) / eGap)) : 3;
+          // ...AND NO DOTS ALONG THE RAIL ITSELF WHILE THE EVENT RUNS. They
+          // said the shared event was already going before the paper
+          // opened, in three marks, back when its branch arrived flat out
+          // of the edge and nothing else said it. The branch leaves the
+          // ring on a curve now (rails.js) and the ring stands at the
+          // minute: three dots strung along the member's own rail beside
+          // it are a fourth telling of the same thing, and they read as
+          // marks on the rail rather than as a lead into it.
+          var eN = 0;
           var eDir = eBack && !nameLevel[k5] ? -1 : 1;
           for (var d5 = 1; d5 <= eN; d5++) {
             var t5 = xy(pl.a + eDir * (eRingR + eGap * d5), c5);
@@ -10142,7 +10251,20 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         // above" fallback was written, measured at the same sixteen, and
         // dropped as a path nothing reaches.
         var shC = pl.c1 + shHalf + LINE_GAP + TUBE_W / 2;
-        if (shTo != null && shTo > pl.a + NODE_R * 3) {
+        // ...AND ONLY WHERE THE EVENT HAS NO BAR OF ITS OWN. This shelf
+        // exists for a shared event that is drawn as nothing but a tie:
+        // "delivery run doesn't have a shelf which it should". An event
+        // whose caption took its own branch already has one, and drawing
+        // both put two bars of the same length one above the other under
+        // the same name -- read, correctly, as one event drawn twice ("2
+        // shared lines for kermis"). A caption that hangs off this tie
+        // still carries `pill`; one that went its own way has let it go,
+        // which is the difference, and it is already in the model.
+        var shEv = /t$/.test(pl.id) ? pl.id.slice(0, -1) : null;
+        var shOwn = shEv && (board.caps || []).some(function (cp3) {
+          return cp3.id === shEv && !cp3.pill;
+        });
+        if (shTo != null && !shOwn && shTo > pl.a + NODE_R * 3) {
           var shClear = (board.caps || []).every(function (cp3) {
             var cb3 = cp3.box();
             return !(cb3.a0 < shTo + NODE_R && cb3.a1 > pl.a - NODE_R
@@ -10448,7 +10570,18 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         drop.style.stroke = inkOf(st.line);
         put(drop, 'edge-drop', st.line);
       }
-      if (offPaper) return;
+      // ONE MARK FOR ONE END, AND A RING IS THAT MARK. The half dot says the
+      // event was already running when the board opened; where the branch
+      // leaves a connector, the connector's ring stands on that very minute
+      // and says it, and the dot is drawn inside the ring over the initial
+      // -- the same reason the arrow and the slash give way to a ring
+      // (rule 55). Leaving flat off the paper's edge the two were never in
+      // the same place, which is why this only shows up now.
+      var inRing = (board.pills || []).some(function (pt) {
+        return pt.tie && own && own.branchOf && Math.abs(pt.a - st.a) < (spec.markR || 8) * 1.7
+          && (pt.lines || []).indexOf(own.branchOf) >= 0;
+      });
+      if (offPaper || inRing) return;
       var q = xy(st.a + 1, st.c);
       var dx = q[0] - p[0], dy = q[1] - p[1], len = Math.hypot(dx, dy) || 1;
       dx /= len; dy /= len;
@@ -11775,7 +11908,17 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       widths.push((spec.scale.at(pm + 60) - spec.scale.at(pm)) / 60);
     }
     widths.sort(function (p, q) { return p - q; });
-    var perMin = widths.length ? widths[Math.floor(widths.length / 2)] : 0;
+    // AT THE RATE THE ROOMIER HOURS RUN AT. The median was the day "as it
+    // mostly is", and on a board that reaches into tomorrow most of the
+    // hours are a compressed night: the median picked a night hour, the
+    // step came out at six, and a thirty-six hour rail carried three
+    // labels. The spacing rule below is what thins a compressed stretch --
+    // it drops any label closer to the last than a label is wide -- so the
+    // step should be chosen where there is ROOM and left to that rule where
+    // there is not. Three quarters of the way up rather than the widest
+    // hour, which is the lead in front of the first event and is nobody's
+    // idea of the day's rate.
+    var perMin = widths.length ? widths[Math.min(widths.length - 1, Math.floor(widths.length * 0.75))] : 0;
     if (!(perMin > 0)) perMin = (spec.scale.at(from + 60) - spec.scale.at(from)) / 60;
     var probe = html('metro-hour label' + STRIP_SM + ' text--bold text-stroke', ctx.clock(0));
     var room = (horizontal ? probe.offsetWidth : probe.offsetHeight) + 10 * S;
@@ -12670,7 +12813,10 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
       // caption ruled in the wrong font.
       root: canvas, maxWidth: Math.round(along * 0.3),
       // titles a size up where the panel is whole (1 is the full view)
-      large: (canvas.getAttribute('data-metro-view') || '1') === '1'
+      large: (canvas.getAttribute('data-metro-view') || '1') === '1',
+      // ...and a size up again on a panel the size of the X, which is read
+      // from further away than the board the large tiers were chosen on
+      xl: (canvas.getAttribute('data-metro-view') || '1') === '1' && along >= 950
     });
     // HOW TALL A LINE'S NAME IS, IN THE FACE THIS PANEL HAS.
     //

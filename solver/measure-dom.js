@@ -91,12 +91,32 @@ function tiersAt(titleCls) {
     // caption's width with an ellipsis, over its time -- worth more than the
     // name alone, because when is the half a reader cannot guess. Offered only
     // where it differs from the whole name.
+    // ...AND A CUT NAME COSTS MORE THAN A SIZE. A size down is 0.8 (see the
+    // large and xl tiers, which are the size above with every smaller form
+    // behind them at that penalty), so at 0.5 the ladder took the ellipsis
+    // rather than the step: with the titles raised on the X, "Kermis
+    // Vichte" came out as "Kermis Vi…" on a shelf that had room for the
+    // whole word one size smaller. A reader can read a smaller word; they
+    // cannot read the half that is not there. Priced above the step, the
+    // clip is what it should be -- the answer at the SMALLEST size, where
+    // there is no step left to take.
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' },
-             { kind: 'time', cls: TIME_CLS }], size: 1, rung: 0.5,
+             { kind: 'time', cls: TIME_CLS }], size: 1, rung: 0.85,
       clip: 0.75 },
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' },
-             { kind: 'time', cls: TIME_CLS }], size: 1, rung: 0.65,
+             { kind: 'time', cls: TIME_CLS }], size: 1, rung: 0.95,
       clip: 0.5 },
+    // THE TIME IS NOT PRICED ABOVE TWO SIZES, AND HERE IS WHY IT CANNOT BE.
+    // Dropping it saves a whole ROW, so where the band is short it is the
+    // only form that fits and the rung never gets a say. Priced above two
+    // steps to force the issue, the caption search stopped dropping the
+    // time and started dropping its PLACE instead: "Team Standup" slid
+    // sixty-one pixels along its rail looking for room for the taller
+    // form, against a twelve pixel allowance (test/boards/cases/adrift.js,
+    // which says plainly that these were kept as failures rather than
+    // re-baselined). Measured: 1.1 holds, 1.2 drifts, and at 1.1 nothing
+    // changes. A name far from its own mark is worse than a name with no
+    // time under it, so the time row stays where it is.
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' }], size: 1, rung: 1 },
   ];
 }
@@ -136,7 +156,20 @@ var LARGE_PART_TIERS = partTiersAt('text--large').concat(PART_TIERS.map(function
 // step poorer. With only "four, or three and more, or two and more" a list
 // of six stood at two rows with room under it for two more ("why not show 2
 // more lines").
-function tiersFor(large, parts, crowdLen) {
+// ...AND A SIZE LARGER AGAIN ON A PANEL THE SIZE OF THE X. `text--large` was
+// chosen against an 800x480 board; the X is 1040x780 CSS pixels of the same
+// layout and is read from further away, so the step that is generous there is
+// merely ordinary here ("these captions could be larger on the X"). Offered
+// first with every large form still behind it, exactly as the large tiers sit
+// in front of the base ones: a crowded board gives the size back before it
+// gives a caption up.
+var XL_TIERS = tiersAt('text--xlarge').concat(LARGE_TIERS.map(function (t) {
+  return Object.assign({}, t, { rung: t.rung + 0.8 });
+}));
+var XL_PART_TIERS = partTiersAt('text--xlarge').concat(LARGE_PART_TIERS.map(function (t) {
+  return Object.assign({}, t, { rung: t.rung + 0.8 });
+}));
+function tiersFor(large, parts, crowdLen, xl) {
   if (crowdLen > 1) {
     var out = [];
     (large ? LARGE_PART_TIERS : PART_TIERS).forEach(function (t) {
@@ -153,8 +186,13 @@ function tiersFor(large, parts, crowdLen) {
     });
     return out;
   }
+  // ...BUT NOT FOR A LIST OF NAMES. The step up is for a caption that is one
+  // name; several merged at a stop are already the densest thing the board
+  // sets, and at the bigger size not one of their forms fitted -- the four
+  // bins came off the board altogether rather than being set a size down.
+  // A list keeps the large tiers, which is the size it was designed at.
   if (parts) return large ? LARGE_PART_TIERS : PART_TIERS;
-  return large ? LARGE_TIERS : TIERS;
+  return xl ? XL_TIERS : large ? LARGE_TIERS : TIERS;
 }
 
 // Where a two-or-more word name folds: at the space that leaves the two
@@ -304,7 +342,7 @@ function domMeasure(doc, opts) {
   function measure(ev, o) {
     var title = ev.title || '';
     var forms = [];
-    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0).forEach(function (t) {
+    tiersFor(opts.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0, opts.xl).forEach(function (t) {
       var halves = t.fold ? foldTitle(title) : null;
       if (t.fold && (!halves || ev.stack)) return;
       var rows = stackRows(ev, t, halves, o && o.timeText);
@@ -373,4 +411,4 @@ function domMeasure(doc, opts) {
   return measure;
 }
 
-module.exports = { domMeasure: domMeasure, stackRows: stackRows, titleRow: titleRow, timeText: timeText, RANGE_MIN: RANGE_MIN, TIERS: TIERS, LARGE_TIERS: LARGE_TIERS, tiersFor: tiersFor };
+module.exports = { domMeasure: domMeasure, stackRows: stackRows, titleRow: titleRow, timeText: timeText, RANGE_MIN: RANGE_MIN, TIERS: TIERS, LARGE_TIERS: LARGE_TIERS, XL_TIERS: XL_TIERS, tiersFor: tiersFor };

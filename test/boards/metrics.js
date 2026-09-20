@@ -70,6 +70,11 @@ function measure(o) {
   function tableFor(cls) {
     if (/metro-time-tag/.test(cls)) return dev.time;
     if (/text--small/.test(cls)) return dev.small;
+    // BEFORE the large test, and not merely because it is more specific:
+    // "text--xlarge" does not contain "text--large", so an unrecognised
+    // xlarge fell all the way through to the base table and the ruler
+    // measured the biggest captions as the smallest ones.
+    if (/text--xlarge/.test(cls)) return dev.xlarge || dev.large;
     if (/text--large/.test(cls)) return dev.large;
     return dev.title;
   }
@@ -96,7 +101,7 @@ function measure(o) {
   function fn(ev) {
     var title = ev.title || '';
     var forms = [];
-    MD.tiersFor(o.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0).forEach(function (t) {
+    MD.tiersFor(o.large, !!(ev.parts && ev.parts.length > 1), ev.crowd ? ev.crowd.length : 0, o.xl).forEach(function (t) {
       var halves = t.fold ? foldTitle(title) : null;
       if (t.fold && (!halves || ev.stack)) return;
       var rows = MD.stackRows(ev, t, halves, function (part) { return part.start_min != null ? timeText(part) : null; });
