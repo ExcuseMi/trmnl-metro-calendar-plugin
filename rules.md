@@ -347,7 +347,14 @@ applies when something changes.
    moment several people share hangs its name off the bar, with no branch,
    and never joins a stack; a name hung off a shared event's bar keeps room
    past its rings for a short leader, straight onto the first row or square
-   into its end. A task (VTODO) is drawn with a square: its stop, and the
+   into its end. A shared event that LASTS hangs its name off its owner's
+   rail on a branch, whatever its length, with every member ticked where it
+   ends: two events the same four people were at, two hours and three, were
+   drawn two different ways because three hours was the line between brief
+   and spanned ("why doesn't the second one have its own branch, or
+   continue the first one?"). On a
+   slot, where that branch would cost a rail somebody else is using, the
+   long one hangs off the bar as before. A task (VTODO) is drawn with a square: its stop, and the
    rings of a shared one. A leader never passes through a ring.
 2c. **Each day names itself on the hour strip, and the strip is the
    header, and the strip is a line.** The day the board is on is a panel in

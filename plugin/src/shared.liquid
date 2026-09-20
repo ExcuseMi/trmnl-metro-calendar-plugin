@@ -5904,7 +5904,19 @@ function wantsFrom(metro, scale, measure, opts) {
         // have ("the little branch ends in a clumsy box"). Its name hangs off
         // the bar like a long one's.
         var moment = !ev.stack && !(ev.end_min > ev.start_min);
-        wants.push(spanned || moment
+        // ONE DRAWING FOR A SHARED EVENT, WHATEVER ITS LENGTH ("why doesn't
+        // Kermis Vichte have its own branch, or continue the Zwemmen
+        // one?"): two events the same four people were at, two hours and
+        // three, were drawn two different ways because three hours is the
+        // line between brief and spanned. Both hang their name off the
+        // owner's rail on a branch now, with every member ticked where it
+        // ends, so the pair reads as a pair. Not on a slot, where the
+        // branch costs a rail somebody else was using.
+        // A MOMENT HANGS OFF THE BAR, and so does a long one where the
+        // branch would cost a slot a rail somebody else is using; anything
+        // else hangs off its owner's rail on a branch.
+        var onBar = moment || (spanned && opts && opts.tiny);
+        wants.push(onBar
           ? new C.Want({ id: id, text: ev.title, pill: id + 't',
                          open0: open0, open1: open1, a0: a0, a1: a0, forms: forms })
           : new C.Want({ id: id, text: ev.stack ? ev.stack[0].title : ev.title, line: ev.owner,
@@ -6679,6 +6691,10 @@ function specFor(metro, view, opts) {
   if (newsIn) {
     var newsMax = newsIn.fit ? 1 : Math.max(1, Math.min(5, newsIn.max || 3));
     newsRows = Math.min(newsIn.items.length, tiny ? 1 : view.h >= 600 ? newsMax : Math.min(newsMax, 2));
+    // ...AND THE TASKS TAKE THEIR ROW FROM THE NEWS, not from the map ("the
+    // news should drop"): what the household owes outranks what the world
+    // is doing, and a box that grew a row for each cost the map its depth.
+    newsRows = Math.max(0, newsRows - taskRows);
   }
   function footHeight(nr, tr) {
     var t = tr == null ? taskRows : tr;
@@ -6703,7 +6719,7 @@ function specFor(metro, view, opts) {
                 c1: view.h - (opts.standing || !newsH ? pad : newsH) };
   if (opts.standing && newsH) { axis.a1 -= newsH; if (axis.edge1 != null) axis.edge1 -= newsH; }
   opts = Object.assign({}, opts, { showWeather: wantWx, stripH: stripH, richWx: richWx, levelNames: levelNames,
-                                   skyH: skyH, sky: skyMarks, rain: rainSpans, railRow: railRow });
+                                   skyH: skyH, sky: skyMarks, rain: rainSpans, railRow: railRow, tiny: tiny });
   var scale = scaleFor({ from: metro.day_start_min, to: metro.day_end_min,
                          a0: axis.a0, a1: axis.a1,
                          // Off by asking, so a caller that wants the plain
@@ -12043,6 +12059,32 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       trow.className = 'metro-gen metro-news-row metro-task-row flex flex--row flex--center-y gap--small absolute';
       nb.appendChild(trow);
       var tParts = [];
+      // WHOSE IT IS, IN FRONT OF IT ("it doesn't say who the task is for"):
+      // the owner's letter in a solid pill, the way the next-up card names
+      // who is at a thing; a chore the whole household owes says so in a
+      // word instead of spelling out every letter.
+      var legendN2 = ((spec.metro && spec.metro.legend) || []).length;
+      var i18n2 = (spec.metro && spec.metro.i18n) || {};
+      function ownerPills(t) {
+        var ks = (t.owners || []).filter(function (k, i, all) { return all.indexOf(k) === i; });
+        if (!ks.length) return [];
+        if (legendN2 > 1 && ks.length === legendN2 && i18n2.everyone) {
+          var all1 = doc.createElement('span');
+          all1.className = 'metro-pill metro-task-who label label--small text--bold';
+          all1.style.setProperty('--metro-pill-x', Math.round(3 * S) + 'px');
+          all1.style.setProperty('--metro-pill-y', '1px');
+          all1.textContent = i18n2.everyone;
+          return [all1];
+        }
+        return ks.map(function (k) {
+          var who = doc.createElement('span');
+          who.className = 'metro-pill metro-task-who label label--small text--bold';
+          who.style.setProperty('--metro-pill-x', Math.round(3 * S) + 'px');
+          who.style.setProperty('--metro-pill-y', '1px');
+          who.textContent = initials[k] || String(k).charAt(0).toUpperCase();
+          return who;
+        });
+      }
       (newsSpec.tasks || []).forEach(function (t, ti) {
         var group = [];
         if (ti) {
@@ -12052,6 +12094,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           group.push(tsep);
         }
         group.push(tickBox(t.done));
+        ownerPills(t).forEach(function (n) { group.push(n); });
         var ttx = doc.createElement('span');
         ttx.className = 'metro-hour label' + nbSM + ' text--bold' + (t.done ? ' metro-task-done' + QUIET : '');
         ttx.textContent = t.title;

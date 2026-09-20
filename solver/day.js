@@ -535,7 +535,19 @@ function wantsFrom(metro, scale, measure, opts) {
         // have ("the little branch ends in a clumsy box"). Its name hangs off
         // the bar like a long one's.
         var moment = !ev.stack && !(ev.end_min > ev.start_min);
-        wants.push(spanned || moment
+        // ONE DRAWING FOR A SHARED EVENT, WHATEVER ITS LENGTH ("why
+        // doesn't the second one have its own branch, or continue the
+        // first one?"): two events the same four people were at, two hours and
+        // three, were drawn two different ways because three hours is the
+        // line between brief and spanned. Both hang their name off the
+        // owner's rail on a branch now, with every member ticked where it
+        // ends, so the pair reads as a pair. Not on a slot, where the
+        // branch costs a rail somebody else was using.
+        // A MOMENT HANGS OFF THE BAR, and so does a long one where the
+        // branch would cost a slot a rail somebody else is using; anything
+        // else hangs off its owner's rail on a branch.
+        var onBar = moment || (spanned && opts && opts.tiny);
+        wants.push(onBar
           ? new C.Want({ id: id, text: ev.title, pill: id + 't',
                          open0: open0, open1: open1, a0: a0, a1: a0, forms: forms })
           : new C.Want({ id: id, text: ev.stack ? ev.stack[0].title : ev.title, line: ev.owner,
@@ -1310,6 +1322,10 @@ function specFor(metro, view, opts) {
   if (newsIn) {
     var newsMax = newsIn.fit ? 1 : Math.max(1, Math.min(5, newsIn.max || 3));
     newsRows = Math.min(newsIn.items.length, tiny ? 1 : view.h >= 600 ? newsMax : Math.min(newsMax, 2));
+    // ...AND THE TASKS TAKE THEIR ROW FROM THE NEWS, not from the map ("the
+    // news should drop"): what the household owes outranks what the world
+    // is doing, and a box that grew a row for each cost the map its depth.
+    newsRows = Math.max(0, newsRows - taskRows);
   }
   function footHeight(nr, tr) {
     var t = tr == null ? taskRows : tr;
@@ -1334,7 +1350,7 @@ function specFor(metro, view, opts) {
                 c1: view.h - (opts.standing || !newsH ? pad : newsH) };
   if (opts.standing && newsH) { axis.a1 -= newsH; if (axis.edge1 != null) axis.edge1 -= newsH; }
   opts = Object.assign({}, opts, { showWeather: wantWx, stripH: stripH, richWx: richWx, levelNames: levelNames,
-                                   skyH: skyH, sky: skyMarks, rain: rainSpans, railRow: railRow });
+                                   skyH: skyH, sky: skyMarks, rain: rainSpans, railRow: railRow, tiny: tiny });
   var scale = scaleFor({ from: metro.day_start_min, to: metro.day_end_min,
                          a0: axis.a0, a1: axis.a1,
                          // Off by asking, so a caller that wants the plain
