@@ -228,3 +228,7 @@ image.png
 
 # working notes for the performance loop (not part of the plugin)
 track.md
+
+# style references, for looking at while drawing (see style/README.md)
+style/*
+!style/README.md

@@ -1292,6 +1292,17 @@ function specFor(metro, view, opts) {
   });
   rainSpans = rainSpans.map(function (r) { return [Math.max(W0, r[0]), Math.min(W1, r[1])]; })
     .filter(function (r) { return r[1] - r[0] >= 30; });
+  // ...AND WHERE THE DROPS FALL, THE GLYPHS THAT SAID SO GO ("the raincloud
+  // and the sun aren't really needed as beginning and end of the rain
+  // period, the droplets indicate the same"): the trail already says when it
+  // starts and when it stops. A rain mark whose stretch was too short to
+  // draw keeps its glyph, since then nothing else says it.
+  skyMarks = skyMarks.filter(function (w) {
+    if (w.kind !== 'rain_starts' && w.kind !== 'rain_stops') return true;
+    return !rainSpans.some(function (r) {
+      return Math.abs(r[0] - w.at_min) < 1 || Math.abs(r[1] - w.at_min) < 1;
+    });
+  });
   skyMarks.sort(function (p, q) { return p.at_min - q.at_min; });
   // THE ROW IS THE WEATHER'S. A moon and a sunset alone do not buy a row
   // across the whole board: it cost an evening board the times under every
@@ -1337,7 +1348,11 @@ function specFor(metro, view, opts) {
   }
   function footHeight(nr, tr) {
     var t = tr == null ? taskRows : tr;
-    return (footAlert || nr || t) ? Math.round(footAlert * rowH0 * 2.3 + (nr + t) * rowH0 * 1.25 + 8) : 0;
+    // (a row of the box is set in the alert's own type now, so it is
+    // deeper than a row of small print was -- but only just: set to the
+    // old spacing as well the rows stood far apart, "too much of a gap
+    // between the lines")
+    return (footAlert || nr || t) ? Math.round(footAlert * rowH0 * 1.9 + (nr + t) * rowH0 * 1.45 + 6) : 0;
   }
   // THE TRACKS COME FIRST ("does the calendar tracks always come first?"):
   // the headlines give up rows until every line keeps two and a half
@@ -1385,6 +1400,9 @@ function specFor(metro, view, opts) {
            // board with it, which is how the decision is made (see fit.js):
            // solve, look at where the names landed, and buy the column only
            // for a board whose names could not stay at the edge without it.
+           // how deep the sky row inside the strip is, so the drawing can
+           // keep the hours above it (fixedFor puts the rail under both)
+           skyH: skyH,
            nameGutter: tookGutter,
            regut: opts.nameRoom != null || opts.nameGutter ? null : function () {
              return specFor(asked, view, Object.assign({}, askedOpts, { nameGutter: true }));
@@ -1715,17 +1733,28 @@ function fixedFor(metro, scale, axis, cross, opts) {
     var owed = ((opts && opts.tasks) || []).filter(function (tk) {
       return (tk.owners || []).indexOf(p.key) >= 0;
     });
-    var boxW = Math.round(cell * 1.5);
+    // As wide as the longest of them really is, with a hair for the face
+    // the ruler cannot know, and never more than a fifth of the day: the
+    // words are clamped to this, so a booking that runs short cuts a chore
+    // nobody asked it to cut.
+    var boxW = Math.round(cell * 1.5), owedCap = Math.round((axis.a1 - axis.a0) * 0.2);
     var owedW = owed.reduce(function (acc, tk) {
-      return Math.max(acc, boxW + routeWidth(tk.title));
+      return Math.max(acc, Math.min(owedCap, boxW + Math.round(routeWidth(tk.title) * 1.3) + cell));
     }, 0);
     out.push({ id: 'name0:' + p.key, kind: 'terminus', line: p.key, text: t, level: lv,
                route: routes[0], routeLines: routeLines, nameMax: isFinite(nameMax) ? nameMax : null,
-               tasks: owed.length ? owed : null,
-               rows: (routeLines ? 1 + routeLines.length : 1) + owed.length,
+               rows: routeLines ? 1 + routeLines.length : 1,
                nameW: w + NAME_CLEAR, routeW: rw,
-               at: axis.a0, a0: head, a1: head + Math.max(w, rw, owedW) + NAME_CLEAR,
+               at: axis.a0, a0: head, a1: head + Math.max(w, rw) + NAME_CLEAR,
                c0: 0, c1: 0 });
+    // ...AND WHAT IS OWED IN ITS OWN BOX, across the rail from the name
+    // (bands.js puts it on the other side): the name keeps the place it
+    // always had.
+    if (owed.length) {
+      out.push({ id: 'task:' + p.key, kind: 'terminus', line: p.key, text: '', level: lv,
+                 tasks: owed, rows: owed.length, nameW: owedW + NAME_CLEAR,
+                 at: axis.a0, a0: head, a1: head + owedW + NAME_CLEAR, c0: 0, c1: 0 });
+    }
   });
 
   // THE BAND'S NAME, at the start of the hours it covers: a desk booking is

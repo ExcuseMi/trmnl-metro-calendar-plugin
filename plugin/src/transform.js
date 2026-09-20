@@ -2300,7 +2300,8 @@ async function fetchFeedText(url, deadline, headers) {
 // hands out shades down a ladder, by the legend's order: the first person
 // solid black, then dotted, dashed, beaded... A day on which somebody was
 // dropped, or the feeds answered in another order, restyled everybody, and
-// a board the household had learned to read overnight said Kato was Ward.
+// a board the household had learned to read overnight said one person
+// was another.
 // Each person is given a RUNG once, kept in the saved state by name, and
 // keeps it as long as they are on the board ("as long the tracks didn't
 // change, reuse the once assigned track styles"). Somebody new takes the

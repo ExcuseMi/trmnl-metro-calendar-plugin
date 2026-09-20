@@ -934,6 +934,15 @@ function boardFor(spec, st) {
       // goes under its rail, and the next line's name above ITS rail was set
       // into the same gap, the two eased apart onto both rails: "Jordan" on
       // his own line.
+      // WHAT IS OWED GOES ACROSS THE RAIL FROM THE NAME ("if the track
+      // label is above the track, the todo's could be below the track"):
+      // the name keeps the side it always had, and the tick boxes take the
+      // other one rather than stacking beyond it.
+      var mate = null;
+      b.fixed.forEach(function (g) {
+        if (g.kind !== 'terminus' || g.line !== fx.line || Math.abs((g.at == null ? spec.axis.a1 : g.at) - atA) > 1) return;
+        if (!!g.tasks !== !!fx.tasks) mate = g;
+      });
       b.fixed.forEach(function (g) {
         if (g.kind !== 'terminus' || g.line === fx.line || Math.abs((g.at == null ? spec.axis.a1 : g.at) - atA) > 1) return;
         if (!(g.a0 < f.a1 && f.a0 < g.a1)) return;
@@ -982,6 +991,12 @@ function boardFor(spec, st) {
       // WHERE NEITHER FITS, the side it overlaps less, and not through a branch.
       var overAbove = Math.max(0, Math.max(b.cross.c0, prevC) - (c - lift - nh)) + (hitAbove ? 1e3 : 0);
       var overBelow = Math.max(0, (c + lift + nh) - Math.min(b.cross.c1, nextC)) + (hitBelow ? 1e3 : 0);
+      if (mate) {
+        // (the one already placed says which side is left)
+        var mateAbove = mate.c1 <= c + 0.5;
+        if (mateAbove && c + lift + nh <= b.cross.c1) { fitsAbove = false; fitsBelow = true; }
+        else if (!mateAbove && c - lift - nh >= b.cross.c0) { fitsAbove = true; fitsBelow = false; }
+      }
       if (fitsAbove || (!fitsBelow && overAbove <= overBelow && c - lift - nh >= b.cross.c0)) {
         f.c1 = c - lift; f.c0 = f.c1 - nh;
       } else {
