@@ -16,7 +16,7 @@ module.exports = function (test, h) {
       .concat(lines || []).concat(['END:VTODO']).join('\r\n');
   }
   const FEED = 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\n' + [
-    todo('Gras maaien'),                                                   // no due date at all
+    todo('Mow the lawn'),                                                   // no due date at all
     todo('Bins out', ['DUE:20260915T170000Z']),                            // due later today
     todo('Library books', ['DUE:20260914T170000Z']),                       // still owed from yesterday
     todo('Homework', ['DUE:20260915T060000Z', 'STATUS:COMPLETED', 'COMPLETED:20260915T063000Z']),
@@ -39,7 +39,7 @@ module.exports = function (test, h) {
     const stops = d.events.filter((e) => e.todo).map((e) => e.title).sort();
     const owed = (d.tasks || []).map((t) => t.title + (t.done ? ' (done)' : '') + (t.overdue ? ' (overdue)' : '')).sort();
     assert(stops.join(',') === 'Bins out,Homework', 'the stops: ' + stops.join(','));
-    assert(owed.join(' | ') === 'Gras maaien | Library books (overdue)', 'what is owed: ' + owed.join(' | '));
+    assert(owed.join(' | ') === 'Mow the lawn | Library books (overdue)', 'what is owed: ' + owed.join(' | '));
     // done today keeps its stop and says so; done yesterday is gone; cancelled never was
     const done = d.events.filter((e) => e.todo && e.done).map((e) => e.title);
     assert(done.join(',') === 'Homework', 'ticked stops: ' + done.join(','));

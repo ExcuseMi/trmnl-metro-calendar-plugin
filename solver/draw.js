@@ -3957,6 +3957,32 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       trow.className = 'metro-gen metro-news-row metro-task-row flex flex--row flex--center-y gap--small absolute';
       nb.appendChild(trow);
       var tParts = [];
+      // WHOSE IT IS, IN FRONT OF IT ("it doesn't say who the task is for"):
+      // the owner's letter in a solid pill, the way the next-up card names
+      // who is at a thing; a chore the whole household owes says so in a
+      // word instead of spelling out every letter.
+      var legendN2 = ((spec.metro && spec.metro.legend) || []).length;
+      var i18n2 = (spec.metro && spec.metro.i18n) || {};
+      function ownerPills(t) {
+        var ks = (t.owners || []).filter(function (k, i, all) { return all.indexOf(k) === i; });
+        if (!ks.length) return [];
+        if (legendN2 > 1 && ks.length === legendN2 && i18n2.everyone) {
+          var all1 = doc.createElement('span');
+          all1.className = 'metro-pill metro-task-who label label--small text--bold';
+          all1.style.setProperty('--metro-pill-x', Math.round(3 * S) + 'px');
+          all1.style.setProperty('--metro-pill-y', '1px');
+          all1.textContent = i18n2.everyone;
+          return [all1];
+        }
+        return ks.map(function (k) {
+          var who = doc.createElement('span');
+          who.className = 'metro-pill metro-task-who label label--small text--bold';
+          who.style.setProperty('--metro-pill-x', Math.round(3 * S) + 'px');
+          who.style.setProperty('--metro-pill-y', '1px');
+          who.textContent = initials[k] || String(k).charAt(0).toUpperCase();
+          return who;
+        });
+      }
       (newsSpec.tasks || []).forEach(function (t, ti) {
         var group = [];
         if (ti) {
@@ -3966,6 +3992,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           group.push(tsep);
         }
         group.push(tickBox(t.done));
+        ownerPills(t).forEach(function (n) { group.push(n); });
         var ttx = doc.createElement('span');
         ttx.className = 'metro-hour label' + nbSM + ' text--bold' + (t.done ? ' metro-task-done' + QUIET : '');
         ttx.textContent = t.title;
