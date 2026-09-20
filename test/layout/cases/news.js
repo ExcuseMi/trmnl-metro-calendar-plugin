@@ -45,6 +45,32 @@ module.exports = function (test, h) {
     }
   });
 
+  test('only the cut headline gives way: no headline is printed over the one beside it', () => {
+    // Giving the row its width made it a flex box narrower than its words,
+    // and every piece gave way rather than only the clamped one. These
+    // never wrap, so the first headline's words ran across the second's
+    // and the two were printed on top of each other, which the row's own
+    // box and its run-together text cannot show.
+    for (const v of VIEWS) {
+      const rep = layout(busy, v, { news: news(['Het Nieuwsblad']) });
+      const row = rowOf(rep);
+      assert(row, v.name + ': no headline row');
+      assert(row.parts && row.parts.length >= 2, v.name + ': the row reported no pieces');
+      const cut = row.parts.filter((p) => p.clamp);
+      assert(cut.length <= 1, v.name + ': ' + cut.length + ' headlines were told to clamp');
+      for (const p of row.parts) {
+        if (p.clamp) continue;
+        assert(!p.over, v.name + ': "' + p.text.slice(0, 40) + '" is squeezed '
+          + Math.round(p.w) + 'px wide and prints over what is beside it');
+      }
+      // ...and the pieces still range one after another, left to right
+      for (let i = 1; i < row.parts.length; i++) {
+        const a = row.parts[i - 1], b = row.parts[i];
+        assert(b.x >= a.x + a.w - 0.5, v.name + ': piece ' + i + ' starts before the one before it ends');
+      }
+    }
+  });
+
   test('two sources on the clamped row are named by their pills, in front of their headlines', () => {
     const rep = layout(busy, VIEWS[1], { news: news(['Het Nieuwsblad', 'De Wilgenhoek']) });
     const row = rowOf(rep);

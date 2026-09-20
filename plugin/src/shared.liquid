@@ -12160,11 +12160,20 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // paper. The parts are added one at a time instead, and the first one
     // that does not fit is given the room that is left and told to clamp
     // itself; what comes after it is dropped.
+    // ONLY THE CUT ONE GIVES WAY. Giving the row its width made it a flex
+    // box narrower than its words, and a flex child gives way by default:
+    // every headline was squeezed, and `.metro-hour` never wraps, so the
+    // first one's words ran straight over the second's and the two were
+    // printed on top of each other. What is kept whole is held at its own
+    // width, and the one told to clamp is the only one that shrinks.
+    // (through `classList`, because a piece can be an SVG glyph and an SVG
+    // element's `className` is read-only)
+    function holdWhole(n) { if (n.classList) n.classList.add('flex-none'); }
     function fitRow(row, parts, floor) {
       var kept = 0;
       for (var pi = 0; pi < parts.length; pi++) {
         var part = parts[pi];
-        part.nodes.forEach(function (n) { row.appendChild(n); });
+        part.nodes.forEach(function (n) { row.appendChild(n); holdWhole(n); });
         if (rowW(row) <= nbMaxW) { kept++; continue; }
         var over = rowW(row) - nbMaxW;
         var room = (part.tx.offsetWidth || 0) - over - 2 * S;
@@ -12175,7 +12184,8 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           // the framework's clamp cuts them to it
           row.style.width = Math.round(nbMaxW) + 'px';
           part.tx.setAttribute('data-clamp', '1');
-          part.tx.className += ' metro-cut';
+          part.tx.classList.remove('flex-none');
+          part.tx.classList.add('metro-cut');
           kept++;
         }
         break;

@@ -246,7 +246,10 @@ applies when something changes.
    headline the bar runs out of room for is cut by the framework's clamp
    (the row is given its width and the words a box to shrink in), never by
    slicing the letters here: the clamp keeps the original text and puts it
-   back.
+   back. ONLY THE CUT ONE GIVES WAY: the row is a flex box and a width
+   makes it narrower than its words, so everything else on it is held at
+   its own width. Left to shrink, the headlines squeezed and, never
+   wrapping, printed over one another.
    THE WEATHER ALERT IS ITS FIRST SECTION: one bar, not a band and a box, with
    the alert's own classes and pieces (the thing bold, the clock quiet), two
    rows deep on a slot where a long translation wraps. The box is drawn on
