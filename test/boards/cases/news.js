@@ -97,6 +97,43 @@ module.exports = function (test, h) {
     assert(per >= nameH * 2.4 - 0.5 || rowsOf(crowded) === 0, 'the map is ' + Math.round(per) + 'px a line under ' + rowsOf(crowded) + ' row(s)');
   });
 
+  test('the whole foot gives way before a person does', () => {
+    // Keeping every line a depth of map is not enough on its own: a
+    // shallower band is a harder band to place a caption in, so the fit
+    // offers the foot up a row at a time before it leaves anybody out.
+    // The spec must hand it that door, and the door must close when there
+    // is nothing left behind it.
+    const seven = fixtures.find((f) => f.name === 'seven-lines');
+    const built = build(Object.assign({}, seven.metro, { news: NEWS }), 'og-landscape');
+    let spec = built.spec, rows = [], guard = 0;
+    while (spec.refoot && guard++ < 8) {
+      const n = spec.news;
+      rows.push(n ? n.alertRows + n.rows + n.taskRows : 0);
+      spec = spec.refoot();
+    }
+    assert(guard < 8, 'the foot never ran out of rows to give');
+    // every knock takes exactly one row off, and the last one leaves none
+    for (let i = 1; i < rows.length; i++) {
+      assert(rows[i] === rows[i - 1] - 1, 'a knock took ' + (rows[i - 1] - rows[i]) + ' rows: ' + rows.join(','));
+    }
+    const left = spec.news ? spec.news.alertRows + spec.news.rows + spec.news.taskRows : 0;
+    assert(left === 0, 'the last foot still has ' + left + ' row(s)');
+  });
+
+  test('...but an alert about the board itself holds its row', () => {
+    // A weather line is about the day and can wait for a smaller panel.
+    // "This calendar has not answered since Tuesday" is about whether
+    // anything on the map is true, and a board that hides that to fit one
+    // more track is lying more quietly than one that shows an empty rail.
+    const seven = fixtures.find((f) => f.name === 'seven-lines');
+    const down = { kind: 'feed', icon: null, text: 'Cal has not answered since Tue',
+      parts: [{ t: 'Cal has not answered since Tue', s: 'b' }] };
+    let spec = build(Object.assign({}, seven.metro, { news: NEWS, service_alert: down }), 'og-landscape').spec;
+    for (let i = 0; i < 8 && spec.refoot; i++) spec = spec.refoot();
+    assert(spec.news && spec.news.alertRows >= 1,
+      'the board gave up the one line saying it cannot be trusted: ' + JSON.stringify(spec.news));
+  });
+
   test('one row, as many as fit: the headlines string along a single row with their sources', () => {
     const built = build(withNews(Object.assign({}, NEWS, { max: 1, fit: true })), 'x-landscape');
     assert(built.spec.news && built.spec.news.rows === 1 && built.spec.news.fit, 'rows: ' + JSON.stringify(built.spec.news && [built.spec.news.rows, built.spec.news.fit]));

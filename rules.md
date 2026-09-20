@@ -255,8 +255,21 @@ applies when something changes.
    rows deep on a slot where a long translation wraps. The box is drawn on
    a standing board too, off the axis there.
    THE TRACKS COME FIRST: the headlines give up rows until every line keeps
-   three names' depth of map; the alert keeps its row, it is about whether
-   the map can be trusted.
+   three names' depth of map, and then the tasks give up theirs.
+   ...AND THE WHOLE FOOT GIVES WAY BEFORE A PERSON DOES ("we should show
+   user content over alert and news at all times"). Keeping every line a
+   depth of map is not enough on its own: a shallower band is a harder band
+   to place a caption in, and a board that kept all three foot rows could
+   pay for them by leaving somebody out. So before the fit drops a line it
+   offers the foot up a row at a time, all the way to nothing, and the
+   first board that reads cleanly wins -- the shortest trim that costs
+   nobody. The order the rows go in is the order of whose day each one is:
+   the world's headlines, then the household's chores, then the sky.
+   THE ONE ROW THAT HOLDS is an alert about the board itself. A weather
+   line is about the day and can wait for a smaller panel; "this calendar
+   has not answered since Tuesday" is about whether anything on the map is
+   true, and a board that hides that to fit another track is lying more
+   quietly than one that shows an empty rail.
 2j. **The clock's mark on the strip is a little train**: SVG Repo's metro
    silhouette (svgrepo.com/svg/420587, CC0), in paper on the ink panel with
    its floor on the strip's rail under the clock pill, facing the way the

@@ -266,6 +266,39 @@ function fit(spec, opts) {
   // handed over draws every rail at the wrong minute.
   if (!bestW.lost) { best.dropped = []; best.spec = spec; return best; }
 
+  // THE FOOT GIVES WAY BEFORE A PERSON DOES ("we should show user content
+  // over alert and news at all times"). Everything below this line is the
+  // board deciding who to leave out, and the foot should not be standing
+  // when that decision is made. `specFor` already keeps every line a depth
+  // of map, but depth is not the only way the foot costs the map a name: a
+  // shallower band is a harder band to place a caption in, and a board
+  // that kept all three foot rows dropped a person to pay for them.
+  //
+  // So the foot is offered up a row at a time, all the way to nothing, and
+  // the FIRST board that reads cleanly wins outright -- the shortest trim
+  // that costs nobody, rather than the shortest foot. If even a board with
+  // no foot at all still wants to drop somebody then the foot was never
+  // what it cost, and the best of the attempts carries on to the ladder.
+  // The order the rows go in is the order of whose day each one is: the
+  // world's headlines first, then the household's chores, then the sky.
+  if (spec.refoot && bestW.lost) {
+    var shorter = spec;
+    while (shorter.refoot) {
+      shorter = shorter.refoot();
+      var shortGot = Bands.solve(shorter, opts);
+      var shortW = worth(shorter, shortGot);
+      // ONLY WHERE IT ACTUALLY RESCUES SOMEBODY. A shorter foot that still
+      // leaves the board losing names has bought nothing and spent a row
+      // of what the household asked to see: on a quadrant, where a line
+      // has barely a name's depth whatever the foot does, taking whatever
+      // was merely "less bad" trimmed the foot to nothing on every small
+      // board and the weather was never said. So the trim is kept only
+      // when the board comes out clean; otherwise the foot stands and the
+      // ladder below decides as it always did.
+      if (!shortW.lost) { shortGot.dropped = []; shortGot.spec = shorter; return shortGot; }
+    }
+  }
+
   // Quietest first. Counted from the events that are actually theirs, not
   // from the ones they merely attend.
   var load = {};

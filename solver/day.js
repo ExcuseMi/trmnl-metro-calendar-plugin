@@ -1346,25 +1346,59 @@ function specFor(metro, view, opts) {
     // is doing, and a box that grew a row for each cost the map its depth.
     newsRows = Math.max(0, newsRows - taskRows);
   }
-  function footHeight(nr, tr) {
+  function footHeight(nr, tr, ar) {
     var t = tr == null ? taskRows : tr;
+    var a = ar == null ? footAlert : ar;
     // (a row of the box is set in the alert's own type now, so it is
     // deeper than a row of small print was -- but only just: set to the
     // old spacing as well the rows stood far apart, "too much of a gap
     // between the lines")
-    return (footAlert || nr || t) ? Math.round((footAlert + nr + t) * rowH0 * 1.45 + 6) : 0;
+    return (a || nr || t) ? Math.round((a + nr + t) * rowH0 * 1.45 + 6) : 0;
   }
   // THE TRACKS COME FIRST ("does the calendar tracks always come first?"):
   // the headlines give up rows until every line keeps two and a half
-  // names' depth of map, a little more than a flat slot's; the alert keeps
-  // its row, it is about whether the map can be trusted.
+  // names' depth of map, a little more than a flat slot's.
   // THE TRACKS STILL COME FIRST: the headlines give up their rows, and
   // then the tasks give up theirs, before the map gives up a name's depth.
+  // ...AND THE ALERT GIVES UP ITS ROW LAST, BUT IT DOES GIVE IT UP ("we
+  // should show user content over alert and news at all times"). It used
+  // to keep its row whatever it cost, on the grounds that it says whether
+  // the map can be trusted -- but the thing it is protecting is the map,
+  // and a board that dropped a person to keep a line about rain has
+  // spent the household to say the weather. The order is the order of
+  // whose day it is: the headlines are the world's, the tasks are the
+  // household's, the alert is the sky's, and the map is these people's.
+  // (...EXCEPT AN ALERT ABOUT THE BOARD ITSELF. A weather line is about the
+  // day and can wait for a smaller panel; "this calendar has not answered
+  // since Tuesday" is about whether anything on the map is true, and a
+  // board that hides THAT to fit another track is lying more quietly than
+  // one that shows an empty rail. It is the one row that holds.)
+  var alertHolds = !!(alert && alert.kind === 'feed');
   if (!opts.standing) {
-    var roomy = function () { return (view.h - pad - stripH - skyH - footHeight(newsRows)) / Math.max(1, legendN) >= nameH0 * 2.4; };
+    var roomy = function () { return (view.h - pad - stripH - skyH - footHeight(newsRows, null, footAlert)) / Math.max(1, legendN) >= nameH0 * 2.4; };
     while (newsRows > 0 && !roomy()) newsRows--;
     while (taskRows > 0 && !roomy()) taskRows--;
+    // ...AND THE ALERT KEEPS ITS ROW HERE. This loop is about map DEPTH,
+    // and on a panel that never satisfies it -- a quadrant, where a line
+    // has barely a name's depth whatever the foot does -- an alert that
+    // gave way here gave way on every small board, which is not "the map
+    // came first", it is "the weather is never said". The alert gives way
+    // only where it would otherwise cost a PERSON, which fit.js decides
+    // and asks for through `refoot` below.
   }
+  // ...AND THE FOOT GIVES UP ANOTHER ROW WHENEVER ASKED ("we should show
+  // user content over alert and news at all times"). The loop above keeps
+  // every line a depth of map; this is the board saying it is about to
+  // leave somebody out, and the foot answering before it does. The world
+  // goes first, then the household's chores, then the sky.
+  var footTrim = (opts && opts.footTrim) || 0;
+  for (var ft = 0; ft < footTrim; ft++) {
+    if (newsRows) newsRows--;
+    else if (taskRows) taskRows--;
+    else if (footAlert && !alertHolds) footAlert--;
+    else break;
+  }
+  var footRows = newsRows + taskRows + (alertHolds ? 0 : footAlert);
   var newsH = footHeight(newsRows);
   // (flush against the box where there is one, the paper's own edge inset
   // where there is not: "no space between the train schedule and its own
@@ -1407,6 +1441,13 @@ function specFor(metro, view, opts) {
            regut: opts.nameRoom != null || opts.nameGutter ? null : function () {
              return specFor(asked, view, Object.assign({}, askedOpts, { nameGutter: true }));
            },
+           // ...AND THE SAME DOOR FOR THE FOOT: one row shorter, so the map
+           // has a band more to work in. `fit` knocks on it before it drops
+           // a person, which is the whole point of the order: the map is
+           // these people's day and the foot is everybody else's.
+           refoot: footRows > 0 ? function () {
+             return specFor(asked, view, Object.assign({}, askedOpts, { footTrim: footTrim + 1 }));
+           } : null,
            // What a drawn mark reaches and how a corner rounds, at this panel's
            // scale: the two numbers the solver and the renderer must agree
            // on. They were passed in and never copied here, so the solver
