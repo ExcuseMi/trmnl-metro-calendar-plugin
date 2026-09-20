@@ -296,7 +296,7 @@ function travel(moves, baseC, axis, room, minLift, leadCap, share) {
 // "Design Review", a forty-two unit slope and a twenty-five unit run for a
 // seventy-three unit event, ninety-two per cent of it spent arriving. What a
 // reader sees is the whole shape, so the whole shape is what is bounded.
-function branch(key, trunk, a0, a1, dist, dir, axis, leadCap, pre, floor, corner, chamfer) {
+function branch(key, trunk, a0, a1, dist, dir, axis, leadCap, pre, floor, corner, chamfer, atTie) {
   leadCap = leadCap == null ? 1e9 : leadCap;
   var lead = dist <= leadCap ? dist : 0;
   var run = Math.max(0, pre || 0);
@@ -323,7 +323,16 @@ function branch(key, trunk, a0, a1, dist, dir, axis, leadCap, pre, floor, corner
   // drop off the trunk at the edge: it arrives from off the paper at its own
   // depth, under the half dot (rule 2g). Two of them dropping at the edge
   // was one column with two rails in it.
-  if (a0 <= axis.a0 + 0.5 && trunk.cAt(axis.a0) != null) {
+  // ...UNLESS THERE IS A CONNECTOR THERE TO LEAVE FROM. The rule above is
+  // for a spur arriving out of nowhere at the paper's edge, where a drop
+  // off the trunk would be a drop off nothing and two of them were one
+  // column with two rails in it. A shared event's tie stands at that very
+  // minute: the branch has something to leave, so it leaves it, with the
+  // same chamfered departure every other branch on the board is built
+  // with. Drawn flat instead, the renderer had to invent a stub to join
+  // the two, and a hand-made square corner beside a board full of proper
+  // ones is exactly as out of place as it sounds.
+  if (!atTie && a0 <= axis.a0 + 0.5 && trunk.cAt(axis.a0) != null) {
     push(pts, axis.a0, shelfC);
     push(pts, a1, shelfC);
     return { key: key, pts: pts, shelfC: shelfC, dist: dist, dir: dir, flat: axis.a0 };

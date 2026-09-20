@@ -47,6 +47,8 @@ const CLASSES = {
   title: 'metro-title-text text--base text--bold',
   time: 'metro-time-tag text--small text--bold',
   large: 'metro-title-text text--large text--bold',
+  // the step above, taken on a panel the size of the X (measure-dom's XL tiers)
+  xlarge: 'metro-title-text text--xlarge text--bold',
   strip: 'metro-hour label text--bold',
   small: 'metro-title-text text--small text--bold',
   name: 'metro-terminus metro-pill label label--base text--bold',

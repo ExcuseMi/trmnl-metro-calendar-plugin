@@ -73,7 +73,12 @@ function warm() {
   }
   jobs = jobs.filter(function (j) { return !B.cached(j); });
   if (!jobs.length) return Promise.resolve(0);
-  var N = Math.max(1, Math.min(jobs.length, require('os').cpus().length));
+  // METRO_WARMERS caps the pool, for a box under pressure from something
+  // else: the warmers are whole node processes and a machine that is short
+  // of memory kills the run rather than the pool.
+  var asked = process.env.METRO_WARMERS;
+  var N = asked != null ? Math.max(1, parseInt(asked, 10) || 1)
+    : Math.max(1, Math.min(jobs.length, require('os').cpus().length));
   var cp = require('child_process');
   var shards = Array.from({ length: N }, function () { return []; });
   jobs.forEach(function (j, i) { shards[i % N].push(j); });

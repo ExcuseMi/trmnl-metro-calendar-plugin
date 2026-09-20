@@ -115,6 +115,18 @@ applies when something changes.
 
    A shelf already out at the edge is tied to its rail by a dotted drop under
    the half dot, and the line's name goes on the rail's other side.
+   ...EXCEPT WHERE IT LEAVES A CONNECTOR, WHICH IT DOES SOLIDLY. A shelf
+   starting at the same minute as a tie its rail is part of IS a branch off
+   that tie, and a dotted stub between the two said only that they were
+   somehow related ("why doesn't kermis just branch off the connector?").
+   There the drop is solid, at the bar's weight with a paper core and in the
+   tie's own ink, so the connector runs down and the branch leaves it as one
+   mark. The half dot goes with it: it says the event was already running
+   when the board opened, which is what the connector standing at that
+   minute has just said, and drawn as well it is a blob sitting in the elbow
+   where the two bars turn. The dots and the half dot stay for what they
+   were written for -- a shelf hanging off its own rail with nothing else at
+   that minute to leave from.
 
    The scale extrapolates past both ends rather than clamping, so an event
    that began before the opening came back as a position off the board

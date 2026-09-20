@@ -31,6 +31,11 @@ module.exports = function (test, h) {
         const drawn = pathsWhere(rep, 'band').length;
         assert(drawn <= asked, drawn + ' band(s) drawn but only ' + asked
           + ' ambient state(s) can ask for one, so something else is drawing them');
+        // ...and at one bit a band is its two edges instead of a tone
+        // (draw.js), which is two marks for the same one state
+        const edges = pathsWhere(rep, 'band-edge').length;
+        assert(edges <= asked * 2, edges + ' band edge(s) drawn for ' + asked + ' state(s)');
+        assert(edges % 2 === 0, 'a band came out with ' + edges + ' edge(s), so one of them is missing');
       });
     }
   }

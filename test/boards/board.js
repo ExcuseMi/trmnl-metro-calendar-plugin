@@ -114,7 +114,10 @@ function lengthOf(pts) {
 }
 
 function specOf(metro, v, o, extra) {
+  // `xl`: a panel the size of the X, which is read from further away than
+  // the 800x480 the large tiers were chosen against (measure-dom).
   var measure = metrics.measure({ dev: o.dev, base: o.base, maxWidth: Math.round(o.along * 0.3), large: !v.slot,
+                                  xl: !v.slot && o.along >= 950,
                                   hour12: !!metro.hour12, clock: clockFor(metro) });
   var probe = measure.plain('Mg');
   // A NAME IN ITS OWN CLASS AS WELL AS THE TITLE'S, which is what the template
