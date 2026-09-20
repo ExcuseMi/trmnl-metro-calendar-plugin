@@ -191,7 +191,7 @@ function sourceStamp() {
 // src and its own _build, so any number of runs can go at once and none of
 // them can touch the working tree. It costs a copy of 450KB of source.
 function buildDir(liquidExtra) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'metro-plugin-'));
+  const dir = fs.mkdtempSync(path.join(SCRATCH, 'metro-plugin-'));
   fs.mkdirSync(path.join(dir, 'src'));
   for (const f of fs.readdirSync(SRC)) fs.copyFileSync(path.join(SRC, f), path.join(dir, 'src', f));
   const yml = fs.readFileSync(YML, 'utf-8');
@@ -649,7 +649,29 @@ function pageFor(metro, screenClasses, slot, liquidExtra, page) {
 // it. So the profiles stay where Chromium wants them, sharing the state that
 // makes a launch cheap, and the run sweeps the ones it left on the way out.
 const CHROME_PROFILES = path.join(os.homedir(), '.cache', 'google-chrome-for-testing-headless');
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'metro-layout-'));
+// ON DISK, NOT IN MEMORY. `/tmp` is a tmpfs on this box, so every page a
+// run writes is held in RAM and paid for out of the same budget Chromium is
+// bidding for. Measured: /tmp was six gigabytes deep, swap was full, and the
+// suite was killed three times for want of the memory its own scratch had
+// taken. `.cache` is on the disk and already ignored by git.
+//
+// ...AND SWEEP WHAT A KILLED RUN LEFT. The cleanup at the end of this file
+// never runs when the box kills the process, so a run killed for memory
+// leaves its pages behind and makes the NEXT run likelier to be killed:
+// twenty-two of them had piled up, and that is a loop that only ever goes
+// one way. Anything older than a few hours is nobody's.
+const SCRATCH = process.env.METRO_TMPDIR || path.join(CACHE, 'tmp');
+fs.mkdirSync(SCRATCH, { recursive: true });
+try {
+  for (const stale of fs.readdirSync(SCRATCH)) {
+    if (!/^metro-layout-/.test(stale)) continue;
+    const at = path.join(SCRATCH, stale);
+    if (Date.now() - fs.statSync(at).mtimeMs > 6 * 3600 * 1000) {
+      fs.rmSync(at, { recursive: true, force: true });
+    }
+  }
+} catch (e) { /* a sweep that cannot run is not a reason not to run */ }
+const tmpDir = fs.mkdtempSync(path.join(SCRATCH, 'metro-layout-'));
 let renderSeq = 0;
 
 // What the run spent, printed as one line at the end. A suite this slow
