@@ -631,6 +631,9 @@ function Furniture(spec) {
   this.routeLines = spec.routeLines || null;
   this.nameMax = spec.nameMax == null ? null : spec.nameMax;
   this.rows = spec.rows || 1;
+  // ...and what is still owed on this line, a row each under the name
+  // (rule 2q)
+  this.tasks = spec.tasks || null;
 }
 Furniture.prototype.box = function () {
   return { a0: this.a0, a1: this.a1, c0: this.c0, c1: this.c1 };
@@ -3753,7 +3756,9 @@ function boardFor(spec, st) {
   // A HEAD WITH A ROUTE ROW is the name and a smaller row under it.
   // A name and the lines of its badge, each a small row under or over it.
   function headH(fx) {
-    var badge = fx.route ? Math.max(1, (fx.rows || 2) - 1) : 0;
+    // (every row under the name, whether it says what the day is or what is
+    // still owed on it: rule 2q)
+    var badge = fx.route || fx.tasks ? Math.max(1, (fx.rows || 2) - 1) : 0;
     return spec.nameH + badge * Math.round(spec.nameH * 0.85);
   }
   // THE BOARD'S FIXED INK. A terminus name has no cross position until its
@@ -3802,6 +3807,8 @@ function boardFor(spec, st) {
   });
   headFx.forEach(function (fx) {
     var f = { id: fx.id, kind: fx.kind, text: fx.text, align: fx.align,
+              // what this person still owes, said under their name
+              tasks: fx.tasks || null,
               // Carried through rather than looked up again at drawing time:
               // a sky marker's glyph and its own minute are part of what the
               // board says, and the renderer should not be reading the
@@ -5904,9 +5911,9 @@ function wantsFrom(metro, scale, measure, opts) {
         // have ("the little branch ends in a clumsy box"). Its name hangs off
         // the bar like a long one's.
         var moment = !ev.stack && !(ev.end_min > ev.start_min);
-        // ONE DRAWING FOR A SHARED EVENT, WHATEVER ITS LENGTH ("why doesn't
-        // Kermis Vichte have its own branch, or continue the Zwemmen
-        // one?"): two events the same four people were at, two hours and
+        // ONE DRAWING FOR A SHARED EVENT, WHATEVER ITS LENGTH ("why
+        // doesn't the second one have its own branch, or continue the
+        // first one?"): two events the same four people were at, two hours and
         // three, were drawn two different ways because three hours is the
         // line between brief and spanned. Both hang their name off the
         // owner's rail on a branch now, with every member ticked where it
@@ -6680,12 +6687,20 @@ function specFor(metro, view, opts) {
   // there.
   var newsIn = metro.news && metro.news.items && metro.news.items.length ? metro.news : null;
   var footAlert = alert ? (tiny && String(alert.text || '').length > 28 ? 2 : 1) : 0;
-  // ...AND WHAT IS STILL OWED, one row of it, above the headlines: a task
-  // with no time on the board is not a stop, and a list down the side is
-  // not this board's way of saying anything (rule 2q). The tasks take
-  // their row before the news takes any: what the household owes outranks
-  // what the world is doing.
-  var taskIn = (metro.tasks || []).filter(function (t) { return t && t.title; });
+  // WHAT IS STILL OWED. A task with no time on the board is not a stop
+  // (rule 2q). One person's own waits under their name at the head of their
+  // own track, where the head already says what their day is; one the WHOLE
+  // HOUSEHOLD owes belongs to nobody's track, so it takes a row of the
+  // platform display above the headlines ("it needs to be per track, unless
+  // they are family events"). That row is taken from the news, not from the
+  // map: what the household owes outranks what the world is doing.
+  var legendKeys = (metro.legend || []).map(function (l) { return l.key; });
+  var owedAll = (metro.tasks || []).filter(function (t) { return t && t.title; });
+  var isFamily = function (t) {
+    return legendKeys.length > 1 && legendKeys.every(function (k) { return (t.owners || []).indexOf(k) >= 0; });
+  };
+  var taskIn = owedAll.filter(isFamily);
+  var ownTasks = owedAll.filter(function (t) { return !isFamily(t); });
   var taskRows = taskIn.length ? 1 : 0;
   var newsRows = 0;
   if (newsIn) {
@@ -6719,7 +6734,8 @@ function specFor(metro, view, opts) {
                 c1: view.h - (opts.standing || !newsH ? pad : newsH) };
   if (opts.standing && newsH) { axis.a1 -= newsH; if (axis.edge1 != null) axis.edge1 -= newsH; }
   opts = Object.assign({}, opts, { showWeather: wantWx, stripH: stripH, richWx: richWx, levelNames: levelNames,
-                                   skyH: skyH, sky: skyMarks, rain: rainSpans, railRow: railRow, tiny: tiny });
+                                   skyH: skyH, sky: skyMarks, rain: rainSpans, railRow: railRow, tiny: tiny,
+                                   tasks: ownTasks });
   var scale = scaleFor({ from: metro.day_start_min, to: metro.day_end_min,
                          a0: axis.a0, a1: axis.a1,
                          // Off by asking, so a caller that wants the plain
@@ -7068,10 +7084,23 @@ function fixedFor(metro, scale, axis, cross, opts) {
     // Past the connector that opens the column, where the column was cut
     // wide enough to hold both. Otherwise at the paper's edge, as always.
     var head = headAt;
+    // WHAT THIS PERSON STILL OWES, UNDER THEIR NAME ("it needs to be per
+    // track"): a row each, beyond the badge, where the head already says
+    // what their day is. A tick box and the words, no more than the
+    // setting allows (rule 2q).
+    var owed = ((opts && opts.tasks) || []).filter(function (tk) {
+      return (tk.owners || []).indexOf(p.key) >= 0;
+    });
+    var boxW = Math.round(cell * 1.5);
+    var owedW = owed.reduce(function (acc, tk) {
+      return Math.max(acc, boxW + routeWidth(tk.title));
+    }, 0);
     out.push({ id: 'name0:' + p.key, kind: 'terminus', line: p.key, text: t, level: lv,
                route: routes[0], routeLines: routeLines, nameMax: isFinite(nameMax) ? nameMax : null,
-               rows: routeLines ? 1 + routeLines.length : 1, nameW: w + NAME_CLEAR, routeW: rw,
-               at: axis.a0, a0: head, a1: head + Math.max(w, rw) + NAME_CLEAR,
+               tasks: owed.length ? owed : null,
+               rows: (routeLines ? 1 + routeLines.length : 1) + owed.length,
+               nameW: w + NAME_CLEAR, routeW: rw,
+               at: axis.a0, a0: head, a1: head + Math.max(w, rw, owedW) + NAME_CLEAR,
                c0: 0, c1: 0 });
   });
 
@@ -11017,7 +11046,9 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           return cb.a0 < ta1 + 2 && ta0 - 2 < cb.a1 && cb.c0 < fx.c1 + 2 && fx.c0 - 2 < cb.c1;
         })) tn.removeChild(more);
       }
-      if (!fx.route) {
+      // (a line with nothing to say about its day may still owe something,
+      // and then the head is a stack after all: rule 2q)
+      if (!fx.route && !(fx.tasks && fx.tasks.length)) {
         // WHERE THE SOLVER PUT IT, WHOLE. Clearing an edge ring used to be
         // done right here, with the solver left holding the rail's start:
         // bands.js books the name past the ring now, and a name that had to
@@ -11039,9 +11070,9 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // AS AN OUTLINED PILL, the quiet twin of the roundel under it: set as a
       // line of small print it "kinda fades away" beside the solid name, and
       // a state is the one thing said about that line all day.
-      var rt = html('metro-route metro-pill metro-pill--quiet label label--small text--bold flex flex--row flex--center-y gap--xsmall');
-      var rs = svgEl(doc, 'svg', { width: 12, height: 12, viewBox: '0 0 12 12', 'class': 'metro-route-ring no-shrink' });
-      [5, 2.5].forEach(function (rr) {
+      var rt = fx.route ? html('metro-route metro-pill metro-pill--quiet label label--small text--bold flex flex--row flex--center-y gap--xsmall') : null;
+      var rs = fx.route ? svgEl(doc, 'svg', { width: 12, height: 12, viewBox: '0 0 12 12', 'class': 'metro-route-ring no-shrink' }) : null;
+      if (rs) [5, 2.5].forEach(function (rr) {
         rs.appendChild(svgEl(doc, 'circle', { cx: 6, cy: 6, r: rr, fill: 'none',
           stroke: 'currentColor', 'stroke-width': 1.5 }));
       });
@@ -11049,40 +11080,73 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // the ring: a space after it instead, and the ring on the words' middle.
       // Not a spacing property: the lint counts a few property NAMES in the
       // markup, this file included, and that one is on its list.)
-      rs.style.verticalAlign = 'middle';
-      rt.appendChild(rs);
-      rt.appendChild(doc.createTextNode('\u00a0'));
-      // ON THE LINES day.js BROKE IT INTO, no more than two, each whole.
-      var rw = doc.createElement('span');
-      (fx.routeLines || [fx.route]).forEach(function (ln1, li1) {
-        if (li1) rw.appendChild(doc.createElement('br'));
-        rw.appendChild(doc.createTextNode(ln1));
-      });
-      rt.appendChild(rw);
-      turn(rt);
+      if (rs) {
+        rs.style.verticalAlign = 'middle';
+        rt.appendChild(rs);
+        rt.appendChild(doc.createTextNode('\u00a0'));
+        // ON THE LINES day.js BROKE IT INTO, no more than two, each whole.
+        var rw = doc.createElement('span');
+        (fx.routeLines || [fx.route]).forEach(function (ln1, li1) {
+          if (li1) rw.appendChild(doc.createElement('br'));
+          rw.appendChild(doc.createTextNode(ln1));
+        });
+        rt.appendChild(rw);
+        turn(rt);
+      }
       var nThick = horizontal ? tn.offsetHeight : tn.offsetWidth;
-      var rThick = horizontal ? rt.offsetHeight : rt.offsetWidth;
+      var rThick = rt ? (horizontal ? rt.offsetHeight : rt.offsetWidth) : 0;
       // THE BADGE IS ALWAYS THE FURTHER OF THE TWO FROM THE TRACK: "Leela's
       // day event above the label ... always further out from the track".
       // The name is what says whose rail this is, so it sits against the
       // rail; what that person is doing today stands beyond it. Below the
       // rail the stack grows down from the name, above it grows up.
+      // WHAT THIS PERSON STILL OWES, UNDER THE REST ("it needs to be per
+      // track"): a tick box and the words, a row each, beyond the badge and
+      // so furthest from the rail. Ticked where it was done today, and
+      // struck through (rule 2q).
+      var tk = null;
+      if (fx.tasks && fx.tasks.length) {
+        tk = doc.createElement('div');
+        tk.className = 'metro-gen metro-tasks flex flex--col flex--left gap--none absolute';
+        fx.tasks.forEach(function (t) {
+          var row1 = doc.createElement('div');
+          row1.className = 'metro-task flex flex--row flex--center-y gap--xsmall';
+          var z = Math.round(rowH * 0.78);
+          var sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-task-box flex-none', 'aria-hidden': 'true' });
+          sv.style.width = z + 'px'; sv.style.height = z + 'px';
+          sv.appendChild(svgEl(doc, 'rect', { x: 2.2, y: 2.2, width: 11.6, height: 11.6, rx: 3,
+            fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6 }));
+          if (t.done) sv.appendChild(svgEl(doc, 'path', { d: 'M4.8 8.4 7.2 10.9 11.6 5.4', fill: 'none',
+            stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+          row1.appendChild(sv);
+          var w1 = doc.createElement('span');
+          w1.className = 'metro-task-text label label--small text--bold' + (t.done ? ' metro-task-done' + QUIET : '');
+          w1.textContent = t.title;
+          row1.appendChild(w1);
+          tk.appendChild(row1);
+        });
+        canvas.appendChild(tk);
+        turn(tk);
+      }
       var own = board.lineByKey(fx.line), railC = own ? own.cAt(fx.at == null ? spec.axis.a1 : fx.at) : null;
       var below = railC != null && fx.c0 >= railC;
       var far = fx.align === 'right';
       // A name carrying a route row is placed here rather than above, and
       // both rows take the box the solver booked -- ring, branch and all.
       var rA = far ? fx.a1 : fx.a0;
+      var kThick = tk ? (horizontal ? tk.offsetHeight : tk.offsetWidth) : 0;
       if (below) {
         place(tn, rA, fx.c0 + nThick / 2, far ? 'right' : 'left');
-        place(rt, rA, fx.c0 + nThick + rThick / 2, far ? 'right' : 'left');
+        if (rt) place(rt, rA, fx.c0 + nThick + rThick / 2, far ? 'right' : 'left');
+        if (tk) place(tk, rA, fx.c0 + nThick + rThick + kThick / 2, far ? 'right' : 'left');
       } else {
-        var bot0 = Math.max(fx.c1, fx.c0 + nThick + rThick);
+        var bot0 = Math.max(fx.c1, fx.c0 + nThick + rThick + kThick);
         place(tn, rA, bot0 - nThick / 2, far ? 'right' : 'left');
-        place(rt, rA, bot0 - nThick - rThick / 2, far ? 'right' : 'left');
+        if (rt) place(rt, rA, bot0 - nThick - rThick / 2, far ? 'right' : 'left');
+        if (tk) place(tk, rA, bot0 - nThick - rThick - kThick / 2, far ? 'right' : 'left');
       }
       if (far && horizontal) {
-        [tn, rt].forEach(function (n) { n.style.left = 'auto'; n.style.right = Math.max(0, W - fx.a1) + 'px'; });
+        [tn, rt, tk].forEach(function (n) { if (n) { n.style.left = 'auto'; n.style.right = Math.max(0, W - fx.a1) + 'px'; } });
       }
     }
   }

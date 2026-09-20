@@ -847,7 +847,8 @@ function timeLabel12(min, extra) {
 // entry gets. Still owed comes before done, and no more than a handful
 // travels: the board draws a row of them, not a list.
 var TASKS_MAX = 8;
-function tasksFrom(list, lineByKey) {
+function tasksFrom(list, lineByKey, each) {
+  if (each === 0) return [];
   var byTitle = {}, order = [];
   (list || []).forEach(function (t) {
     if (!t || !t.title || !lineByKey[t.line]) return;
@@ -858,9 +859,20 @@ function tasksFrom(list, lineByKey) {
     row.done = row.done && !!t.done;
     row.overdue = row.overdue || !!t.overdue;
   });
-  return order.sort(function (p, q) {
+  // ...AND NO MORE THAN THE SETTING SAYS, PER PERSON ("we should limit the
+  // amount of tasks"): what is owed longest first, counted at each owner's
+  // end, so one person's long list cannot take another's room.
+  var seen = {}, kept = [];
+  order.sort(function (p, q) {
     return (p.done ? 1 : 0) - (q.done ? 1 : 0) || (q.overdue ? 1 : 0) - (p.overdue ? 1 : 0);
-  }).slice(0, TASKS_MAX);
+  }).forEach(function (row) {
+    if (kept.length >= TASKS_MAX) return;
+    var room = row.owners.some(function (k) { return (seen[k] || 0) < (each == null ? 2 : each); });
+    if (!room) return;
+    row.owners.forEach(function (k) { seen[k] = (seen[k] || 0) + 1; });
+    kept.push(row);
+  });
+  return kept;
 }
 
 function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, windowLabel, allDayEvents, extra) {
@@ -1072,7 +1084,8 @@ function buildMetro(lines, events, weatherMilestones, headerWeather, nowMin, win
     // WHAT IS OWED WITH NO TIME ON IT: tasks with no due date, and tasks
     // still owed from an earlier day, grouped by title the way all-day
     // entries are so that one chore for three people is one line of words.
-    tasks: tasksFrom((extra && extra.tasks) || [], lineByKey),
+    tasks: tasksFrom((extra && extra.tasks) || [], lineByKey,
+                     extra && extra.tasksEach != null ? extra.tasksEach : 2),
     // THE WINDOW INTO THE RUN, on the days a quiet one borrowed the next.
     //
     // Null on every ordinary board, and that is load bearing: the client
@@ -4582,9 +4595,8 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       // wrong about one of the days
       days: dayRows,
       calendarsDown: inOrder(downAt), holidays: holidays,
-      // what is owed with no time on it (rule 2q), unless the household
-      // would rather not see it
-      tasks: (extra && extra.showTasks === false) ? [] : tasks })
+      // what is owed with no time on it (rule 2q)
+      tasks: tasks, tasksEach: extra && extra.tasksEach })
   );
   metro.board_notice = boardNotice(metro, { failed: inOrder(failedAt), read: feedsRead }, (extra && extra.strings) || I18N.en);
   return metro;
@@ -4731,8 +4743,14 @@ async function run(input) {
   var news = newsStarted ? await newsStarted : null;
   var extra = { orientation: orientation, locale: locale, strings: strings, hour12: hour12,
     tempUnit: tempUnit, deadline: deadline, alertOpts: alertOpts, prefetched: prefetched, news: news,
-    // on unless switched off, like the rest of what a calendar carries
-    showTasks: cf(input, 'tasks_show').trim().toLowerCase() !== 'hide' };
+    // HOW MANY WAIT AT EACH PERSON'S END, or none at all: on unless
+    // switched off, like the rest of what a calendar carries (rule 2q)
+    tasksEach: (function () {
+      var raw = cf(input, 'tasks_count').trim().toLowerCase();
+      if (raw === 'hide') return 0;
+      var n = parseInt(raw, 10);
+      return isFinite(n) && n > 0 ? Math.min(4, n) : 2;
+    })() };
 
   // Every exit returns through here. The runtime stores what comes back as
   // `trmnl_state` and hands it to the next render as `input.trmnl.state`, so

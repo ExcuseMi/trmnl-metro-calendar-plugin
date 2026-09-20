@@ -2915,7 +2915,9 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           return cb.a0 < ta1 + 2 && ta0 - 2 < cb.a1 && cb.c0 < fx.c1 + 2 && fx.c0 - 2 < cb.c1;
         })) tn.removeChild(more);
       }
-      if (!fx.route) {
+      // (a line with nothing to say about its day may still owe something,
+      // and then the head is a stack after all: rule 2q)
+      if (!fx.route && !(fx.tasks && fx.tasks.length)) {
         // WHERE THE SOLVER PUT IT, WHOLE. Clearing an edge ring used to be
         // done right here, with the solver left holding the rail's start:
         // bands.js books the name past the ring now, and a name that had to
@@ -2937,9 +2939,9 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // AS AN OUTLINED PILL, the quiet twin of the roundel under it: set as a
       // line of small print it "kinda fades away" beside the solid name, and
       // a state is the one thing said about that line all day.
-      var rt = html('metro-route metro-pill metro-pill--quiet label label--small text--bold flex flex--row flex--center-y gap--xsmall');
-      var rs = svgEl(doc, 'svg', { width: 12, height: 12, viewBox: '0 0 12 12', 'class': 'metro-route-ring no-shrink' });
-      [5, 2.5].forEach(function (rr) {
+      var rt = fx.route ? html('metro-route metro-pill metro-pill--quiet label label--small text--bold flex flex--row flex--center-y gap--xsmall') : null;
+      var rs = fx.route ? svgEl(doc, 'svg', { width: 12, height: 12, viewBox: '0 0 12 12', 'class': 'metro-route-ring no-shrink' }) : null;
+      if (rs) [5, 2.5].forEach(function (rr) {
         rs.appendChild(svgEl(doc, 'circle', { cx: 6, cy: 6, r: rr, fill: 'none',
           stroke: 'currentColor', 'stroke-width': 1.5 }));
       });
@@ -2947,40 +2949,73 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // the ring: a space after it instead, and the ring on the words' middle.
       // Not a spacing property: the lint counts a few property NAMES in the
       // markup, this file included, and that one is on its list.)
-      rs.style.verticalAlign = 'middle';
-      rt.appendChild(rs);
-      rt.appendChild(doc.createTextNode('\u00a0'));
-      // ON THE LINES day.js BROKE IT INTO, no more than two, each whole.
-      var rw = doc.createElement('span');
-      (fx.routeLines || [fx.route]).forEach(function (ln1, li1) {
-        if (li1) rw.appendChild(doc.createElement('br'));
-        rw.appendChild(doc.createTextNode(ln1));
-      });
-      rt.appendChild(rw);
-      turn(rt);
+      if (rs) {
+        rs.style.verticalAlign = 'middle';
+        rt.appendChild(rs);
+        rt.appendChild(doc.createTextNode('\u00a0'));
+        // ON THE LINES day.js BROKE IT INTO, no more than two, each whole.
+        var rw = doc.createElement('span');
+        (fx.routeLines || [fx.route]).forEach(function (ln1, li1) {
+          if (li1) rw.appendChild(doc.createElement('br'));
+          rw.appendChild(doc.createTextNode(ln1));
+        });
+        rt.appendChild(rw);
+        turn(rt);
+      }
       var nThick = horizontal ? tn.offsetHeight : tn.offsetWidth;
-      var rThick = horizontal ? rt.offsetHeight : rt.offsetWidth;
+      var rThick = rt ? (horizontal ? rt.offsetHeight : rt.offsetWidth) : 0;
       // THE BADGE IS ALWAYS THE FURTHER OF THE TWO FROM THE TRACK: "Leela's
       // day event above the label ... always further out from the track".
       // The name is what says whose rail this is, so it sits against the
       // rail; what that person is doing today stands beyond it. Below the
       // rail the stack grows down from the name, above it grows up.
+      // WHAT THIS PERSON STILL OWES, UNDER THE REST ("it needs to be per
+      // track"): a tick box and the words, a row each, beyond the badge and
+      // so furthest from the rail. Ticked where it was done today, and
+      // struck through (rule 2q).
+      var tk = null;
+      if (fx.tasks && fx.tasks.length) {
+        tk = doc.createElement('div');
+        tk.className = 'metro-gen metro-tasks flex flex--col flex--left gap--none absolute';
+        fx.tasks.forEach(function (t) {
+          var row1 = doc.createElement('div');
+          row1.className = 'metro-task flex flex--row flex--center-y gap--xsmall';
+          var z = Math.round(rowH * 0.78);
+          var sv = svgEl(doc, 'svg', { viewBox: '0 0 16 16', 'class': 'metro-task-box flex-none', 'aria-hidden': 'true' });
+          sv.style.width = z + 'px'; sv.style.height = z + 'px';
+          sv.appendChild(svgEl(doc, 'rect', { x: 2.2, y: 2.2, width: 11.6, height: 11.6, rx: 3,
+            fill: 'none', stroke: 'currentColor', 'stroke-width': 1.6 }));
+          if (t.done) sv.appendChild(svgEl(doc, 'path', { d: 'M4.8 8.4 7.2 10.9 11.6 5.4', fill: 'none',
+            stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+          row1.appendChild(sv);
+          var w1 = doc.createElement('span');
+          w1.className = 'metro-task-text label label--small text--bold' + (t.done ? ' metro-task-done' + QUIET : '');
+          w1.textContent = t.title;
+          row1.appendChild(w1);
+          tk.appendChild(row1);
+        });
+        canvas.appendChild(tk);
+        turn(tk);
+      }
       var own = board.lineByKey(fx.line), railC = own ? own.cAt(fx.at == null ? spec.axis.a1 : fx.at) : null;
       var below = railC != null && fx.c0 >= railC;
       var far = fx.align === 'right';
       // A name carrying a route row is placed here rather than above, and
       // both rows take the box the solver booked -- ring, branch and all.
       var rA = far ? fx.a1 : fx.a0;
+      var kThick = tk ? (horizontal ? tk.offsetHeight : tk.offsetWidth) : 0;
       if (below) {
         place(tn, rA, fx.c0 + nThick / 2, far ? 'right' : 'left');
-        place(rt, rA, fx.c0 + nThick + rThick / 2, far ? 'right' : 'left');
+        if (rt) place(rt, rA, fx.c0 + nThick + rThick / 2, far ? 'right' : 'left');
+        if (tk) place(tk, rA, fx.c0 + nThick + rThick + kThick / 2, far ? 'right' : 'left');
       } else {
-        var bot0 = Math.max(fx.c1, fx.c0 + nThick + rThick);
+        var bot0 = Math.max(fx.c1, fx.c0 + nThick + rThick + kThick);
         place(tn, rA, bot0 - nThick / 2, far ? 'right' : 'left');
-        place(rt, rA, bot0 - nThick - rThick / 2, far ? 'right' : 'left');
+        if (rt) place(rt, rA, bot0 - nThick - rThick / 2, far ? 'right' : 'left');
+        if (tk) place(tk, rA, bot0 - nThick - rThick - kThick / 2, far ? 'right' : 'left');
       }
       if (far && horizontal) {
-        [tn, rt].forEach(function (n) { n.style.left = 'auto'; n.style.right = Math.max(0, W - fx.a1) + 'px'; });
+        [tn, rt, tk].forEach(function (n) { if (n) { n.style.left = 'auto'; n.style.right = Math.max(0, W - fx.a1) + 'px'; } });
       }
     }
   }

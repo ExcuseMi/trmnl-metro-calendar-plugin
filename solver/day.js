@@ -1311,12 +1311,20 @@ function specFor(metro, view, opts) {
   // there.
   var newsIn = metro.news && metro.news.items && metro.news.items.length ? metro.news : null;
   var footAlert = alert ? (tiny && String(alert.text || '').length > 28 ? 2 : 1) : 0;
-  // ...AND WHAT IS STILL OWED, one row of it, above the headlines: a task
-  // with no time on the board is not a stop, and a list down the side is
-  // not this board's way of saying anything (rule 2q). The tasks take
-  // their row before the news takes any: what the household owes outranks
-  // what the world is doing.
-  var taskIn = (metro.tasks || []).filter(function (t) { return t && t.title; });
+  // WHAT IS STILL OWED. A task with no time on the board is not a stop
+  // (rule 2q). One person's own waits under their name at the head of their
+  // own track, where the head already says what their day is; one the WHOLE
+  // HOUSEHOLD owes belongs to nobody's track, so it takes a row of the
+  // platform display above the headlines ("it needs to be per track, unless
+  // they are family events"). That row is taken from the news, not from the
+  // map: what the household owes outranks what the world is doing.
+  var legendKeys = (metro.legend || []).map(function (l) { return l.key; });
+  var owedAll = (metro.tasks || []).filter(function (t) { return t && t.title; });
+  var isFamily = function (t) {
+    return legendKeys.length > 1 && legendKeys.every(function (k) { return (t.owners || []).indexOf(k) >= 0; });
+  };
+  var taskIn = owedAll.filter(isFamily);
+  var ownTasks = owedAll.filter(function (t) { return !isFamily(t); });
   var taskRows = taskIn.length ? 1 : 0;
   var newsRows = 0;
   if (newsIn) {
@@ -1350,7 +1358,8 @@ function specFor(metro, view, opts) {
                 c1: view.h - (opts.standing || !newsH ? pad : newsH) };
   if (opts.standing && newsH) { axis.a1 -= newsH; if (axis.edge1 != null) axis.edge1 -= newsH; }
   opts = Object.assign({}, opts, { showWeather: wantWx, stripH: stripH, richWx: richWx, levelNames: levelNames,
-                                   skyH: skyH, sky: skyMarks, rain: rainSpans, railRow: railRow, tiny: tiny });
+                                   skyH: skyH, sky: skyMarks, rain: rainSpans, railRow: railRow, tiny: tiny,
+                                   tasks: ownTasks });
   var scale = scaleFor({ from: metro.day_start_min, to: metro.day_end_min,
                          a0: axis.a0, a1: axis.a1,
                          // Off by asking, so a caller that wants the plain
@@ -1699,10 +1708,23 @@ function fixedFor(metro, scale, axis, cross, opts) {
     // Past the connector that opens the column, where the column was cut
     // wide enough to hold both. Otherwise at the paper's edge, as always.
     var head = headAt;
+    // WHAT THIS PERSON STILL OWES, UNDER THEIR NAME ("it needs to be per
+    // track"): a row each, beyond the badge, where the head already says
+    // what their day is. A tick box and the words, no more than the
+    // setting allows (rule 2q).
+    var owed = ((opts && opts.tasks) || []).filter(function (tk) {
+      return (tk.owners || []).indexOf(p.key) >= 0;
+    });
+    var boxW = Math.round(cell * 1.5);
+    var owedW = owed.reduce(function (acc, tk) {
+      return Math.max(acc, boxW + routeWidth(tk.title));
+    }, 0);
     out.push({ id: 'name0:' + p.key, kind: 'terminus', line: p.key, text: t, level: lv,
                route: routes[0], routeLines: routeLines, nameMax: isFinite(nameMax) ? nameMax : null,
-               rows: routeLines ? 1 + routeLines.length : 1, nameW: w + NAME_CLEAR, routeW: rw,
-               at: axis.a0, a0: head, a1: head + Math.max(w, rw) + NAME_CLEAR,
+               tasks: owed.length ? owed : null,
+               rows: (routeLines ? 1 + routeLines.length : 1) + owed.length,
+               nameW: w + NAME_CLEAR, routeW: rw,
+               at: axis.a0, a0: head, a1: head + Math.max(w, rw, owedW) + NAME_CLEAR,
                c0: 0, c1: 0 });
   });
 

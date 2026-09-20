@@ -271,6 +271,9 @@ function Furniture(spec) {
   this.routeLines = spec.routeLines || null;
   this.nameMax = spec.nameMax == null ? null : spec.nameMax;
   this.rows = spec.rows || 1;
+  // ...and what is still owed on this line, a row each under the name
+  // (rule 2q)
+  this.tasks = spec.tasks || null;
 }
 Furniture.prototype.box = function () {
   return { a0: this.a0, a1: this.a1, c0: this.c0, c1: this.c1 };
