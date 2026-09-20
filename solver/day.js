@@ -1447,6 +1447,11 @@ function specFor(metro, view, opts) {
            // keep the hours above it (fixedFor puts the rail under both)
            skyH: skyH,
            nameGutter: tookGutter,
+           // HOW MUCH DEPTH EACH LINE HAS, which is what decides whether a
+           // caption can afford to hold its time row and whether the search
+           // can afford to argue about where a caption sits (measure-dom
+           // `keepTime`, bands `driftPrice`).
+           roomy: (cross.c1 - cross.c0) / Math.max(1, legendN) >= nameH0 * 4,
            regut: opts.nameRoom != null || opts.nameGutter ? null : function () {
              return specFor(asked, view, Object.assign({}, askedOpts, { nameGutter: true }));
            },

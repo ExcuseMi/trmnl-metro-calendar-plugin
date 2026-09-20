@@ -690,6 +690,13 @@ function readable(p, board, near) {
 // reader pairing the words with the right stop. Lower is better.
 
 var OVER_BAR = 1, LEFT_OF_MARK = 7000, RAIL_HALF = 3.5;
+// HOW DEARLY A CAPTION PAYS FOR LEAVING ITS EVENT. `spec.driftPrice` scaled
+// to the coefficient this function was written with: 12 is the 0.04 it always
+// used, and anything above that buys the caption's PLACE against the form
+// ladder it is competing with (bands.js prices a rung at 18000, so at 0.04 a
+// caption would wander sixty pixels to save a fifth of a rung).
+var DRIFT_K = 0.04;
+function setDrift(v) { DRIFT_K = (v != null && v > 0 ? v : 12) / 300; }
 function price(p) {
   var w = p.want;
   // HOW FAR THE WORDS ARE FROM THE STRETCH OF RAIL THAT IS THEIR EVENT.
@@ -743,7 +750,7 @@ function price(p) {
   // preference the search will spend anything on, only the answer to a tie,
   // and the answer the board this replaces gave -- the name over its mark,
   // read down onto the rail.
-  return along * 0.04 + Math.max(0, along - 6) * Math.max(0, along - 6) * 0.04
+  return along * DRIFT_K + Math.max(0, along - 6) * Math.max(0, along - 6) * DRIFT_K
        + off * off * 25 + Math.abs(p.slide) * 0.01 + (p.side > 0 ? 0.5 : 0) + (p.overBar ? OVER_BAR : 0)
        // WHOLLY BEHIND ITS OWN STOP, the last resort: "2 line the label and
        // move to the right". Priced past a folded name (a form's rung, see
@@ -850,6 +857,7 @@ function muddledAt(p, i, dots, minLift, cache) {
 }
 
 function solve(wants, board, opts) {
+  setDrift(opts && opts.driftPrice);
   opts = opts || {};
   var n = wants.length;
   var cache = opts.cache || null;
@@ -1271,5 +1279,5 @@ function apply(board, wants, sol) {
 }
 
 
-module.exports = { Want: Want, positions: positions, readable: readable,
+module.exports = { Want: Want, positions: positions, readable: readable, setDrift: setDrift,
                    price: price, solve: solve, apply: apply, posBox: posBox };
