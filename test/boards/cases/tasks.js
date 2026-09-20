@@ -23,11 +23,19 @@ module.exports = function (test, h) {
   test('a person\'s own tasks wait under their name, a row each', () => {
     const built = boardWith(MINE);
     const heads = headsOf(built);
-    assert(heads.length === 2, heads.length + ' heads carry tasks');
+    assert(heads.length === 2, heads.length + ' task boxes');
     const mine = heads.find((f) => f.line === A), theirs = heads.find((f) => f.line === B);
     assert(mine && theirs, 'both owners should have one: ' + heads.map((f) => f.line).join(','));
     assert(mine.tasks.map((t) => t.title).join(',') === 'Mow the lawn,Homework', 'A owes: ' + JSON.stringify(mine.tasks.map((t) => t.title)));
-    assert(mine.rows >= 3 && theirs.rows >= 2, 'rows booked: ' + mine.rows + ', ' + theirs.rows);
+    assert(mine.rows === 2 && theirs.rows === 1, 'rows booked: ' + mine.rows + ', ' + theirs.rows);
+    // ...in their own box, across the rail from the name that stays put
+    const names = (built.board.fixed || []).filter((f) => f.kind === 'terminus' && !f.tasks && f.line);
+    [[mine, A], [theirs, B]].forEach(([box, key]) => {
+      const name = names.find((f) => f.line === key);
+      const rail = built.board.lineByKey(key).cAt(built.spec.axis.a0);
+      assert(name, key + ' lost its name');
+      assert((name.c1 <= rail + 1) !== (box.c1 <= rail + 1), key + ': the name and its tasks are on the same side of the rail');
+    });
     // drawn at the head: a box each, the done one ticked and struck through
     const stacks = [...built.doc.querySelectorAll('.metro-tasks')];
     assert(stacks.length === 2, stacks.length + ' stacks drawn');

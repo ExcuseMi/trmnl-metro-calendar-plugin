@@ -237,7 +237,17 @@ applies when something changes.
    cut instead. The source is a solid pill, paper with the name knocked
    out, the way the clock is on the strip; with one source on the board it
    is not named at all.
-   THE WEATHER ALERT IS ITS FIRST ROW: one box, not a band and a box, with
+   A BOX PER THING IT SAYS ("separate boxes at the bottom per type"): the
+   weather, what the household owes and what the world is doing are three
+   statements, so they get three grounds, butted together into one bar with
+   a paper hairline between them, the way a platform sign's sections are.
+   One type through the whole bar, the alert's own, every section's icon at
+   that type's height and every section's words starting on one line. A
+   headline the bar runs out of room for is cut by the framework's clamp
+   (the row is given its width and the words a box to shrink in), never by
+   slicing the letters here: the clamp keeps the original text and puts it
+   back.
+   THE WEATHER ALERT IS ITS FIRST SECTION: one bar, not a band and a box, with
    the alert's own classes and pieces (the thing bold, the clock quiet), two
    rows deep on a slot where a long translation wraps. The box is drawn on
    a standing board too, off the axis there.
@@ -360,6 +370,13 @@ applies when something changes.
    slot, where that branch would cost a rail somebody else is using, the
    long one hangs off the bar as before. A task (VTODO) is drawn with a square: its stop, and the
    rings of a shared one. A leader never passes through a ring.
+2b-ii. **The sky row is a band under the rail, with its own ground.** The
+   glyphs that say what the sky does -- rain starting and stopping, the
+   drops between them, the wind, the sunset, the moon on the midnight --
+   sit in a row of their own under the strip's rail, on a faint ground that
+   makes them a band rather than marks floating under the line. The night
+   and its twilights were drawn in that ground for a while and taken out
+   again: the band says what the glyphs say and nothing more.
 2c. **Each day names itself on the hour strip, and the strip is the
    header, and the strip is a line.** The day the board is on is a panel in
    the framework's `inverse`; the day it reaches into is paper beside it.

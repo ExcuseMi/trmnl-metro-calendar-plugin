@@ -120,7 +120,7 @@ module.exports = function (test, h) {
 
   // WHOSE IT IS, AS A BADGE. It was the name after a middle dot, which is the
   // longest way to say it on the part of the board that runs out of room
-  // first: a narrow panel cut "Yoga 10:30 \u00b7 Charlotte" to "Yoga\u2026" and the
+  // first: a narrow panel cut "Yoga 10:30 \u00b7 Mia" to "Yoga\u2026" and the
   // reader lost the event AND the person.
   test('the row carries a badge for whose event it is', () => {
     const m = board(NOON, [{ t: 'Yoga', a: 11 * 60, b: 13 * 60 }]);

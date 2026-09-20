@@ -62,12 +62,19 @@ module.exports = function (test, h) {
       parts: [{ t: 'Rain', s: 'b' }, { t: ' from ', s: 'q' }, { t: '14:00', s: '' }, { t: ' until ', s: 'q' }, { t: '17:00', s: '' }, { t: ' (80%)', s: 'q' }] };
     const built = build(Object.assign(withNews(), { service_alert: RAIN }), 'x-landscape');
     assert(built.spec.news && built.spec.news.alertRows === 1 && built.spec.news.rows === 3, 'rows: ' + JSON.stringify(built.spec.news && [built.spec.news.alertRows, built.spec.news.rows]));
-    const box = canvasOf(built).querySelector('.metro-news');
-    const rows = [...box.querySelectorAll('.metro-news-row')];
-    assert(rows.length === 4, rows.length + ' rows');
-    assert(rows[0].className.indexOf('metro-banner') >= 0 && rows[0].getAttribute('data-metro-alert') === 'rain', 'the alert is not the first row');
+    // ...IN A BOX OF ITS OWN, above the headlines' box ("separate boxes at
+    // the bottom per type")
+    const boxes = [...canvasOf(built).querySelectorAll('.metro-news')];
+    const alertBox = boxes.find((b) => /metro-news--alert/.test(b.className));
+    const newsBox = boxes.find((b) => /metro-news--news/.test(b.className));
+    assert(alertBox && newsBox, 'boxes: ' + boxes.map((b) => b.className).join(' | '));
+    assert(parseFloat(alertBox.style.top) < parseFloat(newsBox.style.top), 'the alert is not above the headlines');
+    const rows = [...alertBox.querySelectorAll('.metro-news-row')];
+    assert(rows.length === 1, rows.length + ' rows in the alert box');
+    assert(rows[0].className.indexOf('metro-banner') >= 0 && rows[0].getAttribute('data-metro-alert') === 'rain', 'the alert is not the box\'s row');
     assert(rows[0].querySelector('.metro-banner-text').textContent === RAIN.text, 'the alert text is not whole');
     assert(rows[0].querySelector('.metro-banner-icon'), 'the alert has no icon');
+    assert(newsBox.querySelectorAll('.metro-news-row').length === 3, 'headline rows: ' + newsBox.querySelectorAll('.metro-news-row').length);
     // ...and the alert alone still makes a box, with no feeds at all
     const only = build(Object.assign({}, five.metro, { service_alert: RAIN }), 'x-landscape');
     assert(only.spec.news && only.spec.news.alertRows === 1 && only.spec.news.rows === 0, 'no box for an alert without news');
