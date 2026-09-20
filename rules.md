@@ -168,10 +168,14 @@ applies when something changes.
    other, with a square instead of a dot. One with NO due time, and one
    still owed from an EARLIER day, is not a stop at all: the board looks
    forward, and a thing to do is not something that happened. Those are
-   drawn as tick boxes along the foot, one row above the headlines,
-   because what the household owes outranks what the world is doing; that
-   row gives way before the map does, and after the headlines have given
-   up theirs. A task ticked off TODAY stays until the day turns over, its
+   drawn as a tick box and its words: A PERSON'S OWN AT THE HEAD OF THEIR
+   OWN TRACK, a row each under their name and beyond what their day is,
+   because a task belongs to somebody ("it needs to be per track"); ONE THE
+   WHOLE HOUSEHOLD OWES along the foot, in the platform display above the
+   headlines, since it is on nobody's track ("unless they are family
+   events"). The foot row takes its place from the headlines rather than
+   adding one, because what the household owes outranks what the world is
+   doing. How many wait at each head is the setting's to say. A task ticked off TODAY stays until the day turns over, its
    square filled and its words struck through, because seeing it done is
    the point of having it on the wall; one finished on an earlier day, and
    one cancelled, is gone. The household can switch the lot off in the

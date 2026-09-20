@@ -1,66 +1,69 @@
 'use strict';
 
-// WHAT IS OWED, ALONG THE FOOT (rule 2q). A task with no time on the board
-// is not a stop: it is a tick box in the platform display, above the
-// headlines, because what the household owes outranks what the world is
-// doing. A task done today keeps its square on the map and has it filled.
+// WHAT IS OWED (rule 2q). A task with no time on the board is not a stop.
+// A person's OWN waits at the head of their own track, a row under their
+// name; one the WHOLE HOUSEHOLD owes is on nobody's track, so it takes a
+// row of the platform display above the headlines. A task done today keeps
+// its square on the map, filled, and its words struck through.
 
 module.exports = function (test, h) {
   const { build, fixtures, assert } = h;
   const five = fixtures.find((f) => f.name === 'five-lines');
-  const OWNER = five.metro.legend[0].key;
-  const TASKS = [
-    { title: 'Mow the lawn', owners: [OWNER], done: false, overdue: false },
-    { title: 'Library books', owners: [OWNER], done: false, overdue: true },
-    { title: 'Homework', owners: [OWNER], done: true, overdue: false },
+  const KEYS = five.metro.legend.map((l) => l.key);
+  const A = KEYS[0], B = KEYS[1];
+  const MINE = [
+    { title: 'Mow the lawn', owners: [A], done: false, overdue: false },
+    { title: 'Homework', owners: [A], done: true, overdue: false },
+    { title: 'Library books', owners: [B], done: false, overdue: true },
   ];
-  const NEWS = { max: 1, fit: true, items: [
-    { title: 'A new playground opens in the park on Saturday', source: 'The Paper' },
-    { title: 'Tram 4 is out for a month', source: 'The Paper' },
-  ] };
-  const canvasOf = (b) => b.doc.querySelector('.metro-canvas');
+  const FAMILY = { title: 'Tidy the shed', owners: KEYS.slice(), done: false, overdue: false };
+  const boardWith = (tasks, view) => build(Object.assign({}, five.metro, { tasks: tasks }), view || 'x-landscape');
+  const headsOf = (b) => (b.board.fixed || []).filter((f) => f.kind === 'terminus' && f.tasks);
 
-  test('a task with no time is a tick box along the foot, above the headlines', () => {
-    const built = build(Object.assign({}, five.metro, { tasks: TASKS, news: NEWS }), 'x-landscape');
-    const box = canvasOf(built).querySelector('.metro-news');
-    assert(box, 'no box at the foot');
-    assert(built.spec.news.taskRows === 1, 'rows for the tasks: ' + built.spec.news.taskRows);
-    const row = box.querySelector('.metro-task-row');
-    assert(row, 'no tasks row');
-    assert(/Mow the lawn/.test(row.textContent) && /Homework/.test(row.textContent), 'the tasks: ' + row.textContent);
-    const boxes = row.querySelectorAll('.metro-task-box');
-    assert(boxes.length === TASKS.length, boxes.length + ' tick boxes');
-    // the done one is ticked and says so, the others are not
-    const ticked = [...boxes].map((b) => !!b.querySelector('path'));
-    assert(ticked.join(',') === 'false,false,true', 'ticked: ' + ticked.join(','));
-    assert(row.querySelector('.metro-task-done'), 'a done task is not set apart');
-    // above the headlines
-    const rows = [...box.querySelectorAll('.metro-news-row')];
-    assert(rows[0] === row, 'the tasks are not the first row');
-    assert(parseFloat(rows[1].style.top) > parseFloat(row.style.top), 'a headline is above the tasks');
+  test('a person\'s own tasks wait under their name, a row each', () => {
+    const built = boardWith(MINE);
+    const heads = headsOf(built);
+    assert(heads.length === 2, heads.length + ' heads carry tasks');
+    const mine = heads.find((f) => f.line === A), theirs = heads.find((f) => f.line === B);
+    assert(mine && theirs, 'both owners should have one: ' + heads.map((f) => f.line).join(','));
+    assert(mine.tasks.map((t) => t.title).join(',') === 'Mow the lawn,Homework', 'A owes: ' + JSON.stringify(mine.tasks.map((t) => t.title)));
+    assert(mine.rows >= 3 && theirs.rows >= 2, 'rows booked: ' + mine.rows + ', ' + theirs.rows);
+    // drawn at the head: a box each, the done one ticked and struck through
+    const stacks = [...built.doc.querySelectorAll('.metro-tasks')];
+    assert(stacks.length === 2, stacks.length + ' stacks drawn');
+    const boxes = built.doc.querySelectorAll('.metro-task-box');
+    assert(boxes.length === 3, boxes.length + ' tick boxes for three owings');
+    assert([...boxes].filter((x) => x.querySelector('path')).length === 1, 'the done one is not ticked');
+    assert(built.doc.querySelector('.metro-task-done'), 'a done task is not struck through');
+    // ...and nothing at the foot, since none of them is the household's
+    assert(!built.spec.news, 'a personal task opened the box at the foot');
   });
 
-  test('no tasks, no row; and the tasks alone still make the box', () => {
-    const none = build(Object.assign({}, five.metro, { news: NEWS }), 'x-landscape');
-    assert(!canvasOf(none).querySelector('.metro-task-row'), 'a tasks row with no tasks');
-    assert(!none.spec.news.taskRows, 'rows reserved for no tasks');
-    const only = build(Object.assign({}, five.metro, { tasks: TASKS }), 'x-landscape');
-    assert(only.spec.news && only.spec.news.taskRows === 1, 'no box for tasks alone');
-    assert(canvasOf(only).querySelector('.metro-task-row'), 'the tasks row was not drawn');
+  test('what the whole household owes takes the foot row instead', () => {
+    const built = boardWith(MINE.concat([FAMILY]));
+    assert(built.spec.news && built.spec.news.taskRows === 1, 'no foot row for the family task');
+    assert(built.spec.news.tasks.map((t) => t.title).join(',') === 'Tidy the shed', 'the foot row: ' + JSON.stringify(built.spec.news.tasks));
+    const row = built.doc.querySelector('.metro-task-row');
+    assert(row && /Tidy the shed/.test(row.textContent), 'the family task was not drawn at the foot');
+    // the personal ones are still at their heads
+    assert(headsOf(built).length === 2, 'the personal tasks left their heads');
   });
 
-  test('a task done today keeps its square, filled', () => {
+  test('no tasks, no boxes anywhere', () => {
+    const none = build(five.metro, 'x-landscape');
+    assert(!headsOf(none).length && !none.doc.querySelector('.metro-tasks'), 'boxes with no tasks');
+    assert(!none.doc.querySelector('.metro-task-row'), 'a foot row with no tasks');
+  });
+
+  test('a task done today keeps its square on the map, filled', () => {
     const at = five.metro.now_min + 60;
-    const ev = { title: 'Bins out', owner: OWNER, start_min: at, end_min: at, todo: true, done: true };
+    const ev = { title: 'Bins out', owner: A, start_min: at, end_min: at, todo: true, done: true };
     const open = Object.assign({}, ev, { title: 'Recycling', done: false, start_min: at + 120, end_min: at + 120 });
     const built = build(Object.assign({}, five.metro, { events: five.metro.events.concat([ev, open]) }), 'x-landscape');
-    // (on a shaded line the mark is drawn as a twin under a hairline, and
-    // the twin is what carries the fill)
     const squares = [...built.doc.querySelectorAll('rect[data-metro-role="stop-start"], rect[data-metro-role="stop-start-edge"]')];
     assert(squares.length >= 2, squares.length + ' task squares');
     const inked = squares.filter((r) => /text-primary/.test(r.style.fill || ''));
     const paper = squares.filter((r) => /canvas-bg/.test(r.style.fill || ''));
-    assert(inked.length === 1 && paper.length >= 1,
-      'filled ' + inked.length + ', hollow ' + paper.length + ' of ' + squares.length + ': ' + squares.map((r) => r.style.fill).join(' | '));
+    assert(inked.length === 1 && paper.length >= 1, 'filled ' + inked.length + ', hollow ' + paper.length);
   });
 };

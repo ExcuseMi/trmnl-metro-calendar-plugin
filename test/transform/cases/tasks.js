@@ -49,8 +49,14 @@ module.exports = function (test, h) {
     assert((d.tasks || []).every((t) => (t.owners || []).length === 1), 'a task with no owner: ' + JSON.stringify(d.tasks));
   });
 
-  test('the setting takes them off the board', async () => {
-    const d = await board({ tasks_show: 'hide' });
-    assert(!(d.tasks || []).length, 'tasks with the setting off: ' + JSON.stringify(d.tasks));
+  test('the setting takes them off the board, and says how many wait at each end', async () => {
+    const off = await board({ tasks_count: 'hide' });
+    assert(!(off.tasks || []).length, 'tasks with the setting off: ' + JSON.stringify(off.tasks));
+    // two each by default, one each when asked
+    const two = await board();
+    assert(two.tasks.length === 2, 'by default: ' + JSON.stringify(two.tasks.map((t) => t.title)));
+    const one = await board({ tasks_count: '1' });
+    assert(one.tasks.length === 1 && one.tasks[0].title === 'Library books',
+      'one each: ' + JSON.stringify(one.tasks.map((t) => t.title)));
   });
 };

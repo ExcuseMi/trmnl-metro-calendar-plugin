@@ -743,7 +743,9 @@ function boardFor(spec, st) {
   // A HEAD WITH A ROUTE ROW is the name and a smaller row under it.
   // A name and the lines of its badge, each a small row under or over it.
   function headH(fx) {
-    var badge = fx.route ? Math.max(1, (fx.rows || 2) - 1) : 0;
+    // (every row under the name, whether it says what the day is or what is
+    // still owed on it: rule 2q)
+    var badge = fx.route || fx.tasks ? Math.max(1, (fx.rows || 2) - 1) : 0;
     return spec.nameH + badge * Math.round(spec.nameH * 0.85);
   }
   // THE BOARD'S FIXED INK. A terminus name has no cross position until its
@@ -792,6 +794,8 @@ function boardFor(spec, st) {
   });
   headFx.forEach(function (fx) {
     var f = { id: fx.id, kind: fx.kind, text: fx.text, align: fx.align,
+              // what this person still owes, said under their name
+              tasks: fx.tasks || null,
               // Carried through rather than looked up again at drawing time:
               // a sky marker's glyph and its own minute are part of what the
               // board says, and the renderer should not be reading the
