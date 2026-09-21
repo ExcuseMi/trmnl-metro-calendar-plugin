@@ -30,7 +30,15 @@ module.exports = function (test, h) {
   // board is asked to keep: "we should show user content over alert and news
   // at all times". Five lines on an OG have seventy units a line, which is
   // not enough to argue about, so that board is unchanged.
-  for (const [v, rows] of [['x-landscape', 2], ['og-landscape', 2], ['og-quadrant', 0]]) {
+  // ...AND THE ROW CAME BACK when the time row was priced above the size
+  // step as well (measure-dom's keepTime). A caption holding its time is
+  // taller than one that gives it up, so the search buys the depth by
+  // lifting FEWER names onto shelves -- and a shelf is deeper than the row
+  // it saves. The map ends a row shallower than it did (649 against 683)
+  // with the same seventeen captions and all seventeen times, so the row
+  // the headlines take is one the tracks did not want: the order above is
+  // kept by the map asking first, not by the foot staying small.
+  for (const [v, rows] of [['x-landscape', 3], ['og-landscape', 2], ['og-quadrant', 0]]) {
     test('the headlines take a band at the foot, ' + rows + ' row(s) on ' + v, () => {
       const built = build(withNews(), v);
       const band = built.spec.news;

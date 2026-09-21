@@ -927,6 +927,20 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       if (g.kind !== 'terminus' || !(g.a0 - 2 * S <= a && a <= g.a1 + 2 * S)) return;
       cutRuns(g.c0 - 2 * S, g.c1 + 2 * S);
     });
+    // ...AND AROUND EVERY EVENT'S NAME, for the same reason as the head's.
+    // Only the head pills were stepped around, and an event's name is the
+    // other half of the words on this board: at midday the line went
+    // straight down through "Safety Inspection", the times under "School
+    // Day" and the "12 - 1pm" beneath Grocery Run at once ("caption labels
+    // being cut by the now line"). The words are HTML over the drawing, so
+    // what it costs is not a line over letters but a line running into a
+    // ragged hole in their outline, which is worse: it reads as the name
+    // being broken rather than the line stopping.
+    (board.caps || []).forEach(function (cp) {
+      var cb = cp.box();
+      if (!(cb.a0 - 2 * S <= a && a <= cb.a1 + 2 * S)) return;
+      cutRuns(cb.c0 - 2 * S, cb.c1 + 2 * S);
+    });
     // ...AND AROUND EVERY RAIL IT CROSSES, the gap a bar gets: the line is
     // one more thing crossing the tracks ("might as well cut on the tracks
     // as well"), so the rails run over it whole with paper either side.
@@ -3607,9 +3621,17 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // ...AND THE WORDS FOLLOW IT: hourly labels over two-hourly dots are
     // the same broken rhythm, so the labels' step is rounded up to a
     // multiple of the dots'.
-    var DOT_GAP = 12 * S, dotStep = 2;
-    var slowest = widths.length ? widths[0] : perMin;
-    if (60 * slowest >= DOT_GAP) dotStep = 1;
+    // ...BUT THE STEP IS CHOSEN WHERE THERE IS ROOM, NOT AT THE TIGHTEST
+    // HOUR ON THE RAIL. Taken from the SLOWEST hour, one squeezed hour set
+    // the rhythm for the whole day: a board whose lead-in ran 18px to the
+    // hour against a 20.7px gap -- two pixels short -- put the dots on two
+    // hours, and the rounding above then took half the clock off a day with
+    // room for all of it ("why isn't it showing hourly here", twelve hours
+    // of panel carrying five labels). The same rate the words are chosen
+    // at, so the words are never coarser than the panel can hold; the
+    // squeeze is thinned where it is squeezed, by the clearance rule below,
+    // and a labelled hour keeps its station whatever that leaves.
+    var DOT_GAP = 12 * S, dotStep = 60 * perMin >= DOT_GAP ? 1 : 2;
     while (step % dotStep) step++;
     for (var h = Math.ceil(from / 60); h * 60 <= to; h++) {
       if (h % dotStep !== 0) continue;

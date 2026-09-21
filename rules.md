@@ -199,13 +199,17 @@ applies when something changes.
    label is left off. Elsewhere a label closer to the last one than a
    label is wide is left off the same way.
    A STATION EVERY HOUR OR TWO, BIG WITH WORDS AND SMALL WITHOUT ("have
-   the dots every 2 or 1 hours"): one clock step along the whole rail, the
-   finest that divides the labels' step and leaves the dots a few of their
-   own widths apart where the scale runs slowest, so the rhythm never
-   changes half way ("6am only has 1 dot and it's 10am" was an hourly day
-   beside a two-hourly night). The labels' step is rounded up to a
-   multiple of the dots'. Where even two hours are too tight a small dot
-   too close to the last is left off; the midnight's station is kept.
+   the dots every 2 or 1 hours"): one clock step along the whole rail, and
+   the labels' step rounded up to a multiple of it, so the words never run
+   on a finer rhythm than the dots ("6am only has 1 dot and it's 10am" was
+   an hourly day beside a two-hourly night). THE STEP IS CHOSEN WHERE
+   THERE IS ROOM, at the same rate the words are, and not at the tightest
+   hour on the board: taken from the slowest hour, a lead-in two pixels
+   short of the dots' clearance put a whole day of words on two hours
+   ("why isn't it showing hourly here"). Where even two hours are too
+   tight a small dot too close to the last is left off, which thins a
+   squeezed stretch by exactly its own compression; a labelled hour keeps
+   its station whatever that leaves, and the midnight's station is kept.
    Every hour without words is a dot, night or day. No steam off the
    train: a metro is electric.
    TONIGHT'S MOON IS A SKY MARK ("like the rain icon under the time
@@ -286,6 +290,14 @@ applies when something changes.
    silhouette (svgrepo.com/svg/420587, CC0), in paper on the ink panel with
    its floor on the strip's rail under the clock pill, facing the way the
    day goes. The now line starts under it.
+   AND IT STOPS FOR EVERY NAME AND EVERY RAIL IT WOULD CROSS. A rail runs
+   over it whole with paper either side, the way a bar is crossed; a head's
+   name and an event's name alike take a gap, and the line picks up past
+   them. The words are drawn over the map, so a line run through one is not
+   a line over letters but a line into the ragged hole their outline
+   leaves, which reads as the NAME broken rather than the line stopped
+   ("now line crossing the starting labels shouldn't happen", "caption
+   labels being cut by the now line").
 2k. **A free day says so.** A board with a clock and nothing timed on it
    draws one friendly line in the middle of the map, with the day's own
    sky beside it ("Nothing planned. Free day!"), instead of four flat rails

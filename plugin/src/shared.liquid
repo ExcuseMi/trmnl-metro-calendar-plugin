@@ -7629,10 +7629,19 @@ var XL_PART_TIERS = partTiersAt('text--xlarge').concat(LARGE_PART_TIERS.map(func
 // insisting only spends the second the search has (solver/cases.js 29, which
 // went from three shed to eleven on exactly that board). So the price is not a
 // constant: it is paid by boards that can afford it.
+//
+// A RUNG AND A THIRD, WHICH IS MORE THAN THE SIZE STEP IT COMPETES WITH. At
+// 0.7 it was cheaper than the step from the largest size, and a five-line X
+// board -- twelve events, room under every one of them -- came out with
+// twelve xlarge names and NOT ONE TIME, a name cut short to boot. The step
+// down is 0.8 a rung, so anything under that loses to it; measured over the
+// sweep, 1.2 to 1.5 holds nineteen more times with nothing shed, and at 2 a
+// caption starts paying for them (810 drawn, one shed). The middle of the
+// shelf, not its edge.
 function keepTime(ts) {
   return ts.map(function (t) {
     var only = t.rows && t.rows.length === 1 && t.rows[0].kind === 'title';
-    return only ? Object.assign({}, t, { rung: t.rung + 0.7 }) : t;
+    return only ? Object.assign({}, t, { rung: t.rung + 1.35 }) : t;
   });
 }
 function tiersFor(large, parts, crowdLen, xl, roomy) {
@@ -9324,6 +9333,20 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     (board.fixed || []).forEach(function (g) {
       if (g.kind !== 'terminus' || !(g.a0 - 2 * S <= a && a <= g.a1 + 2 * S)) return;
       cutRuns(g.c0 - 2 * S, g.c1 + 2 * S);
+    });
+    // ...AND AROUND EVERY EVENT'S NAME, for the same reason as the head's.
+    // Only the head pills were stepped around, and an event's name is the
+    // other half of the words on this board: at midday the line went
+    // straight down through "Safety Inspection", the times under "School
+    // Day" and the "12 - 1pm" beneath Grocery Run at once ("caption labels
+    // being cut by the now line"). The words are HTML over the drawing, so
+    // what it costs is not a line over letters but a line running into a
+    // ragged hole in their outline, which is worse: it reads as the name
+    // being broken rather than the line stopping.
+    (board.caps || []).forEach(function (cp) {
+      var cb = cp.box();
+      if (!(cb.a0 - 2 * S <= a && a <= cb.a1 + 2 * S)) return;
+      cutRuns(cb.c0 - 2 * S, cb.c1 + 2 * S);
     });
     // ...AND AROUND EVERY RAIL IT CROSSES, the gap a bar gets: the line is
     // one more thing crossing the tracks ("might as well cut on the tracks
@@ -12005,9 +12028,17 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     // ...AND THE WORDS FOLLOW IT: hourly labels over two-hourly dots are
     // the same broken rhythm, so the labels' step is rounded up to a
     // multiple of the dots'.
-    var DOT_GAP = 12 * S, dotStep = 2;
-    var slowest = widths.length ? widths[0] : perMin;
-    if (60 * slowest >= DOT_GAP) dotStep = 1;
+    // ...BUT THE STEP IS CHOSEN WHERE THERE IS ROOM, NOT AT THE TIGHTEST
+    // HOUR ON THE RAIL. Taken from the SLOWEST hour, one squeezed hour set
+    // the rhythm for the whole day: a board whose lead-in ran 18px to the
+    // hour against a 20.7px gap -- two pixels short -- put the dots on two
+    // hours, and the rounding above then took half the clock off a day with
+    // room for all of it ("why isn't it showing hourly here", twelve hours
+    // of panel carrying five labels). The same rate the words are chosen
+    // at, so the words are never coarser than the panel can hold; the
+    // squeeze is thinned where it is squeezed, by the clearance rule below,
+    // and a labelled hour keeps its station whatever that leaves.
+    var DOT_GAP = 12 * S, dotStep = 60 * perMin >= DOT_GAP ? 1 : 2;
     while (step % dotStep) step++;
     for (var h = Math.ceil(from / 60); h * 60 <= to; h++) {
       if (h % dotStep !== 0) continue;

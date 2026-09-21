@@ -85,6 +85,34 @@ module.exports = function (test, h) {
     assert(!bad.length, bad.slice(0, 5).join('; '));
   });
 
+  // THE CLOCK'S LINE STOPS FOR EVERY NAME IT WOULD CROSS, not only for the
+  // heads. It steps around the head pills and around each rail; an event's
+  // name was never in that list, so at midday it went down through "Safety
+  // Inspection", the time under "School Day" and the "12 - 1pm" beneath
+  // Grocery Run in one fall ("caption labels being cut by the now line").
+  // Asked at three times of day, because the fault is where the clock is.
+  test('the now line stops for the names it would cross', () => {
+    const bad = [];
+    for (const f of fixtures) {
+      for (const now of [8 * 60 + 10, 12 * 60 + 40, 18 * 60 + 25]) {
+        for (const v of ['x-landscape', 'og-landscape']) {
+          const rep = layout(at(f, now), v);
+          const line = (rep.rects || []).filter((r) => r.role === 'now');
+          if (!line.length) continue;
+          for (const l of line) {
+            for (const lb of rep.labels) {
+              if (lb.cls !== 'metro-label') continue;
+              if (l.x + l.w <= lb.x || lb.x + lb.w <= l.x) continue;
+              if (l.y + l.h <= lb.y || lb.y + lb.h <= l.y) continue;
+              bad.push(f.name + '@' + now + '/' + v + ': through "' + lb.text + '"');
+            }
+          }
+        }
+      }
+    }
+    assert(!bad.length, bad.slice(0, 5).join('; ') + (bad.length > 5 ? ' (+' + (bad.length - 5) + ')' : ''));
+  });
+
   // "+N earlier" and "+N more" say the DAY continues past the paper: they
   // count only what is off that edge and still that edge's day (rule 2h).
   test('the overflow notes count only the same day, off their own edge', () => {

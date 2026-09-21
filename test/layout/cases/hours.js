@@ -78,6 +78,44 @@ module.exports = function (test, h) {
           assert(stations[i] - stations[i - 1] <= full + 3, 'a bare stretch of rail: ' + Math.round(stations[i - 1]) + ' to ' + Math.round(stations[i]) + ', over the ' + Math.round(full) + ' of a full step');
         }
       });
+
+      // AND THE STEP IS AS FINE AS THE RAIL CAN CARRY. The dots' step was
+      // taken from the TIGHTEST hour on the board and the words were
+      // rounded up to a multiple of it, so a lead-in two pixels short of
+      // the dots' clearance put the whole day on two-hour words: twelve
+      // hours of panel with five labels on it, room for eleven ("why isn't
+      // it showing hourly here"). Where a station stands clear of both its
+      // neighbouring words by the width a word is placed at, a word
+      // belonged on it.
+      test('the hour words are as fine as the rail can carry: ' + f.name + ' / ' + v.name, () => {
+        const rep = layout(f, v);
+        if (!rep.debug || !rep.debug.horizontal) return;
+        const all = textLabels(rep);
+        const labs = all.filter((l) => (' ' + l.cls + ' ').indexOf(' metro-hour ') >= 0 && hourOf(l.text) != null)
+          .map((l) => ({ x: l.x + l.w / 2, w: l.w, text: l.text })).sort((p, q) => p.x - q.x);
+        if (labs.length < 2) return;
+        const stations = (rep.circles || []).filter((c) => c.role === 'hour-station' || c.role === 'hour-station-minor')
+          .map((c) => c.x + c.w / 2).sort((p, q) => p - q);
+        // the clock's own pill takes an hour off the words, and so does the
+        // midnight a panel changes at: a gap kept for either is not a step
+        // too coarse
+        const keepOut = all.filter((l) => (' ' + l.cls + ' ').indexOf(' metro-axis-note ') >= 0)
+          .map((l) => [l.x - 4, l.x + l.w + 4])
+          .concat((rep.rects || []).filter((r) => r.role === 'river').map((r) => [r.x - 4, r.x + r.w + 4]));
+        for (let i = 1; i < labs.length; i++) {
+          // what the drawing books a word at: its own width and a little
+          // over, centre to centre (draw.js `room`), with a quarter again
+          // so a word a few pixels short of fitting is not a failure
+          // (the drawing books in its own units; the harness measures the
+          // screen, so the clearance is carried across at the same ratio)
+          const Z = rep.debug.W ? rep.canvas.w / rep.debug.W : 1;
+          const room = 1.25 * (Math.max(labs[i].w, labs[i - 1].w) + 10 * (rep.debug.S || 1) * Z);
+          const spare = stations.filter((s) => s - labs[i - 1].x >= room && labs[i].x - s >= room
+            && !keepOut.some((k) => s > k[0] && s < k[1]));
+          assert(!spare.length, 'a word belonged between "' + labs[i - 1].text + '" and "' + labs[i].text
+            + '": ' + spare.length + ' station(s) clear of both by ' + Math.round(room) + 'px');
+        }
+      });
     }
   }
 };
