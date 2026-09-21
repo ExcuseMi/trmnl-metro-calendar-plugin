@@ -7501,7 +7501,25 @@ module.exports = { specFor: specFor, crowding: crowding, CROWD_SAFE: CROWD_SAFE,
 // skip the rung.
 // THE TIME IS BOLD AND BLACK: "make the time stamps bold". A quiet grey range
 // was the part of a caption a reader in a hurry could not read.
-var TIME_CLS = 'metro-time-tag text--small text--bold';
+var TIME_SM_CLS = 'metro-time-tag text--small text--bold';
+var TIME_CLS = TIME_SM_CLS;
+// ...AND A SIZE LARGER UNDER A NAME THAT IS ITSELF A SIZE LARGER. The time
+// is set small so it reads as the caption's second line rather than its
+// first, which is right against a 16px name and wrong under a 28px one:
+// on the X the gap was two steps and the clock under the words came out as
+// a footnote ("time labels in the captions could be a bit larger"). One
+// step, not two, so the name still reads first.
+//
+// NOT A FORM IN THE LADDER, THOUGH. Offered as the richest tier it cost the
+// sweep four captions and thirty-seven times, because a taller second row
+// is depth and depth is what a time row is paid out of; offered as an extra
+// rung it cost six captions and seven times to the search budget alone; and
+// offered at the same price as the small one it was never taken, since the
+// descent only ever steps DOWN. So the step up is not a choice the solver
+// makes at all: the drawing takes it afterwards, out of room that is
+// already free, and only when EVERY caption on the board can have it (see
+// draw.js). Mixed clock sizes on one board would read as a mistake.
+var TIME_BIG_CLS = 'metro-time-tag text--base text--bold';
 
 // AN HOUR OR MORE SAYS WHEN IT ENDS, a shorter one only when it starts:
 // "did we lose the end time?" A school day read as "8:30am" left the reader
@@ -7522,6 +7540,7 @@ function timeText(ev, clock, hour12) {
   return (once ? clock(a).replace(/(am|pm)$/, '') : clock(a)) + ' \u2013 ' + clock(b);
 }
 function tiersAt(titleCls) {
+  var TIME_CLS = TIME_SM_CLS;
   return [
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' },
              { kind: 'time', cls: TIME_CLS }], size: 1, rung: 0 },
@@ -9312,9 +9331,19 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       var th = 8 * S, tk = th / 271, tw = 704 * tk;
       // (mirrored: the icon's nose is on its left, and the day runs right:
       // "you need to flip the metro around")
-      var tb = svgEl(doc, 'path', { d: TRAIN_D, stroke: 'none',
+      // ...AND OUTLINED, because it straddles the edge of the panel. Paper
+      // on ink reads; the half below the rail is paper on PAPER, so the
+      // wheels and the nose simply were not there and the car looked bitten
+      // off at the strip's edge ("train needs an outline"). The outline is
+      // drawn in the icon's own units -- the path is inside the scale, so a
+      // width in board pixels has to be divided back out -- and it takes
+      // the windows with it, which is what a drawn train wants anyway.
+      var tOut = Math.max(0.6, 0.5 * S);
+      var tb = svgEl(doc, 'path', { d: TRAIN_D, 'stroke-width': tOut / tk,
+        'stroke-linejoin': 'round',
         transform: 'translate(' + (tq[0] + tw / 2 + 149 * tk) + ' ' + (tq[1] + 1 * S - 636 * tk) + ') scale(' + (-tk) + ' ' + tk + ')' });
       tb.style.fill = PAPER;
+      tb.style.stroke = INK;
       train.appendChild(tb);
       trainEl = train;
       svg.appendChild(train);
@@ -9347,6 +9376,16 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       var cb = cp.box();
       if (!(cb.a0 - 2 * S <= a && a <= cb.a1 + 2 * S)) return;
       cutRuns(cb.c0 - 2 * S, cb.c1 + 2 * S);
+    });
+    // ...AND AROUND THE SKY'S GLYPHS. The line crosses the sky ROW on
+    // purpose -- it is the clock's row too -- but crossing the row is not
+    // the same as going through a mark on it: at three minutes to midnight
+    // it ran straight down the middle of the moon ("now line colliding with
+    // weather icons"). The band stays crossed; the glyphs get the gap a
+    // name gets.
+    (board.fixed || []).forEach(function (g) {
+      if ((g.kind !== 'sky' && g.kind !== 'weather') || !(g.a0 - 2 * S <= a && a <= g.a1 + 2 * S)) return;
+      cutRuns(g.c0 - 2 * S, g.c1 + 2 * S);
     });
     // ...AND AROUND EVERY RAIL IT CROSSES, the gap a bar gets: the line is
     // one more thing crossing the tracks ("might as well cut on the tracks
@@ -11024,9 +11063,17 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     var nowA = (nowFx.a0 + nowFx.a1) / 2;
     dayCuts.forEach(function (cut) {
       if (cut > nowA && r[1] - 2 * S > cut - 10 * S) {
-        r = place(pill, cut - 10 * S, cRow, 'right');
-        // the face may settle a little wider, and it grows to the left here
-        r[0] -= 6 * S;
+        // ...AND IT ENDS ON THE LINE IT NAMES. Backed off the midnight by a
+        // clear ten pixels and then six more, the pill stood a half of its
+        // own width from the mark it is about: at three minutes to midnight
+        // the time was one side of the corner and the line the other ("now
+        // time not above the now line"). The clock cannot straddle the
+        // panel change -- a solid pill is knocked out of the ink and drawn
+        // into the paper, so half of it would go -- but it can stop AT the
+        // line, which is the nearest it can stand to what it means. The cut
+        // is always within half a pill of now here, or this branch is not
+        // taken at all.
+        r = place(pill, nowA, cRow, 'right');
       }
     });
     if (free(r)) taken.push(r); else pill.remove();
@@ -11122,8 +11169,16 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
         var d = doc.createElement('span');
         // an outlined tag on every day, so the clock's solid pill is the one
         // solid mark on the strip; small beside a title, the strip's size alone
+        // ...AND NOT A SIZE SMALLER FOR STANDING NEXT TO A WORD. Beside
+        // "Today" the date was set in `label--small`, one step under
+        // everything else on the strip, inside a hairline outline: on the
+        // wall "Di 22 Sep" was the one thing on the header nobody could
+        // read. It keeps the outline -- the clock's solid pill stays the
+        // only solid mark up there -- and takes the strip's own size, which
+        // is what the hours beside it are set in. Where that no longer fits
+        // the ladder below still has the plain forms to fall to.
         d.className = mode[fi] === 'big' ? 'metro-today metro-date value value--small text--bold'
-          : 'metro-axis-note metro-date metro-pill metro-pill--quiet' + (mode[fi] === 'title' ? ' label label--small' : ' label' + STRIP_SM) + ' text--bold';
+          : 'metro-axis-note metro-date metro-pill metro-pill--quiet label' + STRIP_SM + ' text--bold';
         d.textContent = fx.text;
         badge.appendChild(d);
         if (forms[fi] > 0) {
@@ -12467,6 +12522,94 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       else { el.style.top = 'auto'; el.style.bottom = gapEnd + 'px'; }
     }
   });
+
+  // THE CLOCK UNDER A NAME STEPS UP WITH IT, WHERE THE BOARD HAS THE ROOM.
+  //
+  // A caption's time is set two sizes under an xlarge name and read on the
+  // wall as a footnote ("time labels in the captions could be a bit
+  // larger"). It cannot be a form in the ladder: offered as the richest
+  // tier it cost the sweep four captions and thirty-seven times, because a
+  // taller row is depth and depth is what the time row itself is paid out
+  // of (measure-dom's TIME_BIG_CLS). So it is taken HERE, after every
+  // caption has its place, out of depth that is already free -- the box
+  // grows by four pixels or so and nothing else moves.
+  //
+  // ALL OF THEM OR NONE. Whether a box can grow depends on which side of
+  // its rail it sits: one below has paper under it, one above has the rail.
+  // Upgrading each on its own merits put two clock sizes on one board,
+  // which reads as a mistake rather than as a decision, so the board asks
+  // for all of them and takes the step only if every one is free.
+  (function bigClocks() {
+    if (!(spec.wants && spec.wants.length) || !horizontal) return;
+    var want = [];
+    board.caps.forEach(function (cp) {
+      if (!cp.el || !cp.rowCls || cp.rowCls.length < 2) return;
+      var ti = -1;
+      cp.rowCls.forEach(function (cl, i) { if (/metro-time-tag/.test(cl) && !/metro-inline/.test(cl)) ti = i; });
+      // only under the size the complaint was about, and only a row of its
+      // own: the time set beside the name shares the name's line
+      if (ti < 1 || !/text--xlarge/.test(cp.rowCls[0] || '')) return;
+      var row = cp.el.childNodes[ti];
+      if (!row || !row.className || !/text--small/.test(row.className)) return;
+      want.push({ cp: cp, row: row, was: row.className });
+    });
+    if (!want.length) return;
+    // grown, in the board's own units: the element is the one the ruler
+    // measured, so its height is asked rather than guessed
+    //
+    // ...DOWNWARD WHERE THERE IS FLOOR UNDER IT, UPWARD WHERE THERE IS NOT.
+    // A caption on the last line ends ON the map's bottom edge, with the
+    // headlines under it: growing down there crosses into the band, and one
+    // such caption would have taken the step away from the whole board. Its
+    // extra pixels go above the words instead, which is paper it already
+    // stands on.
+    var grew = want.map(function (w) {
+      var h0 = w.cp.el.offsetHeight;
+      w.row.className = w.was.replace('text--small', 'text--base');
+      var dh = Math.max(0, w.cp.el.offsetHeight - h0);
+      w.row.className = w.was;
+      var b = w.cp.box();
+      var down = { a0: b.a0, a1: b.a1, c0: b.c0, c1: b.c1 + dh, dh: dh, up: false };
+      if (down.c1 <= spec.cross.c1 + 0.5) return down;
+      return { a0: b.a0, a1: b.a1, c0: b.c0 - dh, c1: b.c1, dh: dh, up: true };
+    });
+    var CLEAR = B.CAP_CLEAR;
+    var ok = grew.every(function (g, gi) {
+      if (g.c1 > spec.cross.c1 + 0.5 || g.c0 < spec.cross.c0 - 0.5) return false;
+      // clear of every other caption, grown or not: a pair that both grow
+      // is asked at both their new depths
+      for (var oi = 0; oi < board.caps.length; oi++) {
+        var other = board.caps[oi];
+        if (other === want[gi].cp) continue;
+        var wi = -1;
+        want.forEach(function (w, k) { if (w.cp === other) wi = k; });
+        var ob = wi >= 0 ? grew[wi] : other.box();
+        if (g.a0 - CLEAR < ob.a1 && ob.a0 < g.a1 + CLEAR
+            && g.c0 - CLEAR < ob.c1 && ob.c0 < g.c1 + CLEAR) return false;
+      }
+      // ...and of every rail, which is what a caption above its line runs
+      // into as it grows downward
+      for (var li = 0; li < board.lines.length; li++) {
+        if (B.lineTouches(board.lines[li], g)) return false;
+      }
+      return true;
+    });
+    if (!ok) return;
+    want.forEach(function (w, wi) {
+      w.row.className = w.was.replace('text--small', 'text--base');
+      // the box that was tested is the box that is drawn: one grown upward
+      // starts that much higher on the paper
+      if (grew[wi].up && grew[wi].dh) {
+        var t = parseFloat(w.cp.el.style.top) || 0;
+        w.cp.el.style.top = (t - grew[wi].dh) + 'px';
+        w.cp.c -= grew[wi].dh;
+      }
+      w.cp.h += grew[wi].dh;
+      w.cp.rowCls = w.cp.rowCls.map(function (cl, i) {
+        return i === w.cp.rowCls.indexOf(w.was) ? w.row.className : cl;
+      });
+    });
+  })();
 
   // ---- the platform display ----------------------------------------------
   //

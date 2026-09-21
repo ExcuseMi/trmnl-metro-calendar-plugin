@@ -46,6 +46,8 @@ const DEVICES = {
 const CLASSES = {
   title: 'metro-title-text text--base text--bold',
   time: 'metro-time-tag text--small text--bold',
+  // the time row under an xlarge name (measure-dom's TIME_BIG_CLS)
+  timeBig: 'metro-time-tag text--base text--bold',
   large: 'metro-title-text text--large text--bold',
   // the step above, taken on a panel the size of the X (measure-dom's XL tiers)
   xlarge: 'metro-title-text text--xlarge text--bold',

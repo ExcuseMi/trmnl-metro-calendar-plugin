@@ -84,4 +84,21 @@ module.exports = function (test, h) {
       assert(train > Math.max(last, lastBig), 'a station is drawn over the train');
     });
   }
+
+  // ...AND IT IS OUTLINED, because it straddles the edge of the panel. The
+  // car is paper, which reads on the ink strip and vanishes on the paper
+  // below it: the wheels and the nose simply were not there and it looked
+  // bitten off at the rail ("train needs an outline").
+  test('the train is outlined, so it reads off the ink panel too', () => {
+    const f = fixtures.find((x) => x.name === 'busy-day');
+    for (const v of ['x-landscape', 'og-landscape']) {
+      const built = build(f.metro, v);
+      const car = built.doc.querySelector('[data-metro-role="now-train"] path');
+      assert(car, v + ': no train on the strip');
+      const w = parseFloat(car.getAttribute('stroke-width'));
+      assert(w > 0, v + ': the train has no outline (stroke-width ' + car.getAttribute('stroke-width') + ')');
+      assert(car.style.stroke && car.style.stroke !== 'none', v + ': the outline is not drawn in ink');
+      assert(car.style.fill && car.style.fill !== car.style.stroke, v + ': the car is the colour of its own outline');
+    }
+  });
 };
