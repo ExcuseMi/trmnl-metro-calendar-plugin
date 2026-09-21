@@ -68,7 +68,10 @@ function measure(o) {
   var maxW = o.maxWidth || 240;
   function timeText(ev) { return MD.timeText(ev, o.clock, o.hour12); }
   function tableFor(cls) {
-    if (/metro-time-tag/.test(cls)) return dev.time;
+    // (the time under an xlarge name is a size up, measure-dom's
+    // TIME_BIG_CLS -- and it is asked for by its own size class, since the
+    // tag's name is the same on both)
+    if (/metro-time-tag/.test(cls)) return /text--base/.test(cls) ? (dev.timeBig || dev.time) : dev.time;
     if (/text--small/.test(cls)) return dev.small;
     // BEFORE the large test, and not merely because it is more specific:
     // "text--xlarge" does not contain "text--large", so an unrecognised

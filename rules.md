@@ -198,6 +198,11 @@ applies when something changes.
    the paper's edge "isn't very clean looking"; the station stays, the
    label is left off. Elsewhere a label closer to the last one than a
    label is wide is left off the same way.
+   THE DATE BESIDE A TITLE IS SET AT THE STRIP'S OWN SIZE, in its outlined
+   tag: a step smaller "like a secondary label without a primary one" made
+   it the one thing on the header nobody could read from the room ("Di 22
+   Sep is barely readable"). The outline stays -- the clock's solid pill is
+   the only solid mark up there.
    A STATION EVERY HOUR OR TWO, BIG WITH WORDS AND SMALL WITHOUT ("have
    the dots every 2 or 1 hours"): one clock step along the whole rail, and
    the labels' step rounded up to a multiple of it, so the words never run
@@ -289,7 +294,15 @@ applies when something changes.
 2j. **The clock's mark on the strip is a little train**: SVG Repo's metro
    silhouette (svgrepo.com/svg/420587, CC0), in paper on the ink panel with
    its floor on the strip's rail under the clock pill, facing the way the
-   day goes. The now line starts under it.
+   day goes. The now line starts under it. IT IS OUTLINED IN INK, windows
+   and all: it straddles the edge of the panel, and paper on paper is
+   nothing -- the wheels and the nose were simply missing and the car looked
+   bitten off at the rail ("train needs an outline").
+   AND THE CLOCK ENDS ON THE LINE IT NAMES. The pill cannot straddle the
+   panel change, since a solid pill is knocked out of the ink one side and
+   drawn into the paper the other; where the midnight is too close for it to
+   stand centred on now, it stops AT the line instead of backing off a half
+   of its own width ("now time not above the now line").
    AND IT STOPS FOR EVERY NAME AND EVERY RAIL IT WOULD CROSS. A rail runs
    over it whole with paper either side, the way a bar is crossed; a head's
    name and an event's name alike take a gap, and the line picks up past
@@ -376,6 +389,15 @@ applies when something changes.
    rail's tick and slash are solid. A caption may set its time beside its
    name on one line where two rows do not fit. The hour before the first
    event on the board is drawn at full rate, so the first things have room.
+   A CAPTION'S CLOCK IS ONE STEP UNDER ITS NAME, and where the name took
+   the X's own step up the clock takes one too, so the gap stays one step
+   and not two ("time labels in the captions could be a bit larger"). It is
+   not a form the solver chooses: a taller row is depth, and depth is what
+   the time row itself is paid out of, so offering it cost captions and
+   times every way it was tried. The DRAWING takes it afterwards, out of
+   depth that is already free, and only where every caption set in that
+   size can have it -- mixed clock sizes under one size of name read as a
+   mistake rather than a decision.
 2b-xi. **Where a line crosses a bar, which crossing is not a choice, and the
    line is never cut or painted over.** (The midnight is no longer drawn
    as a rule on the map: the strip changes panel there and the night wash

@@ -348,7 +348,18 @@ const REPORTER = `
         });
       }
       labels.push(Object.assign(rel(r), { cls: n.className, text: (n.textContent || '').trim(),
-        parts: parts, clipped: !!(tt && tt.scrollWidth > tt.clientWidth + 1) }));
+        parts: parts, clipped: !!(tt && tt.scrollWidth > tt.clientWidth + 1),
+        // THE CLOCK ROW'S OWN CLASS. The caption is one element to the
+        // report and its time is a child, so the size the time is set in --
+        // which the drawing steps up after the solve, out of free depth
+        // (draw.js, bigClocks) -- could not be asked about at all.
+        timeCls: tt ? (tt.getAttribute('class') || '') : '',
+        // ...and the name's own class beside it, since the clock is sized
+        // against the name it stands under and not against the board
+        titleCls: (function () {
+          var ti = n.querySelector && n.querySelector('.metro-title-text');
+          return ti ? (ti.getAttribute('class') || '') : '';
+        })() }));
     });
     function ctmPts(el, pts) {
       var m = el.getScreenCTM();

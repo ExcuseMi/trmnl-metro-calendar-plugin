@@ -53,7 +53,25 @@
 // skip the rung.
 // THE TIME IS BOLD AND BLACK: "make the time stamps bold". A quiet grey range
 // was the part of a caption a reader in a hurry could not read.
-var TIME_CLS = 'metro-time-tag text--small text--bold';
+var TIME_SM_CLS = 'metro-time-tag text--small text--bold';
+var TIME_CLS = TIME_SM_CLS;
+// ...AND A SIZE LARGER UNDER A NAME THAT IS ITSELF A SIZE LARGER. The time
+// is set small so it reads as the caption's second line rather than its
+// first, which is right against a 16px name and wrong under a 28px one:
+// on the X the gap was two steps and the clock under the words came out as
+// a footnote ("time labels in the captions could be a bit larger"). One
+// step, not two, so the name still reads first.
+//
+// NOT A FORM IN THE LADDER, THOUGH. Offered as the richest tier it cost the
+// sweep four captions and thirty-seven times, because a taller second row
+// is depth and depth is what a time row is paid out of; offered as an extra
+// rung it cost six captions and seven times to the search budget alone; and
+// offered at the same price as the small one it was never taken, since the
+// descent only ever steps DOWN. So the step up is not a choice the solver
+// makes at all: the drawing takes it afterwards, out of room that is
+// already free, and only when EVERY caption on the board can have it (see
+// draw.js). Mixed clock sizes on one board would read as a mistake.
+var TIME_BIG_CLS = 'metro-time-tag text--base text--bold';
 
 // AN HOUR OR MORE SAYS WHEN IT ENDS, a shorter one only when it starts:
 // "did we lose the end time?" A school day read as "8:30am" left the reader
@@ -74,6 +92,7 @@ function timeText(ev, clock, hour12) {
   return (once ? clock(a).replace(/(am|pm)$/, '') : clock(a)) + ' \u2013 ' + clock(b);
 }
 function tiersAt(titleCls) {
+  var TIME_CLS = TIME_SM_CLS;
   return [
     { rows: [{ kind: 'title', cls: 'metro-title-text ' + titleCls + ' text--bold' },
              { kind: 'time', cls: TIME_CLS }], size: 1, rung: 0 },
