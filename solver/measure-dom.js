@@ -181,10 +181,19 @@ var XL_PART_TIERS = partTiersAt('text--xlarge').concat(LARGE_PART_TIERS.map(func
 // insisting only spends the second the search has (solver/cases.js 29, which
 // went from three shed to eleven on exactly that board). So the price is not a
 // constant: it is paid by boards that can afford it.
+//
+// A RUNG AND A THIRD, WHICH IS MORE THAN THE SIZE STEP IT COMPETES WITH. At
+// 0.7 it was cheaper than the step from the largest size, and a five-line X
+// board -- twelve events, room under every one of them -- came out with
+// twelve xlarge names and NOT ONE TIME, a name cut short to boot. The step
+// down is 0.8 a rung, so anything under that loses to it; measured over the
+// sweep, 1.2 to 1.5 holds nineteen more times with nothing shed, and at 2 a
+// caption starts paying for them (810 drawn, one shed). The middle of the
+// shelf, not its edge.
 function keepTime(ts) {
   return ts.map(function (t) {
     var only = t.rows && t.rows.length === 1 && t.rows[0].kind === 'title';
-    return only ? Object.assign({}, t, { rung: t.rung + 0.7 }) : t;
+    return only ? Object.assign({}, t, { rung: t.rung + 1.35 }) : t;
   });
 }
 function tiersFor(large, parts, crowdLen, xl, roomy) {

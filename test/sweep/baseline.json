@@ -3,7 +3,7 @@
     "shed": 0,
     "dropped": 0,
     "caps": 5,
-    "timed": 2
+    "timed": 5
   },
   "friends 07:30 og-half-vertical": {
     "shed": 0,
@@ -21,7 +21,7 @@
     "shed": 0,
     "dropped": 0,
     "caps": 3,
-    "timed": 1
+    "timed": 3
   },
   "friends 07:30 x-landscape": {
     "shed": 0,
@@ -57,7 +57,7 @@
     "shed": 0,
     "dropped": 0,
     "caps": 4,
-    "timed": 2
+    "timed": 4
   },
   "friends 12:00 x-landscape": {
     "shed": 0,
@@ -243,7 +243,7 @@
     "shed": 0,
     "dropped": 0,
     "caps": 8,
-    "timed": 8
+    "timed": 5
   },
   "futurama 12:00 x-portrait": {
     "shed": 0,
@@ -312,10 +312,10 @@
     "timed": 0
   },
   "futurama 21:30 x-landscape": {
-    "shed": 1,
+    "shed": 0,
     "dropped": 0,
-    "caps": 12,
-    "timed": 12
+    "caps": 13,
+    "timed": 13
   },
   "futurama 21:30 x-portrait": {
     "shed": 0,
@@ -348,10 +348,10 @@
     "timed": 0
   },
   "futurama 23:40 x-landscape": {
-    "shed": 1,
+    "shed": 0,
     "dropped": 0,
-    "caps": 12,
-    "timed": 12
+    "caps": 13,
+    "timed": 13
   },
   "futurama 23:40 x-portrait": {
     "shed": 0,

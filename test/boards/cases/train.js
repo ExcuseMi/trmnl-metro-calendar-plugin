@@ -6,22 +6,46 @@
 
 module.exports = function (test, h) {
   const { build, fixtures, assert } = h;
-  // ONE RHYTHM ALONG THE RAIL ("6am only has 1 dot and it's 10am"): the
-  // stations are a single clock step apart the whole way, day and squeezed
-  // night alike, save a dot the night was too tight for (a gap of twice
-  // the step at most).
+  // NO BARE STRETCH OF RAIL ("6am only has 1 dot and it's 10am"): no two
+  // neighbouring stations further apart on the PAPER than one step of the
+  // words at the day's fullest rate.
+  //
+  // MEASURED IN PIXELS, NOT IN HOURS. It counted hours and asked for one
+  // clock step the whole way, which is a rule about a linear scale: this
+  // one runs the night at a quarter of the day's rate, so dots evenly
+  // spaced on the paper are three and four hours apart there and one hour
+  // apart in the afternoon. Counting hours, the only way to pass was to
+  // put the whole rail on the night's step -- and that took the words down
+  // with it, since they are rounded up to a multiple of the dots'. What
+  // the complaint was actually about is a HOLE, and a hole is a distance.
   for (const f of fixtures) {
     for (const v of ['x-landscape', 'og-landscape']) {
-      test('the stations keep one rhythm along the rail: ' + f.name + ' / ' + v, () => {
+      test('no stretch of the rail is left bare: ' + f.name + ' / ' + v, () => {
         const built = build(f.metro, v);
-        const hrs = [...built.doc.querySelectorAll('[data-metro-role^="hour-station"]')]
+        const at = (h) => built.spec.scale.at(h * 60);
+        const dots = [...built.doc.querySelectorAll('[data-metro-role^="hour-station"]')]
           .map((n) => +n.getAttribute('data-metro-hour')).sort((p, q) => p - q);
-        if (hrs.length < 3) return;
-        const gaps = hrs.slice(1).map((x, i) => x - hrs[i]);
-        const step = Math.min.apply(null, gaps);
-        const odd = gaps.filter((g) => g !== step && g !== 2 * step);
-        assert(!odd.length, 'stations at ' + hrs.join(',') + ': gaps ' + gaps.join(','));
-        assert(step <= 2, 'stations ' + step + ' hours apart');
+        if (dots.length < 3) return;
+        // the words' step, and the widest an hour is drawn anywhere on the
+        // board: their product is a full step of the words where the day
+        // has the most room, which is the widest gap that can be right
+        const said = [...built.doc.querySelectorAll('[data-metro-role="hour-station"]')]
+          .map((n) => +n.getAttribute('data-metro-hour')).sort((p, q) => p - q);
+        let step = Infinity;
+        for (let i = 1; i < said.length; i++) step = Math.min(step, said[i] - said[i - 1]);
+        if (!isFinite(step)) return;
+        let widest = 0;
+        for (let h = dots[0]; h < dots[dots.length - 1]; h++) widest = Math.max(widest, at(h + 1) - at(h));
+        // ...and the clearance that thinned it: a dot is left off where it
+        // would stand closer than that to the one before, so an hour drawn
+        // at full rate next to a squeezed one runs a gap that much over a
+        // full step and is not a hole (DOT_GAP, draw.js).
+        const full = widest * step + 12 * built.o.S;
+        for (let i = 1; i < dots.length; i++) {
+          const gap = at(dots[i]) - at(dots[i - 1]);
+          assert(gap <= full + 2, 'a bare stretch from ' + dots[i - 1] + ' to ' + dots[i]
+            + ': ' + Math.round(gap) + 'px, over the ' + Math.round(full) + 'px of a full step');
+        }
       });
     }
   }
