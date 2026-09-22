@@ -198,11 +198,25 @@ applies when something changes.
    the paper's edge "isn't very clean looking"; the station stays, the
    label is left off. Elsewhere a label closer to the last one than a
    label is wide is left off the same way.
-   THE DATE BESIDE A TITLE IS SET AT THE STRIP'S OWN SIZE, in its outlined
-   tag: a step smaller "like a secondary label without a primary one" made
-   it the one thing on the header nobody could read from the room ("Di 22
-   Sep is barely readable"). The outline stays -- the clock's solid pill is
-   the only solid mark up there.
+   A PANEL SAYS ITS DATE AND NOT THE WORD FOR IT. "Today" and "Tomorrow"
+   are the one part of the badge the strip already says elsewhere -- the
+   clock's pill is standing on today's panel -- and set in front of the
+   date they squeezed it into a small outlined tag, which on the wall was
+   the one thing on the header nobody could read ("Di 22 Sep is barely
+   readable", "would today and tomorrow be better off left out and just
+   show the date?"). The date alone, in the title's own size, in the
+   panel's own colours.
+   AND HOW MUCH THE DAY HOLDS, AS A ROUNDEL BESIDE IT: a metro map numbers
+   its lines in discs, and the count of the day's timed events is one
+   glyph ("maybe have a number badge with the total events in that day,
+   matches the metro style"). Midnight to midnight, so it may be more than
+   the map drew -- what the window cut off is already said among the hours
+   as "+N more" -- and all-day things are not counted, being declared at a
+   line's head rather than stopped at on the axis. It is set at the
+   strip's ordinary size rather than the date's: at the date's it pushed
+   the Now and Next card (rule 2h) down to one row, and the card is worth
+   more than the disc. It is also the first thing the badge gives up when
+   the panel is too narrow, before the date.
    A STATION EVERY HOUR OR TWO, BIG WITH WORDS AND SMALL WITHOUT ("have
    the dots every 2 or 1 hours"): one clock step along the whole rail, and
    the labels' step rounded up to a multiple of it, so the words never run
