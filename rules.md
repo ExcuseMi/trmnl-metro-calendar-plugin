@@ -173,6 +173,16 @@ applies when something changes.
    new takes the lowest free rung; a shared calendar's ladder line takes
    none. The names of the days and months come from the language table
    too, since the runtime's Intl may know English only.
+2p-i. **An all-day badge says WHICH DAY first, and in the same type as
+   every other word.** Each line is named once now, in the legend's column
+   at the leading edge, so a badge for tomorrow has no head of its own to
+   stand at -- it is declared in the same column as today's. Trailing the
+   title, the day read as a qualifier nobody reached ("I think
+   avonturenklassen is for tomorrow"); leading it, it is the first thing
+   off the badge and costs no width. Set a step under every other word it
+   was unreadable on the wall ("also it's too small of a font"), so it
+   takes the ordinary label size. A badge covering every drawn day says no
+   day at all.
 2q. **A task is a thing with no time until it has one.** A calendar can
    carry tasks as well as appointments, in the same file (`VTODO`):
    Nextcloud Tasks, a Todoist project feed, anything that syncs over

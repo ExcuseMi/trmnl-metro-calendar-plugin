@@ -645,11 +645,18 @@ function statesFor(metro) {
       on = drawn.filter(function (d) { return ad.days.indexOf(ix(d)) >= 0; });
       if (!on.length) return;
     }
+    // WHICH DAY, IN FRONT OF WHAT IT IS. Each line is named ONCE now, in
+    // the legend's column at the leading edge, so a badge for tomorrow has
+    // no head of its own to stand at: it is declared in the same column as
+    // today's, and a day trailing the title was read as today's with a
+    // qualifier nobody reached ("I think avonturenklassen is for
+    // tomorrow"). Leading, it is the first thing the eye takes off the
+    // badge, and it costs no width at all.
     var text = ad.title;
     if (drawn.length > 1 && on.length < drawn.length) {
-      text += ' \u00b7 ' + on.map(function (d) {
+      text = on.map(function (d) {
         return d.weekday_short || d.date_label || d.weekday_label;
-      }).filter(Boolean).join(', ');
+      }).filter(Boolean).join(', ') + ' \u00b7 ' + text;
     }
     // Which edges of the paper the state runs off: leave that is tomorrow's
     // did not begin before the board's first hour, so that end is a slash.
@@ -675,8 +682,8 @@ function statesFor(metro) {
     var day = null;
     drawn.forEach(function (d) { if (ev.start_min >= d.start_min && ev.start_min < d.end_min) day = d; });
     var later = !!(day && drawn.length > 1 && day !== drawn[0]);
-    var text = ev.title + ' ' + hm(ev.start_min) + '\u2013' + hm(ev.end_min)
-      + (later ? ' \u00b7 ' + (day.weekday_short || day.date_label || '') : '');
+    var text = (later ? (day.weekday_short || day.date_label || '') + ' \u00b7 ' : '')
+      + ev.title + ' ' + hm(ev.start_min) + '\u2013' + hm(ev.end_min);
     out.push({ title: ev.title, text: text, owners: [ev.owner], ends: [false, false], head: later ? 1 : 0, timed: true,
                day0: later ? 1 : 0, from: ev.start_min, to: ev.end_min });
   });
