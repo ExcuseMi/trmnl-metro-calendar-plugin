@@ -3226,7 +3226,11 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // AS AN OUTLINED PILL, the quiet twin of the roundel under it: set as a
       // line of small print it "kinda fades away" beside the solid name, and
       // a state is the one thing said about that line all day.
-      var rt = fx.route ? html('metro-route metro-pill metro-pill--quiet label label--small text--bold flex flex--row flex--center-y gap--xsmall') : null;
+      // ...AND NOT IN THE SMALLEST TYPE ON THE BOARD. The badge says what a
+      // whole line is FOR today, which is as much as any caption says, and
+      // set a step under every other word it was the thing on the wall
+      // nobody read ("also it's too small of a font").
+      var rt = fx.route ? html('metro-route metro-pill metro-pill--quiet label text--bold flex flex--row flex--center-y gap--xsmall') : null;
       var rs = fx.route ? svgEl(doc, 'svg', { width: 12, height: 12, viewBox: '0 0 12 12', 'class': 'metro-route-ring no-shrink' }) : null;
       if (rs) [5, 2.5].forEach(function (rr) {
         rs.appendChild(svgEl(doc, 'circle', { cx: 6, cy: 6, r: rr, fill: 'none',
