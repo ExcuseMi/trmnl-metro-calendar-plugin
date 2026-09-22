@@ -633,6 +633,20 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // higher the row, the further past the midnight it may run.
       var reach = home.inverse ? slantAt(c0 + thick) : 0;
       var homeA1 = home.a1 + reach, homeW = home.w + (home.inverse ? slantW : 0);
+      // THE DAY'S COUNT GIVES WAY BEFORE ITS DATE DOES. The badge picks its
+      // form against the axis, but what it has to fit in is its own PANEL,
+      // and on the sliver of today left at ten to midnight the roundel was
+      // the difference between a date and no date at all. It is the part a
+      // reader can do without -- the marks on the map are the count -- so
+      // it goes and the date stays.
+      function dropCount() {
+        var c = n.querySelector && n.querySelector('.metro-daycount');
+        if (!c) return false;
+        c.remove();
+        len = horizontal ? n.offsetWidth : n.offsetHeight;
+        return true;
+      }
+      if (len > homeA1 - home.a0 && dropCount()) { /* measured again below */ }
       if (len > homeA1 - home.a0) { n.remove(); return; }
       // A day's own title stands clear of the midnight it opens on: set hard
       // against the double rule, "Morgen" read as squeezed into the corner.
@@ -649,6 +663,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // its slope, which covers the start of each row by as much as the row
       // is high (measured at the row's top, where it reaches furthest)
       var cover = horizontal && slantW && panels.length > 1 && home === panels[1] ? slantAt(c0) : 0;
+      if (len > homeA1 - home.a0 - 2 * inset - cover && dropCount()) { /* again */ }
       var fit = Math.max(home.a0 + inset + cover, Math.min(a0, homeA1 - len - inset));
       if (len > homeA1 - home.a0 - 2 * inset - cover) { n.remove(); return; }
       if (horizontal) left = fit; else top = fit;
@@ -2608,6 +2623,23 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
     shedBy[w.line] = (shedBy[w.line] || 0) + 1;
   });
 
+  // HOW MANY TIMED EVENTS A DAY HOLDS, midnight to midnight, whether or not
+  // the window drew them all: the count belongs to the DAY the date names,
+  // and what the paper could not fit is already said among the hours as
+  // "+N more". Tasks and all-day things are not events on the axis and are
+  // not counted (solver/day.js counts the overflow notes the same way).
+  function dayCount(dayIx) {
+    var days = (spec.metro && spec.metro.days) || [];
+    var d = days[dayIx];
+    var m0 = d && d.start_min != null ? d.start_min
+      : Math.floor((spec.metro.day_start_min || 0) / 1440) * 1440;
+    var n = 0;
+    ((spec.metro && spec.metro.events) || []).forEach(function (ev) {
+      if (ev.type && ev.type !== 'event') return;
+      if (ev.start_min >= m0 && ev.start_min < m0 + 1440) n++;
+    });
+    return n;
+  }
   // THE CLOCK, AS A BADGE ON THE SCALE. A solid-ink pill, so "now" is the one
   // time on the strip that is stated rather than annotated. Asked after the
   // date, which wants the same corner on a board read early in its own
@@ -2719,7 +2751,7 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       // tag.
       var forms = [], mode = [];
       forms0.forEach(function (fm) {
-        if (wantTitle) { forms.push(fm); mode.push('title'); forms.push(fm); mode.push('big'); }
+        if (wantTitle) { forms.push(fm); mode.push('big'); }
         forms.push(fm); mode.push('pill');
       });
       var badge = null;
@@ -2755,6 +2787,32 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
           : 'metro-axis-note metro-date metro-pill metro-pill--quiet label' + STRIP_SM + ' text--bold';
         d.textContent = fx.text;
         badge.appendChild(d);
+        // HOW MUCH THE DAY HOLDS, AS A ROUNDEL BESIDE ITS DATE. A metro map
+        // numbers its lines in discs; this board had nowhere that said how
+        // full a day is, and the answer is one glyph ("maybe have a number
+        // badge with the total events in that day, matches the metro
+        // style"). The day's own timed events, midnight to midnight --
+        // which is more than the map draws when the window has cut some
+        // off, and the "+N more" note among the hours says so.
+        // All-day things are not counted: they are declared at the head of
+        // a line rather than stopped at on the axis, so they are not among
+        // the marks a reader would be counting against this.
+        // It rides with the date's own size and is the first thing a
+        // squeezed badge gives up, after which the date is a tag alone.
+        var cnt = dayCount(dayIx);
+        if (cnt > 0 && mode[fi] !== 'pill') {
+          var cbg = doc.createElement('span');
+          // in the date's own type, so the two read as one mark rather
+          // than as a label with a footnote after it
+          cbg.className = 'metro-daycount metro-pill label' + STRIP_SM + ' text--bold text--center';
+          cbg.textContent = String(cnt);
+          badge.appendChild(cbg);
+          // A DISC, NOT A LOZENGE: the pill's own inset is a custom
+          // property so a round one costs no second declaration, and the
+          // width is set from the height the face actually settled at.
+          cbg.style.setProperty('--metro-pill-x', '2px');
+          cbg.style.minWidth = cbg.offsetHeight + 'px';
+        }
         if (forms[fi] > 0) {
           var hb = doc.createElement('span');
           hb.className = 'metro-holiday flex flex--row flex--center-y gap--xsmall';
