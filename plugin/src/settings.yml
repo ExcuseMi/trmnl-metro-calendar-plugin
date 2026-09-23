@@ -56,7 +56,7 @@ custom_fields:
     hidden:
     - calendar_list
 - keyname: calendar_list
-  field_type: text
+  field_type: code
   name: Calendars
   placeholder: |-
     Alex  https://calendar.google.com/calendar/ical/.../basic.ics
@@ -67,7 +67,7 @@ custom_fields:
   description: 'One calendar per row: a name, then its link. The name is the line it goes on; the same name on two rows puts both calendars on one line. A link with no name is the whole household''s. Google''s public-holiday calendars are known on sight; for another provider''s, add <code>holiday</code> after the link. Leave it empty to see an example day.'
   optional: true
 - keyname: config_json
-  field_type: text
+  field_type: code
   name: Configuration
   placeholder: |-
     {
