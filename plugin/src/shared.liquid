@@ -13444,8 +13444,18 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
   var probe = document.createElement('div');
   probe.className = 'absolute';
   probe.style.visibility = 'hidden';
-  ['title', 'label label--small text--bold', 'label label--base text--bold', 'label', 'value value--small'].forEach(function (c) {
-    var sp = document.createElement('span'); sp.className = c; sp.textContent = 'Mg 09:30'; probe.appendChild(sp);
+  // (with the punctuation a time range is set in: the en dash and the
+  // ellipsis can come from a face of their own)
+  var PROBE_TEXT = 'Mg 09:30 \u2013 10:00\u2026 \u00b7';
+  // EVERY TYPE A CAPTION IS SET IN, not the five the header used: the
+  // captions' own text sizes (base, small, large, xlarge, bold) are faces of
+  // their own, and one still on its way when the board was solved laid the
+  // first board a cold page drew out in a fallback -- a different board from
+  // the one the same page drew once that face was in.
+  ['title', 'label label--small text--bold', 'label label--base text--bold', 'label', 'value value--small',
+   'text--base text--bold', 'text--small text--bold', 'text--large text--bold', 'text--xlarge text--bold',
+   'metro-hour label text--bold', 'metro-terminus metro-pill label label--base text--bold'].forEach(function (c) {
+    var sp = document.createElement('span'); sp.className = c; sp.textContent = PROBE_TEXT; probe.appendChild(sp);
   });
   canvas.appendChild(probe);
   void probe.offsetWidth;   // styled now, so the faces it needs are requested now
@@ -13484,7 +13494,23 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
   var SOLVE_FIRST = SOLVE_ALL;
   var SOLVE_UNTIL = Date.now() + SOLVE_ALL;
   var faces = document.fonts;
-  if (faces && faces.ready && faces.status !== 'loaded') {
+  // ...AND EACH OF THOSE FACES ASKED FOR BY NAME. `fonts.ready` resolves for
+  // the faces that are already pending, and `status` can say "loaded" while
+  // a face the board has not asked for yet is nowhere: a cold page then
+  // started at once and measured in the fallback. Loading the face each probe
+  // computes to is the question that has the right answer. Still a second at
+  // most, out of the five the device gives the page.
+  if (faces && faces.load) {
+    var want = [];
+    Array.prototype.forEach.call(probe.children, function (sp) {
+      var cs = getComputedStyle(sp);
+      var f = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+      if (want.indexOf(f) < 0) want.push(f);
+    });
+    Promise.all(want.map(function (f) { return faces.load(f, PROBE_TEXT).catch(function () {}); }))
+      .then(function () { return faces.ready; }).then(start, start);
+    setTimeout(start, 1000);
+  } else if (faces && faces.ready && faces.status !== 'loaded') {
     faces.ready.then(start, start);
     setTimeout(start, 1000);
   } else {

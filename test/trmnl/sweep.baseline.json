@@ -375,7 +375,7 @@
     "shed": 0,
     "dropped": 0,
     "caps": 16,
-    "timed": 16
+    "timed": 10
   },
   "simpsons 07:30 og-quadrant": {
     "shed": 1,
@@ -411,7 +411,7 @@
     "shed": 0,
     "dropped": 0,
     "caps": 14,
-    "timed": 14
+    "timed": 3
   },
   "simpsons 12:00 og-quadrant": {
     "shed": 1,
