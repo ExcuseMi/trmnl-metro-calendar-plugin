@@ -189,7 +189,7 @@
     "shed": 0,
     "dropped": 0,
     "caps": 12,
-    "timed": 0
+    "timed": 7
   },
   "futurama 07:30 og-landscape": {
     "shed": 0,
@@ -297,7 +297,7 @@
     "shed": 1,
     "dropped": 0,
     "caps": 11,
-    "timed": 0
+    "timed": 1
   },
   "futurama 21:30 og-landscape": {
     "shed": 1,
@@ -333,13 +333,13 @@
     "shed": 2,
     "dropped": 0,
     "caps": 9,
-    "timed": 0
+    "timed": 4
   },
   "futurama 23:40 og-landscape": {
     "shed": 1,
     "dropped": 0,
     "caps": 12,
-    "timed": 0
+    "timed": 8
   },
   "futurama 23:40 og-quadrant": {
     "shed": 3,
@@ -366,16 +366,16 @@
     "timed": 1
   },
   "simpsons 07:30 og-half-vertical": {
-    "shed": 1,
+    "shed": 0,
     "dropped": 0,
-    "caps": 16,
-    "timed": 3
+    "caps": 17,
+    "timed": 11
   },
   "simpsons 07:30 og-landscape": {
     "shed": 0,
     "dropped": 0,
     "caps": 16,
-    "timed": 10
+    "timed": 13
   },
   "simpsons 07:30 og-quadrant": {
     "shed": 1,
@@ -405,13 +405,13 @@
     "shed": 0,
     "dropped": 1,
     "caps": 12,
-    "timed": 4
+    "timed": 8
   },
   "simpsons 12:00 og-landscape": {
     "shed": 0,
     "dropped": 0,
     "caps": 14,
-    "timed": 3
+    "timed": 12
   },
   "simpsons 12:00 og-quadrant": {
     "shed": 1,
@@ -441,7 +441,7 @@
     "shed": 0,
     "dropped": 0,
     "caps": 11,
-    "timed": 2
+    "timed": 9
   },
   "simpsons 16:30 og-landscape": {
     "shed": 0,
@@ -471,7 +471,7 @@
     "shed": 0,
     "dropped": 2,
     "caps": 14,
-    "timed": 2
+    "timed": 3
   },
   "simpsons 21:30 og-half-vertical": {
     "shed": 0,
@@ -483,7 +483,7 @@
     "shed": 0,
     "dropped": 0,
     "caps": 16,
-    "timed": 7
+    "timed": 12
   },
   "simpsons 21:30 og-quadrant": {
     "shed": 1,
@@ -507,7 +507,7 @@
     "shed": 0,
     "dropped": 2,
     "caps": 14,
-    "timed": 2
+    "timed": 3
   },
   "simpsons 23:40 og-half-vertical": {
     "shed": 0,
@@ -519,7 +519,7 @@
     "shed": 0,
     "dropped": 0,
     "caps": 16,
-    "timed": 7
+    "timed": 12
   },
   "simpsons 23:40 og-quadrant": {
     "shed": 1,

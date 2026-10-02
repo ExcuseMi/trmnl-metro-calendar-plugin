@@ -2324,9 +2324,8 @@ function solve(spec, opts) {
       return { score: sc, board: bb, sol: ss, rails: spec.wants.map(function (w) { return w._rail; }),
                lines: spec.lines.map(function (l) { return { c: l._c, room: l._room }; }) };
     }
-    var st = clone3(bestSt);
-    var cur = judge(st);
     var cost = Math.max(1, spec.wants.length * spec.wants.length / 14);
+    var out = false;
     function spent() {
       if (opts && opts.pool) {
         opts.pool.used += cost;
@@ -2334,32 +2333,65 @@ function solve(spec, opts) {
       }
       return !!(opts && opts.deadline && Date.now() > opts.deadline);
     }
-    var moved = false, out = false;
-    for (var pass = 0; pass < 2 && !out; pass++) {
-      var any = false;
-      for (var i = 0; i < spec.wants.length && !out; i++) {
-        var was = st.forms[i];
-        // the whole form, half way, one step: three tries a name, not the
-        // ladder, which on a busy board was a second of the panel's three
-        var tries = [0, Math.floor(was / 2), was - 1].filter(function (k, ix, all) {
-          return k >= 0 && k < was && all.indexOf(k) === ix;
-        });
-        for (var ti = 0; ti < tries.length && !out; ti++) {
-          var k = tries[ti];
-          st.forms[i] = k;
-          var got = judge(st);
-          out = spent();
-          // ...and never at the price of one of the four numbers a board is
-          // judged by (MAINTENANCE.md): a time row is not worth a name that
-          // could be misread, however the prices add up.
-          if (got.score < cur.score - 1e-6 && got.sol.shed <= cur.sol.shed
-              && got.board.muddle <= cur.board.muddle) { cur = got; any = moved = true; break; }
-          st.forms[i] = was;
+    // Each name, richer, one at a time, from `st0` as judged `cur0`.
+    function climb(st, cur) {
+      var moved = false;
+      for (var pass = 0; pass < 2 && !out; pass++) {
+        var any = false;
+        for (var i = 0; i < spec.wants.length && !out; i++) {
+          var was = st.forms[i];
+          // the whole form, half way, one step: three tries a name, not the
+          // ladder, which on a busy board was a second of the panel's three
+          var tries = [0, Math.floor(was / 2), was - 1].filter(function (k, ix, all) {
+            return k >= 0 && k < was && all.indexOf(k) === ix;
+          });
+          for (var ti = 0; ti < tries.length && !out; ti++) {
+            st.forms[i] = tries[ti];
+            var got = judge(st);
+            out = spent();
+            // ...and never at the price of one of the four numbers a board is
+            // judged by (MAINTENANCE.md): a time row is not worth a name that
+            // could be misread, however the prices add up.
+            if (got.score < cur.score - 1e-6 && got.sol.shed <= cur.sol.shed
+                && got.board.muddle <= cur.board.muddle) { cur = got; any = moved = true; break; }
+            st.forms[i] = was;
+          }
         }
+        if (!any) break;
       }
-      if (!any) break;
+      return { st: st, cur: cur, moved: moved };
     }
-    if (!moved) { spec.wants.forEach(function (w, i) { w.wear(bestSt.forms[i]); }); return; }
+    var timedOf = function (j) { return j.board.caps.filter(function (c) { return (c.rows || []).length >= 2; }).length; };
+    var first = judge(clone3(bestSt));
+    var mine = climb(clone3(bestSt), first);
+    var st = mine.st, cur = mine.cur, moved = mine.moved;
+    // ...AND FROM THE SAME BOARD WITH EVERY RAIL FLAT, which the descent
+    // cannot reach from a board where every event took a shelf: taking any
+    // one event off its shelf buys nothing, all of them together does. On an
+    // OG panel the simpsons example at noon had all fourteen events on
+    // shelves and three of them with their time; flat, the same fourteen
+    // names come out twelve with their time. Kept only for what it is for --
+    // more names with their time, at a lower price, with nothing shed,
+    // nothing misreadable and no fault added -- so a board whose names
+    // already have their time keeps its shelves (shelfWorth).
+    var anyStep = false;
+    for (var si = 0; si < bestSt.steps.length; si++) if (bestSt.steps[si]) anyStep = true;
+    if (anyStep && !out) {
+      var flat = clone3(bestSt);
+      flat.steps.fill(0);
+      var alt = climb(flat, judge(flat));
+      if (timedOf(alt.cur) > timedOf(cur) && alt.cur.score < cur.score - 1e-6
+          && alt.cur.sol.shed <= cur.sol.shed && alt.cur.board.muddle <= cur.board.muddle) {
+        st = alt.st; cur = alt.cur; moved = true;
+      }
+    }
+    // Every board tried wrote its rails onto the spec (boardFor), so the
+    // winner's are put back whether or not anything here was kept.
+    if (!moved) {
+      spec.wants.forEach(function (w, i) { w.wear(bestSt.forms[i]); w._rail = bestRails[i]; });
+      spec.lines.forEach(function (l, i) { l._c = bestLines[i].c; l._room = bestLines[i].room; });
+      return;
+    }
     bestSt = st; bestBoard = cur.board; bestSol = cur.sol;
     bestRails = cur.rails; bestLines = cur.lines;
     spec.wants.forEach(function (w, i) { w._rail = bestRails[i]; });
