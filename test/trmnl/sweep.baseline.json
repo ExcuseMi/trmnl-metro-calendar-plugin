@@ -303,7 +303,7 @@
     "shed": 1,
     "dropped": 0,
     "caps": 12,
-    "timed": 1
+    "timed": 2
   },
   "futurama 21:30 og-quadrant": {
     "shed": 2,
@@ -369,7 +369,7 @@
     "shed": 1,
     "dropped": 0,
     "caps": 16,
-    "timed": 1
+    "timed": 3
   },
   "simpsons 07:30 og-landscape": {
     "shed": 0,
@@ -405,7 +405,7 @@
     "shed": 0,
     "dropped": 1,
     "caps": 12,
-    "timed": 3
+    "timed": 4
   },
   "simpsons 12:00 og-landscape": {
     "shed": 0,
@@ -441,7 +441,7 @@
     "shed": 0,
     "dropped": 0,
     "caps": 11,
-    "timed": 1
+    "timed": 2
   },
   "simpsons 16:30 og-landscape": {
     "shed": 0,
@@ -477,13 +477,13 @@
     "shed": 0,
     "dropped": 0,
     "caps": 17,
-    "timed": 2
+    "timed": 4
   },
   "simpsons 21:30 og-landscape": {
     "shed": 0,
     "dropped": 0,
     "caps": 16,
-    "timed": 1
+    "timed": 7
   },
   "simpsons 21:30 og-quadrant": {
     "shed": 1,
@@ -513,13 +513,13 @@
     "shed": 0,
     "dropped": 0,
     "caps": 16,
-    "timed": 1
+    "timed": 6
   },
   "simpsons 23:40 og-landscape": {
     "shed": 0,
     "dropped": 0,
     "caps": 16,
-    "timed": 1
+    "timed": 7
   },
   "simpsons 23:40 og-quadrant": {
     "shed": 1,

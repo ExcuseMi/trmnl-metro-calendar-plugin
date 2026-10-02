@@ -2286,6 +2286,86 @@ function solve(spec, opts) {
   });
   spec.wants.forEach(function (w, i) { w._rail = bestRails[i]; });
   spec.lines.forEach(function (l, i) { l._c = bestLines[i].c; l._room = bestLines[i].room; });
+
+  // RICHER FORMS, ASKED OF THE SOLVE THAT SHIPS.
+  //
+  // The search prices a form during the descent with the GREEDY placement,
+  // which is pessimistic, and a name it once saw clash in its whole form is
+  // left in a poorer one: on an OG panel the simpsons example at 21:30 drew
+  // thirteen of fourteen names in the smallest type with no time under them,
+  // across a board with a band of empty paper under every rail, and the full
+  // solve placed every one of them whole, with its time, at no cost at all.
+  // So each name wearing a poorer form is offered its richer ones here, one
+  // at a time, judged exactly as the candidates above were (faults, the
+  // board's cost) plus what the forms themselves cost, and kept only where
+  // that whole score falls. Bounded by the same pool and clock as the search.
+  (function richer() {
+    if (!bestSt) return;
+    function plain(forms) {
+      var c = 0;
+      spec.wants.forEach(function (w, i) {
+        var f = w.forms[Math.min(w.forms.length - 1, forms[i])];
+        c += (f && f.rung != null ? f.rung : forms[i]) * spec.formPrice;
+      });
+      return c;
+    }
+    function judge(st) {
+      spec.wants.forEach(function (w, i) { w.wear(st.forms[i]); });
+      var bb = boardFor(spec, st);
+      var co = {};
+      Object.keys(opts || {}).forEach(function (k) { co[k] = opts[k]; });
+      co.minLift = spec.minLift; co.muddlePrice = spec.muddlePrice; co.driftPrice = spec.driftPrice;
+      var ss = C.solve(spec.wants, bb, co);
+      C.apply(bb, spec.wants, ss);
+      var fl = require('./board').check(bb);
+      var cuts = fl.filter(function (f) { return f.kind === 'namecut' && f.own; }).length;
+      bb.edgeSlack = edgeSlack(st.gaps);
+      var sc = (fl.length - cuts) * 1e6 + cuts * spec.muddlePrice * 4 + boardCost(spec, bb, ss) + plain(st.forms);
+      return { score: sc, board: bb, sol: ss, rails: spec.wants.map(function (w) { return w._rail; }),
+               lines: spec.lines.map(function (l) { return { c: l._c, room: l._room }; }) };
+    }
+    var st = clone3(bestSt);
+    var cur = judge(st);
+    var cost = Math.max(1, spec.wants.length * spec.wants.length / 14);
+    function spent() {
+      if (opts && opts.pool) {
+        opts.pool.used += cost;
+        if (opts.pool.left != null && opts.pool.used >= opts.pool.left) return true;
+      }
+      return !!(opts && opts.deadline && Date.now() > opts.deadline);
+    }
+    var moved = false, out = false;
+    for (var pass = 0; pass < 2 && !out; pass++) {
+      var any = false;
+      for (var i = 0; i < spec.wants.length && !out; i++) {
+        var was = st.forms[i];
+        // the whole form, half way, one step: three tries a name, not the
+        // ladder, which on a busy board was a second of the panel's three
+        var tries = [0, Math.floor(was / 2), was - 1].filter(function (k, ix, all) {
+          return k >= 0 && k < was && all.indexOf(k) === ix;
+        });
+        for (var ti = 0; ti < tries.length && !out; ti++) {
+          var k = tries[ti];
+          st.forms[i] = k;
+          var got = judge(st);
+          out = spent();
+          // ...and never at the price of one of the four numbers a board is
+          // judged by (MAINTENANCE.md): a time row is not worth a name that
+          // could be misread, however the prices add up.
+          if (got.score < cur.score - 1e-6 && got.sol.shed <= cur.sol.shed
+              && got.board.muddle <= cur.board.muddle) { cur = got; any = moved = true; break; }
+          st.forms[i] = was;
+        }
+      }
+      if (!any) break;
+    }
+    if (!moved) { spec.wants.forEach(function (w, i) { w.wear(bestSt.forms[i]); }); return; }
+    bestSt = st; bestBoard = cur.board; bestSol = cur.sol;
+    bestRails = cur.rails; bestLines = cur.lines;
+    spec.wants.forEach(function (w, i) { w._rail = bestRails[i]; });
+    spec.lines.forEach(function (l, i) { l._c = bestLines[i].c; l._room = bestLines[i].room; });
+  })();
+  function clone3(x) { return { gaps: x.gaps.slice(), steps: x.steps.slice(), forms: x.forms.slice() }; }
   band = { st: bestSt };
   var b = bestBoard, sol = bestSol;
   spec.wants.forEach(function (w, i) { w.wear(bestSt.forms[i]); });

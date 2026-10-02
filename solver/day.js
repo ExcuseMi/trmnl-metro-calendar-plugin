@@ -1193,6 +1193,19 @@ function specFor(metro, view, opts) {
   // the head and the connector stands at the first minute after them, a
   // bar between labelled stations, which is what a transit map draws.
   var flatSlot = !opts.standing && legendN > 1 && view.h / legendN < nameH0 * 2.6;
+  // STANDING UP, THE SAME WHERE A NAME CANNOT BE SET BESIDE ITS RAIL AT ALL.
+  // A standing name is a column as thick as a row is tall, and it needs that
+  // plus a rail gap and a half of clearance from its own rail and the next
+  // rail's clearance (its terminal slash reaches a mark past it; bands.js,
+  // ABOVE ITS RAIL): on a seven-line half every gap came out a pixel short,
+  // the top line's name fell into the gap below and "D" was written on "Fry".
+  // Where the board cannot give every line that much, the names go level,
+  // in a row at the head of the board, where length is what a standing
+  // board has. (The rail gap is the band search's default, 8.)
+  var nameRow = nameH0 + 8 * 1.5 + Math.max(8, (opts.markR || 0) + 3);
+  // (across what is left beside the hour column)
+  var standDepth = view.h - (opts.stripThick || 0) - pad * 2;
+  if (opts.standing && legendN > 1 && standDepth < legendN * nameRow) flatSlot = true;
   var levelNames = flatSlot || (!opts.standing && legendN > 1 && ringLead > 0);
   // ...AND A NAME IS GIVEN MORE ROOM WHERE IT STANDS OVER ITS RAIL. The
   // share above was cut for a legend column, where every pixel of the

@@ -482,9 +482,7 @@ function check(board) {
   // (A tie's bar tunnels under words, so for a tie it is only its rings.)
   for (i = 0; i < board.caps.length; i++) {
     for (j = 0; j < board.pills.length; j++) {
-      var pj = board.pills[j], cb = board.caps[i].box(), cl = board.lineByKey(board.caps[i].line);
-      var mine = pj.tie && (pj.lines || []).indexOf(cl && cl.branchOf ? cl.branchOf : board.caps[i].line) >= 0;
-      if (mine ? !ringHit(board, pj, cb) : !boxesOverlap(cb, pj.box())) continue;
+      if (!onBar(board, board.caps[i], board.pills[j], board.caps[i].box())) continue;
       faults.push({ kind: 'onbar', what: board.caps[i].text, by: board.pills[j].id });
     }
   }
@@ -645,6 +643,16 @@ function ringClashes(board) {
   return out;
 }
 
+// Whether caption `cp`, in box `b`, is written on bar `pj`: anywhere on the
+// bar, or for a tie its own line is in, on one of its rings. Shared by
+// `check` and by anything that moves a caption after the solve (draw.js
+// bigClocks), so the drawing cannot make a board `check` would refuse.
+function onBar(board, cp, pj, b) {
+  var cl = board.lineByKey(cp.line);
+  var mine = pj.tie && (pj.lines || []).indexOf(cl && cl.branchOf ? cl.branchOf : cp.line) >= 0;
+  return mine ? ringHit(board, pj, b) : boxesOverlap(b, pj.box());
+}
+
 function ringHit(board, pl, b) {
   var rr = pl.r || 5;
   return (pl.lines || []).some(function (k) {
@@ -686,7 +694,7 @@ function initialsFor(legend) {
   return initials;
 }
 
-module.exports = { CAP_CLEAR: CAP_CLEAR, ringHit: ringHit, ringClashes: ringClashes, initialsFor: initialsFor,
+module.exports = { CAP_CLEAR: CAP_CLEAR, ringHit: ringHit, onBar: onBar, ringClashes: ringClashes, initialsFor: initialsFor,
                    Board: Board, Caption: Caption, Line: Line, Stop: Stop, Pill: Pill,
                    Furniture: Furniture,
                    check: check, ascii: ascii, report: report, pairing: pairing,
