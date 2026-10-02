@@ -21,7 +21,7 @@ space (three more people left off boards entirely).
 
 ## What to measure
 
-Four numbers, from `trmnlp-test run households -g @report` (216 boards, drawn in the real page; each board's line is in the console and in its test's annotations):
+Four numbers, from `trmnlp-test run households` (216 boards, drawn in the real page; each board's line is in the console and in its test's annotations):
 
 | | what it means | worse means |
 |---|---|---|
@@ -32,6 +32,17 @@ Four numbers, from `trmnlp-test run households -g @report` (216 boards, drawn in
 
 Roughly in that order of badness. A trade is worth making when it moves an
 earlier column down and a later one up, not the other way.
+
+**Decided: keep every person.** In the smallest slots (halves, quadrants, a
+seven-line OG) a household of five to seven lines cannot always have every
+name clear of every other AND everybody on the board. Every way of clearing
+those names that was measured (pricing a name on a name like any other
+fault, letting a name's badge and to-do row give way) left one to three
+people off instead, so a few overlapping names are accepted there rather
+than dropping a person. Six household boards carry such a fault and are
+listed as KNOWN in `test/trmnl/households/households.spec.js`: shown, not
+failed, and failing if they ever come clean so the list shrinks. Any other
+fault still fails.
 
 Then the suites, all of which must pass:
 

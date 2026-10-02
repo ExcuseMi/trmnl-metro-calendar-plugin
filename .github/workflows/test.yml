@@ -30,4 +30,4 @@ jobs:
       - run: cd tools && npm ci --no-audit --no-fund
       - uses: ExcuseMi/trmnlp-test@v0
         with:
-          args: --workers 2 --grep-invert @report
+          args: --workers 2

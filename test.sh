@@ -63,9 +63,7 @@ fi
 
 if [ "$WHAT" = all ] || [ "$WHAT" = trmnl ]; then
   # Four workers unless told otherwise, so other work on the machine keeps
-  # some CPU. The households' boards are a report (-g @report), not a test,
-  # and are left out of the default run.
-  if [ $# -eq 0 ]; then set -- --grep-invert @report; fi
+  # some CPU.
   step "test/trmnl (trmnlp-test)" bash -c "cd '$ROOT' && TRMNLP_TEST_WORKERS=\${TRMNLP_TEST_WORKERS:-4} trmnlp-test run \"\$@\"" _ "$@"
 fi
 

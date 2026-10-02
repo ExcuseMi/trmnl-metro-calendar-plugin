@@ -2,8 +2,7 @@
 
 // SIX INVENTED HOUSEHOLDS, THROUGH THE WHOLE PIPELINE.
 //
-//   trmnlp-test run households                       the feed checks (in ./test.sh too)
-//   trmnlp-test run households -g @report            ...and every board, reported
+//   trmnlp-test run households                       the feed checks and every board
 //
 // Each test/households/<slug>/ holds the ICS files a real household's feeds
 // would serve and the config.json a careful user would write for them. This
@@ -13,13 +12,20 @@
 // what the feeds say (an ended COUNT series is gone, an EXDATE holds, the
 // bins are one stop...): those FAIL.
 //
-// The boards are the second half, tagged @report: every payload laid out on
-// six views in the real page, with lines, shed, muddle, dropped lines and the
-// board's own faults written into each test's annotations and the console.
-// Findings are REPORTED, not failed -- these are invented households and a
-// shed caption on one is information, not a regression -- so a board test
-// fails only when something threw. They are left out of ./test.sh's run
-// (216 renders) and run by name.
+// The boards are the second half: every payload laid out on six views in the
+// real page, with lines, shed, muddle, dropped lines and the board's own
+// faults written into each test's annotations and the console. Shed, muddle
+// and dropped lines are REPORTED -- these are invented households and a shed
+// caption on one is information, not a regression. A FAULT FAILS, except the
+// ones in KNOWN below.
+//
+// KNOWN: KEEP EVERY PERSON. On the smallest slots a household of five to
+// seven lines cannot have every name clear of every other and everybody on
+// the board; every way of clearing these names that was measured left a
+// person off instead (MAINTENANCE.md). The owner chose the people: these six
+// boards keep a name written on a name or a rail through one. They are shown
+// (annotations) and do not fail; if one stops faulting it fails, so the list
+// is taken down as boards get better, and any other fault fails at once.
 
 const fs = require('fs');
 const path = require('path');
@@ -29,6 +35,14 @@ const { render } = require('../lib/layout');
 const layoutLib = require('../lib/layout');
 
 const DIR = path.join(__dirname, '..', '..', 'households');
+const KNOWN = {
+  'multigen-chicago sat-0800 og-landscape': ['namecut:  / p1'],
+  'multigen-chicago wed-0800 og-half-vertical': ['names:  / Zoe'],
+  'multigen-chicago sat-0800 og-half-vertical': ['names: Eli / Zoe'],
+  'multigen-chicago wed-0800 og-quadrant': ['names:  / Zoe'],
+  'single-parent-be sat-0800 og-half-horizontal': ['names: Liesbeth / Fien'],
+  'single-parent-be sat-0800 og-quadrant': ['namecut: L / p2'],
+};
 const SLUGS = fs.readdirSync(DIR).filter((d) => fs.existsSync(path.join(DIR, d, 'config.json'))).sort();
 
 const TIMES = [
@@ -261,7 +275,7 @@ for (const slug of SLUGS) {
 
 for (const slug of SLUGS) {
   for (const t of TIMES) {
-    test('households · ' + slug + ' · ' + t.key + ' · every board @report', async ({ trmnl }, testInfo) => {
+    test('households · ' + slug + ' · ' + t.key + ' · every board', async ({ trmnl }, testInfo) => {
       const r = await transformAt(trmnl, slug, t);
       const d = r.data;
       const nameOf = {};
@@ -275,6 +289,13 @@ for (const slug of SLUGS) {
         const line = slug + ' ' + t.key + ' ' + v.name + ': ' + JSON.stringify(row);
         console.log(line);
         testInfo.annotations.push({ type: 'board', description: line });
+        const key = slug + ' ' + t.key + ' ' + v.name;
+        if (KNOWN[key]) {
+          testInfo.annotations.push({ type: 'known fault', description: key + ': ' + KNOWN[key].join('; ') });
+          expect.soft(row.faults, key + ' no longer has its known fault: take it out of KNOWN').toEqual(KNOWN[key]);
+        } else {
+          expect.soft(row.faults, key + ': the board knows it is wrong').toEqual([]);
+        }
       }
     });
   }
