@@ -4150,7 +4150,26 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       .map(function (i) { return map[i]; });
   }
 
-  await Promise.all((parsed.calendars || []).map(async function (cal, calIx) {
+  // ASKED FOR TOGETHER, READ IN THE ORDER THE CONFIG NAMES THEM. Every feed
+  // is fetched at once, so a slow one costs only its own time; but each one's
+  // events used to go on the board as its answer arrived, and the lines are
+  // registered as their first event is read, so two events in the same minute
+  // -- and the lines themselves -- came out in whichever order the network
+  // answered. The same feeds made a different payload from one refresh to
+  // the next. The answers are now read one calendar at a time, in order.
+  var calList = parsed.calendars || [];
+  var answers = calList.map(function (cal) {
+    var url0 = feedUrl(cal.url);
+    // Started by run() before the language file and the forecast were
+    // awaited, so every feed has the whole budget rather than what they left.
+    var pre = extra && extra.prefetched && extra.prefetched[feedKey(url0, cal.headers)];
+    var p = pre ? Promise.resolve(pre) : fetchFeedText(url0, deadline, cal.headers);
+    // (a rejection is read, and named, when its turn comes)
+    p.catch(function () {});
+    return p;
+  });
+  for (var calIx0 = 0; calIx0 < calList.length; calIx0++) await readFeed(calList[calIx0], calIx0);
+  async function readFeed(cal, calIx) {
     var url = feedUrl(cal.url);
     // What this feed is called when it cannot tell us: the config's own
     // name, else the name it gave the last time it answered. Without the
@@ -4180,10 +4199,7 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
       // No time left is the same outcome as a dead feed from the board's
       // side (the events are missing), so it starts the same clock and
       // clears again on the next render that does reach it.
-      // Started by run() before the language file and the forecast were
-      // awaited, so every feed has the whole budget rather than what they left.
-      var pre = extra && extra.prefetched && extra.prefetched[feedKey(url, cal.headers)];
-      var got = pre ? await pre : await fetchFeedText(url, deadline, cal.headers);
+      var got = await answers[calIx];
       // WHAT THIS CALENDAR PUT ON THE BOARD, MARKED AS ITS OWN.
       //
       // The payload is one merged list and nothing in it said where a line
@@ -4388,7 +4404,7 @@ async function buildFromConfig(input, parsed, weather, extra, state) {
     for (var ti = evs0; ti < events.length; ti++) events[ti].feed = calIx;
     for (var ai = ad0; ai < allDayEvents.length; ai++) allDayEvents[ai].feed = calIx;
     for (var hi = hol0; hi < holidays.length; hi++) holidays[hi].feed = calIx;
-  }));
+  }
 
   pruneState(state, (parsed.calendars || []).map(function (c) { return c.url; }));
 

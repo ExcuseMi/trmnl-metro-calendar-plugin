@@ -27,13 +27,11 @@
 // the real page when the sweep moved (the jsdom numbers measured a different
 // board); the faults were left failing, because they are what a reader sees.
 //
-// ONE BOARD DEPENDS ON HOW MANY TIMES THE PAGE LAID IT OUT. simpsons 07:30
-// og-half-horizontal is shed 3 / dropped 0 when the page solves once, and
-// came out shed 0 / dropped 2 on the odd run under load, when the layout ran
-// a second time (the console line prints `runs`). A re-run is not a fresh
-// solve: AGENTS.md describes a cached candidate carrying `overBar` from an
-// earlier pass. The baseline holds the single-pass board; if this one flips,
-// that is the defect, not the ratchet.
+// ONE BOARD USED TO FLIP between two answers from run to run (simpsons
+// 07:30 og-half-horizontal): the feeds were read in whichever order they
+// answered, so the same day made a different payload. They are read in the
+// config's order now (transform/order.spec.js), and the console line still
+// prints `runs`, how many times the page laid the board out.
 //
 // Faults FAIL here, unlike the households report: these are the plugin's own
 // example days, and a fault in one of them is a fault a new reader sees.

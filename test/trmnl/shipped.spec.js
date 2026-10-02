@@ -44,13 +44,6 @@ for (const view of VIEWS) {
   });
 }
 
-function canonical(out) {
-  const o = JSON.parse(JSON.stringify(out));
-  const key = (e) => [e.start_min, e.title, e.owner, e.end_min].join('|');
-  if (o.data && o.data.events) o.data.events.sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
-  return o;
-}
-
 // The squeezed transform loads and answers exactly as the source does: the
 // demo day, through trmnlp's node wrapper, at two times.
 for (const at of ['2026-09-15T12:30:00Z', '2026-09-16T02:40:00Z']) {
@@ -62,13 +55,9 @@ for (const at of ['2026-09-15T12:30:00Z', '2026-09-16T02:40:00Z']) {
     expect(shipped).toStayWithinServerlessLimits();
     expect((shipped.output.data.legend || []).length, 'the squeezed transform drew nobody').toBeGreaterThan(0);
     const source = await trmnl.transform(opts);
-    // Events that start in the same minute are compared as a set: the
-    // transform reads every feed at once (Promise.all in buildFromConfig)
-    // and pushes each feed's events as it answers, then sorts by start
-    // minute alone, so two events at 08:00 from different feeds come out
-    // in whichever order the network answered. Found here, where the feeds
-    // really are fetched concurrently; a known defect, not the squeezer's.
-    expect(canonical(shipped.output)).toEqual(canonical(source.output));
+    // (the feeds are read in the config's order, so the two agree exactly:
+    // test/trmnl/transform/order.spec.js)
+    expect(shipped.output).toEqual(source.output);
   });
 }
 
