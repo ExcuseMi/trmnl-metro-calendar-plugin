@@ -40,9 +40,8 @@ function demoMocks({ missing = [], i18n = true } = {}) {
   return mocks;
 }
 
-// A regex mock rather than '*': mocks answer the page's own requests too, and
-// the board's weather icons come from trmnl.com, which a '*' would answer with
-// a 404. (The framework's files never pass through mocks.)
-const NOT_FOUND = { url: '/^https?:\\/\\/(?!trmnl\\.com\\/)/', status: 404, body: '' };
+// (A wildcard leaves trmnl.com alone in the page, so the board's weather
+// icons and the framework still load.)
+const NOT_FOUND = { url: '*', status: 404, body: '' };
 
 module.exports = { demoMocks, NOT_FOUND, BASE, ROOT };

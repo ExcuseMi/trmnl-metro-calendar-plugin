@@ -16,12 +16,8 @@
 // written down per URL (see serve/status/icsMock below), the requests that
 // were made are on `r` (requestsOf), and a slow server is `delayMs`.
 //
-// WHAT trmnlp-test CANNOT SAY, kept here as plain node (`vmTransform`, the old
-// harness, unchanged): the clock moved from inside a fetch, the abort signal a
-// fetch carries, and the transform's internal functions (parseConfig, the rule
-// engine, the ICS parser...), which have no entry point of their own. Each use
-// says why. (A slow body is `bodyDelayMs`, an answer computed from the request
-// is `respond`.)
+// Only the transform's internal functions, which no runtime can call on their
+// own, are loaded into a node vm (`internals`).
 
 const fs = require('fs');
 const path = require('path');
@@ -140,7 +136,7 @@ function runOf(output) { return RUNS.get(output); }
 // the transform returned. A transform that errored, timed out or printed no
 // JSON is a failed test, with its stderr.
 function runTransform(mocks, nowMs, log, more) {
-  if (typeof mocks === 'function') throw new Error('runTransform takes a mock list now; a fetch function means vmTransform');
+  if (typeof mocks === 'function') throw new Error('runTransform takes a mock list (serve, status, otherwise...), not a fetch function');
   if (typeof nowMs !== 'number') throw new Error('runTransform takes a fixed clock (ms)');
   return {
     run: async (input) => {
@@ -157,43 +153,29 @@ function runTransform(mocks, nowMs, log, more) {
 
 // ---------------------------------------------------------------- the old harness
 
-// THE OLD HARNESS, for what trmnlp-test cannot express (see the top). A fresh
-// copy of transform.js in its own vm context, `fetchImpl` standing in for the
-// network, Date pinned at `nowMs` -- or moved by the case, when `nowMs` is a
-// function -- and the console collected into `log`.
-function makeFakeDate(getNowMs) {
+// THE TRANSFORM'S INTERNAL FUNCTIONS, which have no entry point a runtime can
+// call (parseConfig, feedUrl, migrateConfig...): pure logic, so a fresh copy
+// of transform.js in a node vm context, with no network at all and Date
+// pinned at `nowMs` when one is given. Nothing that runs the transform comes
+// through here; that is all trmnlp-test.
+function internals(nowMs) {
   const RealDate = Date;
-  return class FakeDate extends RealDate {
-    constructor(...args) {
-      if (args.length === 0) super(getNowMs());
-      else super(...args);
-    }
-    static now() { return getNowMs(); }
+  const FakeDate = class extends RealDate {
+    constructor(...args) { if (args.length === 0) super(nowMs); else super(...args); }
+    static now() { return nowMs; }
   };
-}
-function vmTransform(fetchImpl, nowMs, log) {
-  const clock = typeof nowMs === 'function' ? nowMs : (nowMs != null ? () => nowMs : null);
   const sandbox = {
-    fetch: fetchImpl,
-    console: log ? {
-      log: (...a) => log.push(a.join(' ')),
-      warn: (...a) => log.push(a.join(' ')),
-      error: (...a) => log.push(a.join(' ')),
-    } : { log() {}, warn() {}, error() {} },
-    Date: clock ? makeFakeDate(clock) : Date,
+    fetch: async () => { throw new Error('no network here'); },
+    console: { log() {}, warn() {}, error() {} },
+    Date: nowMs != null ? FakeDate : Date,
     Math, Array, Object, JSON, String, Number, Boolean, RegExp, Promise, Map, Set,
     AbortController, setTimeout, clearTimeout, URLSearchParams, Intl,
     module: { exports: {} },
   };
   vm.createContext(sandbox);
-  vm.runInContext(TRANSFORM_SRC + '\nmodule.exports = { run, parseConfig, applyCalendarRules, parseIcs, fromEpoch, I18N, feedUrl, migrateConfig, configWarnings, hostOf, RENDER_BUDGET_MS };', sandbox);
+  vm.runInContext(TRANSFORM_SRC + '\nmodule.exports = { parseConfig, applyCalendarRules, parseIcs, fromEpoch, I18N, feedUrl, migrateConfig, configWarnings, hostOf, RENDER_BUDGET_MS };', sandbox);
   return sandbox.module.exports;
 }
-// The transform's internal functions, which have no entry point a runtime can
-// call: pure logic, no network, no clock unless given one.
-function internals(nowMs) { return vmTransform(async () => { throw new Error('no network here'); }, nowMs); }
-function okText(text) { return { ok: true, status: 200, text: async () => text, json: async () => JSON.parse(text) }; }
-function fail(code) { return { ok: false, status: code, text: async () => '', json: async () => ({}) }; }
 
 // ---------------------------------------------------------------- shared helpers
 
@@ -221,7 +203,7 @@ const { demoMocks } = require('./demo');
 
 const helpers = {
   runTransform, requestsOf, runOf, serve, status, otherwise, ELSE_404, FORECAST, I18N, demoMocks,
-  vmTransform, internals, okText, fail,
+  internals,
   icsWithEvents, baseInput, eventItems, arranged, opened, assert, assertEqual,
   transformPath: TRANSFORM_PATH,
 };

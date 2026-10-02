@@ -6,15 +6,13 @@
 // its own events and nothing else; a slow one must not be able to spend
 // time the runtime was never going to give us.
 //
-// Where a case is about the real network (a dead feed, a slow forecast) it
-// runs through trmnlp-test, against the real three second budget and a mock
-// server that really is slow. Where it needs the clock moved from inside a
-// fetch, a body that never follows its headers, or the abort signal a fetch
-// carries, it stays on the old vm harness (vmTransform), which can say those
-// things and trmnlp-test cannot.
+// Every case runs through trmnlp-test, against the real three second budget:
+// a mock server that really is slow (delayMs, bodyDelayMs), one that eats the
+// clock as it answers (advanceClockMs), and the runtime's own record of a
+// request the transform gave up on (`aborted`).
 
 require('../lib/transform').cases('timeouts', function (test, h) {
-  const { runTransform, vmTransform, requestsOf, runOf, serve, status, otherwise, FORECAST, icsWithEvents, okText, fail, baseInput, eventItems, assert } = h;
+  const { runTransform, requestsOf, runOf, serve, status, otherwise, FORECAST, icsWithEvents, baseInput, eventItems, assert } = h;
 
   const NOW = Date.parse('2026-09-09T09:00:00Z');
   const A = 'https://a.example.com/a.ics';
@@ -23,7 +21,6 @@ require('../lib/transform').cases('timeouts', function (test, h) {
   const icsText = (title) => icsWithEvents([
     { start: '20260909T140000Z', end: '20260909T150000Z', summary: title },
   ]);
-  const icsFor = (title) => okText(icsText(title));
 
   function twoCalendars(extra) {
     return baseInput(NOW, Object.assign({
@@ -41,22 +38,17 @@ require('../lib/transform').cases('timeouts', function (test, h) {
   test('every fetch carries an abort signal, so nothing can hang for ever', async () => {
     // A fetch with no signal has no timeout at all: whatever the deadline
     // arithmetic says, the render sits on the socket until the runtime
-    // kills it. This asserts the mechanism, not the arithmetic.
-    // vm: the abort signal a fetch carries cannot be seen through a proxy
-    const signals = [];
-    const { run } = vmTransform(async (url, opts) => {
-      signals.push({ url: String(url), signal: opts && opts.signal });
-      if (String(url).indexOf('api.open-meteo.com') >= 0) return fail(503);
-      if (String(url).indexOf('/i18n/') >= 0) return fail(404);
-      return icsFor('Afternoon');
-    }, NOW);
+    // kills it. This asserts the mechanism, not the arithmetic: every server
+    // answers ten seconds late, and every request has to be given up (the
+    // runtime records a request whose connection the transform closed as
+    // `aborted`), inside the hosted five seconds.
+    const late = { delayMs: 10000 };
     const input = twoCalendars({ lat_lon: '51.05,3.72' });
     input.trmnl.user.locale = 'fr-BE'; // pulls in the language file too
-    await run(input);
-    assert(signals.length >= 3, 'expected the language file, the forecast and both feeds, saw ' + signals.length);
-    for (const s of signals) {
-      assert(s.signal && typeof s.signal.aborted === 'boolean', 'no abort signal on ' + s.url);
-    }
+    const r = await runTransform([otherwise(icsText('Afternoon'), late)], NOW).run(input);
+    const asked = requestsOf(r);
+    assert(asked.length >= 4, 'expected the language file, the forecast and both feeds, saw ' + asked.length);
+    for (const q of asked) assert(q.aborted === true, 'not given up, so no abort signal on ' + q.url);
   });
 
   test('one dead feed costs its own line, not the board', async () => {
@@ -73,17 +65,19 @@ require('../lib/transform').cases('timeouts', function (test, h) {
     // slow morning blew straight through it. There is one deadline now, so
     // a feed that arrives with nothing left of it is skipped rather than
     // being handed a new four seconds.
-    // vm: the clock is moved from inside a fetch, so the second feed is
-    // asked for after the first has spent the budget
-    let now = NOW;
-    const calls = [];
-    const { run } = vmTransform(async (url) => {
-      calls.push(String(url));
-      if (String(url) === A) { now += 5000; return icsFor('Alex Time'); } // answers, but not in time for anyone else
-      return icsFor('Sam Time');
-    }, () => now);
-    const r = await run(twoCalendars());
-    assert(calls.indexOf(B) < 0, 'the second feed was fetched with no budget left: ' + calls.join(', '));
+    //
+    // Asked of the real runtime: the one request every feed waits on is the
+    // demo's own config, and it answers having eaten five seconds of the
+    // clock (advanceClockMs). Every feed is then asked for with nothing left
+    // of the one deadline, so none of them is fetched at all; given budgets
+    // of their own, they would be.
+    const late = [{ url: 'https://raw.githubusercontent.com/ExcuseMi/trmnl-metro-calendar-plugin/main/demo/*/config.json',
+      body: JSON.stringify({ calendars: [{ url: A, name: 'Alex' }, { url: B, name: 'Sam' }] }), advanceClockMs: 5000 },
+    otherwise(icsText('Sam Time'))];
+    const r = await runTransform(late, NOW).run(baseInput(NOW, { use_demo_data: 'true' }));
+    const calls = requestsOf(r).map((q) => q.url);
+    assert(calls.some((u) => /\/config\.json$/.test(u)), 'the demo config was never asked for: ' + calls.join(', '));
+    assert(calls.indexOf(A) < 0 && calls.indexOf(B) < 0, 'a feed was fetched with no budget left: ' + calls.join(', '));
     assert(r.data, 'the render should still produce a board');
   });
 
