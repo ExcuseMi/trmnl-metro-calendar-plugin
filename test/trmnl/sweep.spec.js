@@ -59,7 +59,7 @@ const fs = require('fs');
 const path = require('path');
 const { test, expect, matrix } = require('trmnlp-test');
 const { demoMocks, NOT_FOUND } = require('./lib/demo');
-const { HEAD, report } = require('./lib/page');
+const { PAGE, report } = require('./lib/page');
 
 const SETS = ['simpsons', 'futurama', 'friends'];
 const TIMES = ['07:30', '12:00', '16:30', '21:30', '23:40'];
@@ -129,7 +129,7 @@ for (const s of matrix({ set: SETS, time: TIMES, on: Object.keys(VIEWS) })) {
     const screen = await trmnl.render(Object.assign({}, VIEWS[s.on], {
       // America/Chicago in September is UTC-5
       now: Date.UTC(2026, 8, 15, h + 5, mi), timeZone: 'America/Chicago', locale: 'en-US',
-      instanceName: 'Metro', trmnlpYml: false, data: {}, head: HEAD,
+      instanceName: 'Metro', trmnlpYml: false, data: {}, ...PAGE,
       fields: { use_demo_data: 'true', demo_set: s.set, time_format: '12h' },
       mocks: MOCKS,
     }));

@@ -17,23 +17,20 @@
 // were made are on `r` (requestsOf), and a slow server is `delayMs`.
 //
 // WHAT trmnlp-test CANNOT SAY, kept here as plain node (`vmTransform`, the old
-// harness, unchanged): a fetch whose answer depends on what else was asked
-// (an answer computed from the request), a body that arrives after its
-// headers, the abort signal a fetch carries, and the transform's internal
-// functions (parseConfig, the rule engine, the ICS parser...), which have no
-// entry point of their own. Each use says why.
+// harness, unchanged): the clock moved from inside a fetch, the abort signal a
+// fetch carries, and the transform's internal functions (parseConfig, the rule
+// engine, the ICS parser...), which have no entry point of their own. Each use
+// says why. (A slow body is `bodyDelayMs`, an answer computed from the request
+// is `respond`.)
 
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const crypto = require('crypto');
 const { test } = require('trmnlp-test');
 
 const ROOT = path.join(__dirname, '..', '..', '..');
 const TRANSFORM_PATH = path.join(ROOT, 'plugin', 'src', 'transform.js');
 const TRANSFORM_SRC = fs.readFileSync(TRANSFORM_PATH, 'utf-8');
-const INJECT = path.join(__dirname, 'inject-input.js');
-const SCRATCH = path.join(ROOT, 'test', 'trmnl', '.cache', 'inputs');
 
 // The trmnl fixture of the test that is running, set by `cases()`.
 const ctx = { trmnl: null };
@@ -49,9 +46,7 @@ function serve(url, body, extra) {
 function status(url, code, extra) { return Object.assign({ url, status: code, body: '' }, extra || {}); }
 
 // What the old fake fetch did for anything it was not told about: a 404.
-// A regex rather than '*', because mocks answer the page's own requests too
-// (see lib/demo.js); here only the transform asks, but one rule is simpler.
-const ELSE_404 = { url: '/^https?:\\/\\/(?!trmnl\\.com\\/)/', status: 404, body: '' };
+const ELSE_404 = { url: '*', status: 404, body: '' };
 // The forecast and the language files, the two hosts nearly every case
 // wants answered one way or the other.
 const FORECAST = 'https://api.open-meteo.com/v1/forecast*';
@@ -102,39 +97,15 @@ function baseInput(nowMs, customFields) {
 
 // THE PREVIOUS RENDER'S OUTPUT. TRMNL hands a transform
 // `input.trmnl.previous_merge_variables` (help.trmnl.com, saved state), and
-// transform.js replays a failed feed's day from it. trmnlp-test passes a
-// transform only `user`, `device`, `plugin_settings` and `state`, and has no
-// option for it, so it is added to the transform's stdin by a preload
-// (inject-input.js) named in NODE_OPTIONS, from a file in the cache.
-function injectEnv(extra) {
-  fs.mkdirSync(SCRATCH, { recursive: true });
-  const body = JSON.stringify(extra);
-  const file = path.join(SCRATCH, crypto.createHash('sha1').update(body).digest('hex') + '.json');
-  if (!fs.existsSync(file)) fs.writeFileSync(file, body);
-  return { NODE_OPTIONS: '--require ' + INJECT, METRO_INJECT_INPUT: file };
-}
-
-// THE FORM'S DEFAULTS, AS A CASE NEVER SAW THEM. trmnlp-test fills every
-// custom field the case does not give with its settings.yml default, as the
-// hosted form does. The cases were written against an input carrying only the
-// fields they name -- a device whose form predates a field -- and that is a
-// different board: with `setup_mode` defaulting to `links`, a case's
-// config_json is never read at all. So a field the case does not give is sent
-// empty, which is what transform.js reads an absent field as (`cf()`).
-const DEFAULTED = (function () {
-  const yml = fs.readFileSync(path.join(ROOT, 'plugin', 'src', 'settings.yml'), 'utf-8');
-  const keys = [];
-  yml.split(/\n(?=- keyname:)/).forEach((block) => {
-    const k = /^- keyname: *(\S+)/.exec(block);
-    if (k && /\n  default:/.test(block)) keys.push(k[1]);
-  });
-  return keys;
-})();
-function blankDefaults(fields) {
-  const out = {};
-  DEFAULTED.forEach((k) => { out[k] = ''; });
-  return Object.assign(out, fields);
-}
+// transform.js replays a failed feed's day from it: a case's
+// `input.trmnl.previous_merge_variables` goes in as trmnlp-test's
+// `previousMergeVariables`.
+//
+// THE FORM'S DEFAULTS, AS A CASE NEVER SAW THEM. The cases were written
+// against an input carrying only the fields they name -- a device whose form
+// predates a field -- and the hosted form's defaults make a different board:
+// with `setup_mode` defaulting to `links`, a case's config_json is never read
+// at all. So the settings.yml defaults are left out (`fieldDefaults: false`).
 
 // A case's input as trmnlp-test transform options.
 function optionsFor(input, mocks, nowMs, more) {
@@ -146,12 +117,12 @@ function optionsFor(input, mocks, nowMs, more) {
   Object.keys(ps).forEach((k) => { if (k !== 'custom_fields_values') settings[k] = ps[k]; });
   const o = {
     now: nowMs, trmnlpYml: false, data,
-    fields: blankDefaults(ps.custom_fields_values || {}),
+    fields: ps.custom_fields_values || {}, fieldDefaults: false,
     trmnl: { user: t.user || {}, plugin_settings: settings },
     mocks: mocks.concat([ELSE_404]),
   };
   if (Object.prototype.hasOwnProperty.call(t, 'state')) o.state = t.state;
-  if (t.previous_merge_variables !== undefined) o.env = injectEnv({ previous_merge_variables: t.previous_merge_variables });
+  if (t.previous_merge_variables !== undefined) o.previousMergeVariables = t.previous_merge_variables;
   return Object.assign(o, more || {});
 }
 

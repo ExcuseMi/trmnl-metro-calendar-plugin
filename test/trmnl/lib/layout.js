@@ -20,7 +20,7 @@
 
 const crypto = require('crypto');
 const { test } = require('trmnlp-test');
-const { HEAD, report } = require('./page');
+const { PAGE, report } = require('./page');
 const { cached } = require('./cache');
 
 // ---------------------------------------------------------------- viewports
@@ -52,8 +52,7 @@ const VIEWPORTS = [
 //                       takes its box from --full-w/--full-h, the one knob a
 //                       real mashup turns, so overriding those gives the view
 //                       the slot's box and leaves the screen and its zoom
-//                       alone. trmnlp-test has no option for a slot of an
-//                       arbitrary size, so this one goes in through `head`.
+//                       alone (trmnlp-test's `slotSize`).
 function renderOptions(v) {
   const c = ' ' + (v.classes || '') + ' ';
   const x = c.indexOf(' screen--v2 ') >= 0;
@@ -64,11 +63,8 @@ function renderOptions(v) {
   else if (bits === '2') { device = 'og_plus'; palette = 'gray-4'; }
   else if (bits === '4') { device = 'og_plus'; palette = 'gray-4'; }
   const view = v.page || 'full';
-  let head = HEAD;
-  if (v.slot && view === 'full') {
-    head += '<style>.screen{--full-w:' + v.slot.w + 'px !important;--full-h:' + v.slot.h + 'px !important}</style>';
-  }
-  const o = { device, view, head, note: v.name };
+  const o = Object.assign({ device, view, note: v.name }, PAGE);
+  if (v.slot && view === 'full') o.slotSize = { width: v.slot.w, height: v.slot.h };
   if (palette) o.palette = palette;
   if (c.indexOf(' screen--portrait ') >= 0) o.orientation = 'portrait';
   return o;

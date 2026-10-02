@@ -20,7 +20,7 @@
 // forced on, so it was not ported.)
 
 const { test, expect } = require('trmnlp-test');
-const { HEAD, report } = require('./lib/page');
+const { PAGE, report } = require('./lib/page');
 const fixtures = require('../layout/fixtures');
 
 const PANELS = [
@@ -32,7 +32,7 @@ for (const p of PANELS) {
   for (const f of ['busy-day', 'five-lines']) {
     test('the board as the panel shows it · ' + f + ' · ' + p.name, async ({ trmnl }) => {
       const metro = fixtures.find((x) => x.name === f).metro;
-      const screen = await trmnl.render({ device: p.device, data: { data: metro }, transform: false, trmnlpYml: false, head: HEAD });
+      const screen = await trmnl.render({ device: p.device, data: { data: metro }, transform: false, trmnlpYml: false, ...PAGE });
       await report(screen);                 // drawn, settled and error-free first
       await expect(screen).toFitDeviceImageLimit();
       await expect(screen).toMatchScreen(f + '-' + p.name);

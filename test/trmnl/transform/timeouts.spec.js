@@ -14,7 +14,7 @@
 // things and trmnlp-test cannot.
 
 require('../lib/transform').cases('timeouts', function (test, h) {
-  const { runTransform, vmTransform, requestsOf, serve, status, otherwise, FORECAST, icsWithEvents, okText, fail, baseInput, eventItems, assert } = h;
+  const { runTransform, vmTransform, requestsOf, runOf, serve, status, otherwise, FORECAST, icsWithEvents, okText, fail, baseInput, eventItems, assert } = h;
 
   const NOW = Date.parse('2026-09-09T09:00:00Z');
   const A = 'https://a.example.com/a.ics';
@@ -110,16 +110,16 @@ require('../lib/transform').cases('timeouts', function (test, h) {
     // The timeout used to stop when the headers arrived, and the body had
     // all the time in the world. A's answer uses up all but a sliver of the
     // budget; B's headers come at once and its body never does.
-    // vm: a body that never follows its headers cannot be mocked
-    let now = NOW;
-    const { run } = vmTransform(async (url) => {
-      if (String(url) === A) { now += 2900; return icsFor('Alex Time'); }
-      if (String(url) === B) return { ok: true, status: 200, text: () => new Promise(() => {}), json: () => new Promise(() => {}) };
-      return fail(404);
-    }, () => now);
-    const started = Date.now();
-    const r = await run(twoCalendars());
-    assert(Date.now() - started < 1500, 'the render waited on a body that never came: ' + (Date.now() - started) + 'ms');
+    // Asked of the real runtime: A answers 2s in (a full second short of the
+    // budget: closer than that, a busy machine lost A itself), B's headers come at
+    // once and its body a minute later (bodyDelayMs). The render has to end
+    // at the three second budget, not wait for the body: under the 3800ms
+    // the hard-stop case allows (the budget plus node's own start-up).
+    const r = await runTransform([status(FORECAST, 503),
+      serve(A, icsText('Alex Time'), { delayMs: 2000 }),
+      serve(B, icsText('Sam Time'), { bodyDelayMs: 60000 })], NOW).run(twoCalendars());
+    const took = runOf(r).durationMs;
+    assert(took < 3800, 'the render waited on a body that never came: ' + took + 'ms');
     const titles = eventItems(r.data).map((e) => e.title);
     assert(titles.indexOf('Alex Time') >= 0, 'the feed that answered was lost: ' + titles.join(', '));
   });

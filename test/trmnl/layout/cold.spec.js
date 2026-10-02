@@ -16,7 +16,7 @@
 
 const crypto = require('crypto');
 const { test, expect } = require('trmnlp-test');
-const { HEAD, report } = require('../lib/page');
+const { PAGE, report } = require('../lib/page');
 const fixtures = require('../../layout/fixtures');
 
 const digest = (r) => crypto.createHash('sha1').update(JSON.stringify([r.debug.gaps, r.debug.shed,
@@ -25,7 +25,7 @@ const digest = (r) => crypto.createHash('sha1').update(JSON.stringify([r.debug.g
 for (const [device, name] of [['og_png', 'busy-day'], ['v2', 'five-lines']]) {
   test('a cold page draws the board a warm one draws · ' + device + ' · ' + name, async ({ trmnl }) => {
     const metro = fixtures.find((f) => f.name === name).metro;
-    const opts = { device, data: { data: metro }, transform: false, trmnlpYml: false, head: HEAD,
+    const opts = { device, data: { data: metro }, transform: false, trmnlpYml: false, ...PAGE,
       // a scale of its own, so the first render is on a page with no faces in it
       deviceScale: device === 'og_png' ? 1.25 : 1.5 };
     const cold = await report(await trmnl.render(opts));

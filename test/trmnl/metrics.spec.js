@@ -16,7 +16,7 @@
 const fs = require('fs');
 const path = require('path');
 const { test, expect, config } = require('trmnlp-test');
-const { HEAD, report } = require('./lib/page');
+const { PAGE, report } = require('./lib/page');
 const { CLASSES, measure } = require('./lib/metrics-probe');
 const fixtures = require('../layout/fixtures');
 
@@ -31,7 +31,7 @@ const measured = {};
 for (const [dev, device] of Object.entries(DEVICES)) {
   test('the width table is what the page measures · ' + dev, async ({ trmnl }, testInfo) => {
     const metro = fixtures.find((f) => f.name === 'busy-day').metro;
-    const screen = await trmnl.render({ device, data: { data: metro }, transform: false, trmnlpYml: false, head: HEAD });
+    const screen = await trmnl.render({ device, data: { data: metro }, transform: false, trmnlpYml: false, ...PAGE });
     await report(screen);                    // the faces are in and the board has settled
     measured[dev] = await screen.page.evaluate(measure, CLASSES);
     const updating = !['missing', 'none'].includes(testInfo.config.updateSnapshots);

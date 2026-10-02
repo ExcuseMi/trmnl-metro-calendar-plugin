@@ -14,7 +14,7 @@
 
 const crypto = require('crypto');
 const { test, expect } = require('trmnlp-test');
-const { HEAD, report, settle, pageReport } = require('../lib/page');
+const { PAGE, report, settle, pageReport } = require('../lib/page');
 const { demoMocks, NOT_FOUND } = require('../lib/demo');
 const fixtures = require('../../layout/fixtures');
 
@@ -41,15 +41,15 @@ async function samePasses(screen) {
 }
 
 for (const device of ['og_png', 'v2']) {
-  test('every fixture is the same board after more passes · ' + device, async ({ trmnl }) => {
-    for (const f of fixtures) {
-      await samePasses(await trmnl.render({ device, data: { data: f.metro }, transform: false, trmnlpYml: false, head: HEAD }));
-    }
-  });
+  for (const f of fixtures) {
+    test('the same board after more passes · ' + device + ' · ' + f.name, async ({ trmnl }) => {
+      await samePasses(await trmnl.render({ device, data: { data: f.metro }, transform: false, trmnlpYml: false, ...PAGE }));
+    });
+  }
 }
 
 test('the example board that flipped is the same board after more passes', async ({ trmnl }) => {
   await samePasses(await trmnl.render({ device: 'og_png', view: 'half_horizontal', now: Date.UTC(2026, 8, 15, 12, 30),
-    timeZone: 'America/Chicago', locale: 'en-US', instanceName: 'Metro', trmnlpYml: false, head: HEAD, data: {},
+    timeZone: 'America/Chicago', locale: 'en-US', instanceName: 'Metro', trmnlpYml: false, ...PAGE, data: {},
     fields: { use_demo_data: 'true', demo_set: 'simpsons', time_format: '12h' }, mocks: demoMocks().concat([NOT_FOUND]) }));
 });

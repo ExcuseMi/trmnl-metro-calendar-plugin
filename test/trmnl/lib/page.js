@@ -10,7 +10,8 @@
 //   HEAD     goes into the page's <head> before the framework and the layout
 //            are parsed: the solver's clock, an error trap, and a counter of
 //            completed layouts.
-//   settle() waits for the board to stop redrawing.
+//   settled() is the render's waitFor: the board has stopped redrawing
+//            (settle() asks the same again, after a page has been poked).
 //   report() has the page report every drawn thing in ONE coordinate space
 //            (screen px, relative to the canvas). SVG paths are SAMPLED with
 //            getPointAtLength, so a curved or rounded path is checked as the
@@ -49,7 +50,11 @@ window.addEventListener('unhandledrejection', function (e) {
   window.__metroErrors.push('unhandled rejection: ' + String((e && e.reason) || e));
 });
 new MutationObserver(function (list) {
-  list.forEach(function (m) { if (m.attributeName === 'data-metro-debug') window.__metroRuns++; });
+  list.forEach(function (m) {
+    if (m.attributeName !== 'data-metro-debug') return;
+    window.__metroRuns++;
+    window.__metroRanAt = performance.now();
+  });
 }).observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['data-metro-debug'] });
 </script>`;
 
@@ -78,6 +83,17 @@ async function settle(page) {
     })();
   }));
 }
+
+// THE SAME WAIT, AS trmnlp-test's OWN HOOK: the render is not handed back
+// until the board has published its record and not laid itself out again for
+// 400ms. (The page's Date is frozen by trmnlp-test; performance.now() runs.)
+function settled() {
+  var c = document.querySelector('.metro-canvas');
+  if (!c || !(c.getAttribute('data-metro-debug') || c.getAttribute('data-metro-error'))) return false;
+  return performance.now() - (window.__metroRanAt || 0) >= 400;
+}
+// What every render of the board passes: the head, and the wait.
+const PAGE = { head: HEAD, waitFor: settled, waitForTimeoutMs: 12000 };
 
 // Runs IN THE PAGE. Kept in the shape the old reporter had, field for field,
 // so every case reads the same report it always did.
@@ -373,4 +389,4 @@ async function report(screen) {
   return rep;
 }
 
-module.exports = { HEAD, SOLVE_MS, settle, pageReport, report };
+module.exports = { HEAD, PAGE, SOLVE_MS, settle, settled, pageReport, report };

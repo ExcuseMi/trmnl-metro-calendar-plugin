@@ -16,7 +16,7 @@
 
 const { test, expect, matrix, VIEWS } = require('trmnlp-test');
 const { shippedPlugin } = require('./lib/shipped');
-const { HEAD, report } = require('./lib/page');
+const { PAGE, report } = require('./lib/page');
 const { cases } = require('./lib/layout');
 const { demoMocks, NOT_FOUND } = require('./lib/demo');
 
@@ -28,7 +28,7 @@ const SHIPPED = shippedPlugin();
 // with the demo day baked into .trmnlp.yml, as verify-build did.
 for (const view of VIEWS) {
   test('the squeezed copy lays a map out · ' + view, async ({ trmnl }) => {
-    const screen = await trmnl.plugin(SHIPPED).render({ device: 'v2', view, transform: false, head: HEAD });
+    const screen = await trmnl.plugin(SHIPPED).render({ device: 'v2', view, transform: false, ...PAGE });
     // THE SCRIPT SAYS WHEN IT FAILS, and report() asks that first: a solver
     // that threw leaves data-metro-error behind, and the message in it is
     // worth more than "the map never laid itself out".

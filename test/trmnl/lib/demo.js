@@ -40,10 +40,9 @@ function demoMocks({ missing = [], i18n = true } = {}) {
   return mocks;
 }
 
-// A regex mock rather than '*': mocks answer the browser's requests too, and
-// a bare '*' answered the framework's own stylesheet with a 404 (the screen
-// collapsed to 420px tall). trmnl.com is where the page's assets and the
-// weather icons come from.
+// A regex mock rather than '*': mocks answer the page's own requests too, and
+// the board's weather icons come from trmnl.com, which a '*' would answer with
+// a 404. (The framework's files never pass through mocks.)
 const NOT_FOUND = { url: '/^https?:\\/\\/(?!trmnl\\.com\\/)/', status: 404, body: '' };
 
 module.exports = { demoMocks, NOT_FOUND, BASE, ROOT };
