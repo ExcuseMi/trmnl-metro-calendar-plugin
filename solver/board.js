@@ -50,6 +50,9 @@ function Caption(spec) {
   // out from the stop list is exactly the kind of rederivation this model
   // exists to stop.
   this.at = spec.at == null ? null : spec.at;
+  // ...and where that event ends, so a name can be asked how far it stands
+  // from the stretch of rail it names (see `adrift` in check).
+  this.atEnd = spec.atEnd == null ? this.at : spec.atEnd;
   this.text = spec.text || '';
   this.a = spec.a;                  // near edge along the axis
   this.c = spec.c;                  // near edge across it
@@ -418,6 +421,20 @@ function check(board) {
         faults.push({ kind: 'midnight', what: board.caps[i].text, at: board.cuts[j] });
       }
     }
+  }
+  // A NAME FURTHER FROM ITS OWN EVENT THAN IT IS LONG. A name the search
+  // slid along its rail is priced for every pixel it slid, and still
+  // placed there when nothing nearer was free: "Good News Everyone 08:45"
+  // stood beside the 16:30 interchange on a standing X, its own stop five
+  // hours up the board, and nothing called that wrong. Past its own length
+  // it no longer points at anything of its own, so it is a fault (a shed
+  // name is the honest alternative).
+  for (i = 0; i < board.caps.length; i++) {
+    var ca = board.caps[i];
+    if (ca.pill || ca.at == null) continue;
+    var ce = ca.atEnd == null ? ca.at : ca.atEnd;
+    var off = ca.a + ca.w < ca.at ? ca.at - (ca.a + ca.w) : (ca.a > ce ? ca.a - ce : 0);
+    if (off > ca.w) faults.push({ kind: 'adrift', what: ca.text, by: Math.round(off) });
   }
   // A caption written over the board's own furniture: the hour strip, a
   // line's name, a note at the end of the axis. All of it was on the board

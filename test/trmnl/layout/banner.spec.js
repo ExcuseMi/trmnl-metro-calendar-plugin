@@ -100,7 +100,16 @@ require('../lib/layout').cases('banner', function (test, h) {
       const fx = fixtures.find((x) => x.name === f);
       for (const v of VIEWS) {
         const rep = await layout(fx, v, { service_alert: RAIN });
-        assert(rep.banner, f + ' ' + v.name + ': no banner was drawn');
+        // THE FOOT GIVES WAY BEFORE A NAME DOES ("we should show user content
+        // over alert and news at all times", fit.js refoot): a board that can
+        // only name everything without the band drops the band, and that
+        // board has to come out clean for it. Seven lines on an X did, once a
+        // name written beside the wrong stop stopped counting as placed.
+        if (!rep.banner) {
+          assert(!rep.debug.shed && !rep.debug.faults.length, f + ' ' + v.name
+            + ': no banner was drawn, and the board was not the cleaner for it');
+          continue;
+        }
         const over = (rep.root.y + rep.root.h) - (rep.view.y + rep.view.h);
         assert(over <= 1, f + ' ' + v.name + ': the board runs ' + Math.round(over)
           + 'px past the bottom of its ' + (v.slot ? v.slot.w + 'x' + v.slot.h : v.w + 'x' + v.h)

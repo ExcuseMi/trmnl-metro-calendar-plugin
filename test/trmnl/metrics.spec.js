@@ -56,6 +56,10 @@ for (const [dev, device] of Object.entries(DEVICES)) {
         }
       }
     }
+    const ns = (table || {}).nameStanding;
+    if (!ns || Math.abs(ns.h - measured[dev].nameStanding.h) > TOL) {
+      off.push('nameStanding.h ' + (ns && ns.h) + ' in the table, ' + measured[dev].nameStanding.h + ' in the page');
+    }
     expect(off.slice(0, 25), off.length + ' width(s) out of date: trmnlp-test run metrics -u').toEqual([]);
   });
 }

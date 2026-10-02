@@ -87,6 +87,16 @@ function measure(CLASSES) {
     out[k] = { w: w, h: span.offsetHeight, pad: Math.round(pad * 1000) / 1000, boxPad: boxPad };
     box.remove();
   });
+  // A STANDING NAME, as thick as the template books it: set in vertical
+  // writing mode, a pill's side inset lies ACROSS the board (the template
+  // measures the same tag the same way before it solves).
+  var tag = document.createElement('span');
+  tag.className = 'metro-gen metro-terminus metro-pill label label--base text--bold absolute';
+  tag.style.writingMode = 'vertical-lr';
+  tag.textContent = 'Mg';
+  canvas.appendChild(tag);
+  out.nameStanding = { h: tag.offsetWidth };
+  tag.remove();
   host.remove();
   return out;
 }

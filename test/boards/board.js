@@ -130,6 +130,12 @@ function specOf(metro, v, o, extra) {
   // padding the title row does not.
   var nameTab = metrics.TABLE[o.dev].name;
   var nameH = Math.max(Math.round(probe.h), nameTab.h);
+  // STANDING UP, the name is set in vertical writing mode and is as thick as
+  // the template measures it (metrics.json `nameStanding`, measured in the
+  // page): booked at the level name's height (20 against 33), the node
+  // boards laid out standing boards the page never draws, and "Good News
+  // Everyone" written beside the wrong interchange was invisible here.
+  if (!o.horiz && metrics.TABLE[o.dev].nameStanding) nameH = Math.max(nameH, metrics.TABLE[o.dev].nameStanding.h);
   var nameW = {};
   (metro.legend || []).forEach(function (p) {
     var t = p.name || p.key;

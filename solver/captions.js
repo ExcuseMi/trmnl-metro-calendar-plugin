@@ -689,7 +689,7 @@ function readable(p, board, near) {
 // How good a readable position is, in one currency, all of it about the
 // reader pairing the words with the right stop. Lower is better.
 
-var OVER_BAR = 1, LEFT_OF_MARK = 7000, RAIL_HALF = 3.5;
+var OVER_BAR = 1, LEFT_OF_MARK = 7000, RAIL_HALF = 3.5, ADRIFT = 250000;
 // HOW DEARLY A CAPTION PAYS FOR LEAVING ITS EVENT. `spec.driftPrice` scaled
 // to the coefficient this function was written with: 12 is the 0.04 it always
 // used, and anything above that buys the caption's PLACE against the form
@@ -756,7 +756,12 @@ function price(p) {
        // move to the right". Priced past a folded name (a form's rung, see
        // bands.js), so a long name folds and stands after its mark before it
        // ends at it.
-       + (!w.pill && p.slide <= -w.w + 0.5 ? LEFT_OF_MARK : 0);
+       + (!w.pill && p.slide <= -w.w + 0.5 ? LEFT_OF_MARK : 0)
+       // FURTHER FROM ITS EVENT THAN IT IS LONG is not a place for the name
+       // at all (board.js check, `adrift`): dearer than not drawing it, so
+       // a name with nowhere near its stop is shed and counted, not written
+       // beside somebody else's.
+       + (!w.pill && along > w.w ? ADRIFT : 0);
 }
 
 // --------------------------------------------------------------- the solve
@@ -1273,6 +1278,7 @@ function apply(board, wants, sol) {
     var p = sol.cands[i][k];
     board.addCap({ id: w.id, pill: w.pill, text: w.shown || w.text, line: w._rail || w.line,
                    a: p.a, c: p.c, w: w.w, h: w.h, at: w.a0,
+                   atEnd: w.pill ? null : (w.endAt != null ? w.endAt : w.a1),
                    rows: w.rows, size: w.size, rowCls: w.rowCls, el: w.el });
   });
   return board;
