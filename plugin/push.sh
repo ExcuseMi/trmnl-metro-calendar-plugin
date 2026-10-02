@@ -27,7 +27,7 @@ ESBUILD="$ROOT/tools/node_modules/.bin/esbuild"
 # THE PANEL IS FED FROM main AND NOWHERE ELSE (AGENTS.md).
 #
 # 471753 is a display somebody is actually reading, and a branch is for
-# looking at boards locally -- tools/sheet.js and test/layout render without
+# looking at boards locally -- tools/sheet.js and test/trmnl render without
 # any deploy at all. Checked here rather than left to whoever is typing,
 # because the cost of getting it wrong is a half-built board on the wall and
 # the only way back is another push.
@@ -51,6 +51,19 @@ fi
 
 "$HERE/lint.sh" || { echo "trmnlp lint is not clean; nothing was uploaded" >&2; exit 1; }
 
+# THE COPY THAT SHIPS HAS TO DRAW, before anything is touched. The shipped
+# spec (test/trmnl/shipped.spec.js, on trmnlp-test) squeezes a copy of these
+# sources exactly as squeeze.py is about to below, then proves it: every view
+# lays a map out, the squeezed transform answers what the source answers, and
+# every fixture draws the same board as from the sources. The squeeze is
+# deterministic, so after squeezing in place the result is compared with the
+# copy that was tested.
+command -v trmnlp-test >/dev/null || { echo "no trmnlp-test: gem install trmnlp-test" >&2; exit 1; }
+[ -x "$ESBUILD" ] || (cd "$ROOT/tools" && npm install --no-audit --no-fund --silent)
+(cd "$ROOT" && TRMNLP_TEST_WORKERS="${TRMNLP_TEST_WORKERS:-4}" trmnlp-test run shipped) ||
+  { echo "the squeezed copy fails the shipped spec; nothing was uploaded" >&2; exit 1; }
+TESTED="$ROOT/$(cd "$ROOT" && node -e "process.stdout.write(require('./test/trmnl/lib/shipped').shippedPlugin())")"
+
 # EVERY SOURCE FILE, not the two that used to change. squeeze.py now moves
 # the wrapper markup and the stylesheet out of shared.liquid and into each of
 # the four view files -- the server's limit is per file and the views were two
@@ -66,21 +79,19 @@ if [ -n "$RETARGET" ]; then
   sed -i "s/^id: 471753$/id: $RETARGET\nname: Metro Calendar (testing)/" "$HERE/src/settings.yml"
 fi
 
-[ -x "$ESBUILD" ] || (cd "$ROOT/tools" && npm install --no-audit --no-fund --silent)
 [ -x "$ESBUILD" ] || { echo "no esbuild in tools/node_modules; run 'npm install' in tools/" >&2; exit 1; }
 
 echo "push: start $(date '+%H:%M:%S')"
 
 python3 "$HERE/squeeze.py" "$LIQUID" "$TRANSFORM" "$ESBUILD"
 
-# The squeezed copies have to build, load, and actually lay a map out.
+# The squeezed copies have to build and load, and be the copy that was tested.
 (cd "$HERE" && trmnlp build >/dev/null)
 node -e "require('$TRANSFORM')" || { echo "the minified transform.js does not load" >&2; exit 1; }
-# EVERY VIEW, not just the full one. They are four different files on the
-# server and the squeeze rewrites all four; a deploy that proves one of them
-# draws is a deploy that has proved a quarter of what it is sending.
-for v in full half_horizontal half_vertical quadrant; do
-  node "$HERE/verify-build.js" "$HERE/_build/$v.html"
+for f in "$HERE"/src/*; do
+  [ "$(basename "$f")" = settings.yml ] && continue   # the testing plugin's id may be swapped in
+  cmp -s "$f" "$TESTED/src/$(basename "$f")" ||
+    { echo "squeezed $(basename "$f") is not the copy the shipped spec tested; nothing was uploaded" >&2; exit 1; }
 done
 
 (cd "$HERE" && echo "y" | trmnlp push)

@@ -21,7 +21,7 @@ space (three more people left off boards entirely).
 
 ## What to measure
 
-Four numbers, from `node test/households/run.js` (216 boards, no browser):
+Four numbers, from `trmnlp-test run households -g @report` (216 boards, drawn in the real page; each board's line is in the console and in its test's annotations):
 
 | | what it means | worse means |
 |---|---|---|
@@ -36,10 +36,9 @@ earlier column down and a later one up, not the other way.
 Then the suites, all of which must pass:
 
 ```
-./test.sh                        # transform, config editor, boards, bundle freshness
-node solver/cases.js             # the layout engine's own cases
-cd test/layout && node run.js    # real Chromium, the framework's own faces
-node test/sweep/run.js           # the example days, five times of day, six views
+./test.sh                        # everything: engine, boards, editor, bundle, size, and
+                                 # test/trmnl on trmnlp-test (transform, real-page layout,
+                                 # the example-day sweep, the shipped copy, lint, pictures)
 plugin/lint.sh
 ```
 
@@ -48,7 +47,7 @@ plugin/lint.sh
 **The device, not the corpus.** The households are six invented families; the
 example days are what a reader with no calendars sees; your own board is
 neither. A caption written straight across another one sat on the real board
-for weeks while every fixture said the board was clean. `test/sweep/run.js`
+for weeks while every fixture said the board was clean. `test/trmnl/sweep.spec.js`
 exists because of that, and it is still not enough on its own: when the user
 sends a screenshot, rebuild *that* payload and look at it.
 

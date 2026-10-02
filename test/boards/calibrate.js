@@ -34,10 +34,9 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '../..');
-const CACHE = path.join(ROOT, 'test/layout/.cache');
+const Assets = require('../../tools/framework-assets');
 const CHROME = process.env.METRO_CHROME || '/home/dev/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome';
-const CSS_URL = 'https://trmnl.com/css/3.3.1/plugins.css';
-const JS_URL = 'https://trmnl.com/js/3.3.1/plugins.js';
+const { CSS_URL, JS_URL } = Assets;
 
 const DEVICES = {
   og: { classes: 'screen--og screen--md screen--1bit screen--density-1x', w: 800, h: 480 },
@@ -58,10 +57,9 @@ const CLASSES = {
   route: 'metro-route metro-pill metro-pill--quiet label text--bold',
 };
 
-const builds = path.join(CACHE, 'builds');
-const newest = fs.readdirSync(builds).filter((f) => f.endsWith('.html'))
-  .map((f) => path.join(builds, f)).sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
-if (!newest) throw new Error('no cached build: run the layout suite once first');
+// a fresh build of the full view, in a copy of plugin/ (tools/framework-assets.js)
+const built = Assets.builtPage('full');
+const assets = Assets.frameworkAssets();
 
 const probe = `<script>
 window.addEventListener('load', function () { setTimeout(function () {
@@ -135,9 +133,9 @@ window.addEventListener('load', function () { setTimeout(function () {
 
 const table = {};
 for (const [dev, d] of Object.entries(DEVICES)) {
-  let html = fs.readFileSync(newest, 'utf-8')
-    .split(CSS_URL).join('file://' + path.join(CACHE, 'plugins.local.css'))
-    .split(JS_URL).join('file://' + path.join(CACHE, 'plugins.js'))
+  let html = built
+    .split(CSS_URL).join('file://' + assets.css)
+    .split(JS_URL).join('file://' + assets.js)
     .replace(/class="screen([^"]*)"/, (m, rest) => 'class="screen' + rest + ' ' + d.classes + '"')
     .replace('</body>', probe + '</body>');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'metro-cal-'));

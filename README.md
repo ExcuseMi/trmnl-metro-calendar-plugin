@@ -172,16 +172,22 @@ firing several times a day, shows on its first date only.
 
 ```bash
 cd plugin && trmnlp serve        # local preview at http://127.0.0.1:4567
-./test.sh                        # the payload, the layout engine, the editor
-node test/boards/run.js          # the drawing's geometry, in node
-cd test/layout && node run.js    # what needs the real page, headless Chromium
+./test.sh                        # every suite
+./test.sh node                   # only the ones without a browser (engine, geometry, editor)
+./test.sh trmnl -g band          # only trmnlp-test, any Playwright arguments
 ```
+
+The suites that render the plugin or run its transform are
+[trmnlp-test](https://github.com/ExcuseMi/trmnlp-test) specs in
+`test/trmnl/` (`gem install trmnlp-test`, needs Docker); the report is
+`test/trmnl-report/index.html`.
 
 To run your own copy rather than the recipe: **Plugins → Private Plugins →
 New**, name it, save, then from `plugin/` run `./push.sh`. Not
 `trmnlp push`: the server takes 100KB per file and the sources are several
 times that, so `push.sh` strips the comments and minifies before it
-uploads, and refuses to upload a build that does not render.
+uploads, and refuses to upload a build that does not render (the
+`shipped` spec in `test/trmnl/`).
 
 The board is drawn by `solver/`, a set of plain node modules bundled into the
 template by `plugin/bundle.js`; `plugin/src/transform.js` turns calendars into
