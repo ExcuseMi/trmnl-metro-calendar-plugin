@@ -874,24 +874,30 @@ test('an all-day state is at its first owner\'s head, for the days drawn, saying
     spec.fixed.forEach(function (x) { if (x.id === (far ? 'name:' : 'name0:') + k) f = x; });
     return f && f.route;
   }
-  // A LINE IS NAMED ONCE, SO EVERY STATE IS SAID AT THAT ONE HEAD.
+  // A LINE IS NAMED ONCE, AT THE LEADING EDGE, AND A HEAD SAYS WHAT IS TODAY'S.
   //
-  // Sunday's half term used to be named at the FAR end, because that is
-  // where Sunday is, and a state put at the left was read as tonight's. The
-  // far name is gone (a line is named once now, at the leading end, and the
-  // column it used to cost went back to the day), so the position can no
-  // longer say which day -- and it does not need to, because the words
-  // already do: a state that does not cover every drawn day carries the day
-  // it is on, "Half Term . Sun", which is the same sentence read from
-  // anywhere on the board.
-  assert(head('k') === 'Half Term \u00b7 Sun',
-    'kids head says ' + JSON.stringify(head('k')));
+  // Sunday's half term was named at the FAR end once, because that is where
+  // Sunday is; then at the one head, as "Half Term . Sun", where it read as
+  // tonight's with a qualifier nobody reached. Since e153d18 a state that
+  // does not cover the first drawn day is the band behind its rail over the
+  // day it covers, named where it begins, one per owner -- the board's own
+  // furniture for "this line is in this state for this stretch". The head
+  // keeps what is today's, and a state covering every drawn day says no day.
+  // A state on today alone, on a board that draws two days, says its day
+  // FIRST (8f38ade): "Sat . Night Shift".
+  // (This case was left asserting the older answers when those two commits
+  // landed, and failed from then on.)
+  assert(head('k') == null, 'the kids\' head says ' + JSON.stringify(head('k')) + ', but nothing of theirs is today\'s');
   assert(!head('k', true), 'a line was named at both ends: ' + JSON.stringify(head('k', true)));
   assert(head('a') === 'Leave', 'a state on every drawn day owes no qualifier: ' + JSON.stringify(head('a')));
-  // ...and a shared state at each of its owners' heads, in the order the
-  // days run: the kids' half term is Sam's too.
-  assert(head('s') === 'Night Shift \u00b7 Sat, Half Term \u00b7 Sun', 'a shared state is at every owner\'s head: '
-    + JSON.stringify(head('s')));
+  assert(head('s') === 'Sat \u00b7 Night Shift', 'Sam\'s head says ' + JSON.stringify(head('s')));
+  // ...and Sunday's state is a band over Sunday, at each of its owners' rails
+  var bands = spec.fixed.filter(function (x) { return x.kind === 'bandname' && x.text === 'Half Term'; });
+  assert(bands.map(function (x) { return x.line; }).sort().join() === 'k,s',
+    'the half term is not a band on both its owners\' rails: ' + JSON.stringify(bands.map(function (x) { return x.line; })));
+  var sunday = spec.fixed.filter(function (x) { return x.kind === 'date' && /Sun/.test(x.text); })[0];
+  assert(sunday && bands.every(function (x) { return x.a0 >= sunday.a0 - 8; }),
+    'the half term band is not over Sunday: ' + JSON.stringify(bands.map(function (x) { return x.a0; })) + ' vs ' + (sunday && sunday.a0));
   assert(!spec.fixed.some(function (x) { return x.kind === 'terminus' && x.at !== spec.axis.a0; }),
     'a terminus name was declared anywhere but the leading edge');
   assert(!spec.wants.some(function (w) { return /Half Term|Leave|Camp/.test(w.text); }),
@@ -900,14 +906,15 @@ test('an all-day state is at its first owner\'s head, for the days drawn, saying
   var one = Day.specFor(Object.assign({}, metro, { day_end_min: 1440 }), { w: 1020, h: 700 }, {});
   var said = one.states.map(function (st) { return st.text; });
   assert(said.join('|') === 'Leave|Night Shift', 'a one-day board states ' + JSON.stringify(said));
-  // A shared state whose first owner is left off is still at the others'
-  // heads -- it always was at every owner's now -- and with a line named
-  // once, BOTH of Sam's states are said there, in the order the days run.
+  // A shared state whose first owner is left off is still the others': at
+  // Sam's head what is today's, and his band over Sunday.
   var less = Fit.withoutLines(spec, ['k']);
   var sHead = null, sTail = null;
   less.fixed.forEach(function (x) { if (x.id === 'name0:s') sHead = x.route; if (x.id === 'name:s') sTail = x.route; });
-  assert(sHead === 'Night Shift \u00b7 Sat, Half Term \u00b7 Sun' && sTail == null,
+  assert(sHead === 'Sat \u00b7 Night Shift' && sTail == null,
     'with the kids left off, Sam\'s heads say ' + JSON.stringify([sHead, sTail]));
+  assert(less.fixed.some(function (x) { return x.kind === 'bandname' && x.line === 's' && x.text === 'Half Term'; }),
+    'with the kids left off, Sam\'s half term is no longer a band over Sunday');
 });
 
 // THE CLOCK IS ALWAYS ON THE BOARD. At 02:41 the board opened at the morning
@@ -1046,9 +1053,17 @@ test('every real day solves within its second', function () {
     var spec = Day.specFor(f.metro, { w: 730, h: 480 },
       { pad: 14, bandLo: 66, cell: 7, rowH: 12 });
     var t0 = Date.now();
-    var b = Fit.fit(spec, { timeMs: 1000 });
+    Fit.fit(spec, { timeMs: 1000 });
     var ms = Date.now() - t0;
     if (ms > 1250) slow.push(f.name + ' ' + ms + 'ms');
+    // WHAT THE SEARCH BUYS IS ASKED OF ITS COUNT, NOT OF THIS MACHINE'S
+    // SECOND. The page stops on a count of arrangements priced (fit.js, the
+    // eval pool) precisely so a board does not depend on how fast the box
+    // drawing it is; asked of a one-second clock, this case shed a fourth
+    // name on seven-lines whenever the machine was busy and passed when it
+    // was not. The clock is still checked above: it is obeyed.
+    var b = Fit.fit(Day.specFor(f.metro, { w: 730, h: 480 },
+      { pad: 14, bandLo: 66, cell: 7, rowH: 12 }), {});
     if (b.shed > (known[f.name] || 0)) worse.push(f.name + ' shed ' + b.shed);
   });
   assert(!slow.length, 'over the second: ' + slow.join(', '));
