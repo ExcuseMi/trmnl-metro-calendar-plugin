@@ -232,3 +232,8 @@ track.md
 # style references, for looking at while drawing (see style/README.md)
 style/*
 !style/README.md
+
+# trmnlp-test: the report, and the squeezed copy test/trmnl/lib/shipped.js builds
+test/trmnl-report/
+test/trmnl/.shipped/
+!test/trmnl/lib/

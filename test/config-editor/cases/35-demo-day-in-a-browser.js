@@ -35,7 +35,7 @@ module.exports = function (test, h) {
   }
 
   // The repo's own demo files, off disk, under the addresses the transform
-  // asks for (`/main/demo/<show>/...`, the shape test/sweep/run.js serves).
+  // asks for (`/main/demo/<show>/...`, the shape test/trmnl/lib/demo.js serves).
   // Nothing here reaches the network: what is on disk is what the next push
   // puts on the server.
   //

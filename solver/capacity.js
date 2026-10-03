@@ -32,7 +32,7 @@
 // not the real TRMNL faces, which need a browser. Widths are therefore
 // consistent but not truthful, so treat the timings as relative and the
 // kept-line counts as indicative. The browser's own answer for a given box
-// is in test/layout.
+// is in test/trmnl/layout.
 
 var Day = require('./day');
 var Fit = require('./fit');

@@ -1,4 +1,4 @@
-name: Transform tests
+name: Tests
 
 on:
   push:
@@ -6,11 +6,28 @@ on:
   pull_request:
 
 jobs:
-  transform:
+  # the suites that need no browser (./test.sh node)
+  node:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - run: ./test.sh
+      - run: ./test.sh node
+
+  # everything that renders the plugin or runs its transform, on trmnlp-test:
+  # a summary on the run page, annotations on failing tests, and the report
+  # with every device picture as the "trmnl-report" artifact
+  trmnl:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      # esbuild, for the squeezed copy the shipped spec tests
+      - run: cd tools && npm ci --no-audit --no-fund
+      - uses: ExcuseMi/trmnlp-test@v0
+        with:
+          args: --workers 2

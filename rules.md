@@ -173,6 +173,24 @@ applies when something changes.
    new takes the lowest free rung; a shared calendar's ladder line takes
    none. The names of the days and months come from the language table
    too, since the runtime's Intl may know English only.
+2p-ii. **A state that is not today's is drawn where its day is.** Every
+   line is named once, in the legend's column at the leading edge, so a
+   badge for a later day was declared in that column beside today's rails
+   with only its date to say otherwise -- true, and still "kinda weird
+   it's still in the today space". The board already has furniture for
+   "this line is in this state for this stretch": the band behind the rail
+   an ambient block draws. So a state that does not cover the FIRST drawn
+   day becomes that band, over the days it does cover, named where it
+   begins, one per owner. The column keeps what is today's.
+   TWO THINGS HAVE TO BE TRUE OF THE PAPER FIRST. The stretch must be wide
+   enough to carry the name (measured, not guessed), and the board must be
+   deep enough per line for a row of words -- the same depth a head needs
+   for a route row under its name. On a quadrant that depth is not there,
+   and putting a name over a rail cost the board a whole PERSON; on a
+   turned slot the map is a column a few names wide, and taking the badge
+   off the heads moved a caption a quarter of the way along its rail from
+   its own stop. Where either fails, the badge stays in the column and
+   says its day.
 2p-i. **An all-day badge says WHICH DAY first, and in the same type as
    every other word.** Each line is named once now, in the legend's column
    at the leading edge, so a badge for tomorrow has no head of its own to

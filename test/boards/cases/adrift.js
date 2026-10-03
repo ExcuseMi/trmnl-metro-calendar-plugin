@@ -50,7 +50,9 @@ module.exports = function (test, h) {
       const along = alongOf(rep, row[2]);
       assert(along != null, row[2] + ' is not on the board at all');
       const cp = rep.board.caps.find((c) => c.text === row[2] || (c.rows || []).indexOf(row[2]) >= 0);
-      const room = Math.max(12, (cp ? cp.h : 20) / 2);
+      // to the whole pixel, as the message prints it: "24px from its event,
+      // over 24" was half a pixel over a 23.5 the reader cannot see
+      const room = Math.ceil(Math.max(12, (cp ? cp.h : 20) / 2));
       assert(along <= room, Math.round(along) + 'px from its event, over ' + Math.round(room));
     });
   });

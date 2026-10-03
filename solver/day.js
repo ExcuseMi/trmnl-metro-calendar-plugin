@@ -630,7 +630,7 @@ function routeRows(states, key, oneName) {
   });
 }
 
-function statesFor(metro) {
+function statesFor(metro, standing, scale, cell, deep) {
   var all = metro.days || [];
   var drawn = all.filter(function (d) {
     return d.end_min > metro.day_start_min && d.start_min < metro.day_end_min;
@@ -657,6 +657,45 @@ function statesFor(metro) {
       text = on.map(function (d) {
         return d.weekday_short || d.date_label || d.weekday_label;
       }).filter(Boolean).join(', ') + ' \u00b7 ' + text;
+    }
+    // A STATE THAT IS NOT TODAY'S IS DRAWN WHERE ITS DAY IS.
+    //
+    // Every line is named once, in the legend's column at the leading edge,
+    // so a badge for tomorrow was declared in that column beside today's
+    // rails with only its day to say otherwise: true, and still "kinda
+    // weird it's still in the today space". The board already has furniture
+    // for "this line is in this state for this stretch" -- the band behind
+    // the rail an ambient block draws (fixedFor's `bandname`, draw.js) --
+    // and a day the paper actually shows is a stretch. So a state that does
+    // not cover the FIRST drawn day becomes that band, over the days it
+    // does cover, named where it begins; the column keeps what is today's.
+    // One per owner, because each person's own rail is where their own day
+    // is said.
+    // ...BUT ONLY WHERE THE MAP IS WIDE ENOUGH TO SAY IT. A turned slot
+    // reads down a column a few names wide: there the map has no room to
+    // name a state where it happens, and the badge in the legend is the
+    // only place left. (Taking it off that board's heads moved a caption a
+    // quarter of the way along its rail from its own stop, which is the
+    // fault adrift.js exists to catch.)
+    var ends0 = drawn.length ? on.indexOf(drawn[0]) >= 0 : true;
+    if (deep && !standing && !ends0 && on.length) {
+      var bFrom = Math.max(on[0].start_min, metro.day_start_min);
+      var bTo = Math.min(on[on.length - 1].end_min, metro.day_end_min);
+      // ...AND ONLY WHERE THE STRETCH CAN CARRY ITS OWN NAME. Measured, not
+      // guessed: the title at the width it is drawn, plus the gap it keeps
+      // from the head. (The DEPTH for that name is asked for separately,
+      // above: a band's name is a row of the map, and on a quadrant putting
+      // one there cost the board a whole PERSON.)
+      var bw = scale && cell ? String(ad.title).length * cell * 1.05 + 6 * cell : Infinity;
+      var bPx = scale ? scale.at(bTo) - scale.at(bFrom) : 0;
+      if (bTo > bFrom && bPx >= bw) {
+        owners.forEach(function (ow) {
+          out.push({ title: ad.title, text: ad.title, owners: [ow], ends: [false, true],
+                     timed: true, from: bFrom, to: bTo, allDay: true,
+                     day0: drawn.indexOf(on[0]) });
+        });
+        return;
+      }
     }
     // Which edges of the paper the state runs off: leave that is tomorrow's
     // did not begin before the board's first hour, so that end is a slash.
@@ -1154,6 +1193,19 @@ function specFor(metro, view, opts) {
   // the head and the connector stands at the first minute after them, a
   // bar between labelled stations, which is what a transit map draws.
   var flatSlot = !opts.standing && legendN > 1 && view.h / legendN < nameH0 * 2.6;
+  // STANDING UP, THE SAME WHERE A NAME CANNOT BE SET BESIDE ITS RAIL AT ALL.
+  // A standing name is a column as thick as a row is tall, and it needs that
+  // plus a rail gap and a half of clearance from its own rail and the next
+  // rail's clearance (its terminal slash reaches a mark past it; bands.js,
+  // ABOVE ITS RAIL): on a seven-line half every gap came out a pixel short,
+  // the top line's name fell into the gap below and "D" was written on "Fry".
+  // Where the board cannot give every line that much, the names go level,
+  // in a row at the head of the board, where length is what a standing
+  // board has. (The rail gap is the band search's default, 8.)
+  var nameRow = nameH0 + 8 * 1.5 + Math.max(8, (opts.markR || 0) + 3);
+  // (across what is left beside the hour column)
+  var standDepth = view.h - (opts.stripThick || 0) - pad * 2;
+  if (opts.standing && legendN > 1 && standDepth < legendN * nameRow) flatSlot = true;
   var levelNames = flatSlot || (!opts.standing && legendN > 1 && ringLead > 0);
   // ...AND A NAME IS GIVEN MORE ROOM WHERE IT STANDS OVER ITS RAIL. The
   // share above was cut for a legend column, where every pixel of the
@@ -1432,7 +1484,12 @@ function specFor(metro, view, opts) {
                          // about pixels per minute still can.
                          segments: opts.evenTime ? null : segmentsFor(metro) });
   var got = wantsFrom(metro, scale, measure, opts);
-  var states = statesFor(metro);
+  // The depth a head needs for a route row under its name, asked here
+  // because a band's NAME is a row of the map in the same way (fixedFor's
+  // `deepEnough`, which is computed there from the same two numbers).
+  var nameHd = opts.nameH != null ? opts.nameH : ((opts.rowH || 12) + 6);
+  var deepFor = (cross.c1 - cross.c0) / Math.max(1, (metro.legend || []).length) >= nameHd * 2 + 6;
+  var states = statesFor(metro, !!opts.standing, scale, opts.cell || 7, deepFor);
   opts = Object.assign({}, opts, { states: states, gutter: tookGutter, headLead: headLead, nameMax: nameMax });
   got.wants.sort(function (p, q) { return p.a0 - q.a0; });
   var lines = linesFrom(metro);

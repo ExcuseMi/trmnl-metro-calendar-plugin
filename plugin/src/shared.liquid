@@ -445,6 +445,9 @@ function Caption(spec) {
   // out from the stop list is exactly the kind of rederivation this model
   // exists to stop.
   this.at = spec.at == null ? null : spec.at;
+  // ...and where that event ends, so a name can be asked how far it stands
+  // from the stretch of rail it names (see `adrift` in check).
+  this.atEnd = spec.atEnd == null ? this.at : spec.atEnd;
   this.text = spec.text || '';
   this.a = spec.a;                  // near edge along the axis
   this.c = spec.c;                  // near edge across it
@@ -814,6 +817,20 @@ function check(board) {
       }
     }
   }
+  // A NAME FURTHER FROM ITS OWN EVENT THAN IT IS LONG. A name the search
+  // slid along its rail is priced for every pixel it slid, and still
+  // placed there when nothing nearer was free: "Good News Everyone 08:45"
+  // stood beside the 16:30 interchange on a standing X, its own stop five
+  // hours up the board, and nothing called that wrong. Past its own length
+  // it no longer points at anything of its own, so it is a fault (a shed
+  // name is the honest alternative).
+  for (i = 0; i < board.caps.length; i++) {
+    var ca = board.caps[i];
+    if (ca.pill || ca.at == null) continue;
+    var ce = ca.atEnd == null ? ca.at : ca.atEnd;
+    var off = ca.a + ca.w < ca.at ? ca.at - (ca.a + ca.w) : (ca.a > ce ? ca.a - ce : 0);
+    if (off > ca.w) faults.push({ kind: 'adrift', what: ca.text, by: Math.round(off) });
+  }
   // A caption written over the board's own furniture: the hour strip, a
   // line's name, a note at the end of the axis. All of it was on the board
   // before any event was, and none of it can move out of the way.
@@ -877,9 +894,7 @@ function check(board) {
   // (A tie's bar tunnels under words, so for a tie it is only its rings.)
   for (i = 0; i < board.caps.length; i++) {
     for (j = 0; j < board.pills.length; j++) {
-      var pj = board.pills[j], cb = board.caps[i].box(), cl = board.lineByKey(board.caps[i].line);
-      var mine = pj.tie && (pj.lines || []).indexOf(cl && cl.branchOf ? cl.branchOf : board.caps[i].line) >= 0;
-      if (mine ? !ringHit(board, pj, cb) : !boxesOverlap(cb, pj.box())) continue;
+      if (!onBar(board, board.caps[i], board.pills[j], board.caps[i].box())) continue;
       faults.push({ kind: 'onbar', what: board.caps[i].text, by: board.pills[j].id });
     }
   }
@@ -1040,6 +1055,16 @@ function ringClashes(board) {
   return out;
 }
 
+// Whether caption `cp`, in box `b`, is written on bar `pj`: anywhere on the
+// bar, or for a tie its own line is in, on one of its rings. Shared by
+// `check` and by anything that moves a caption after the solve (draw.js
+// bigClocks), so the drawing cannot make a board `check` would refuse.
+function onBar(board, cp, pj, b) {
+  var cl = board.lineByKey(cp.line);
+  var mine = pj.tie && (pj.lines || []).indexOf(cl && cl.branchOf ? cl.branchOf : cp.line) >= 0;
+  return mine ? ringHit(board, pj, b) : boxesOverlap(b, pj.box());
+}
+
 function ringHit(board, pl, b) {
   var rr = pl.r || 5;
   return (pl.lines || []).some(function (k) {
@@ -1081,7 +1106,7 @@ function initialsFor(legend) {
   return initials;
 }
 
-module.exports = { CAP_CLEAR: CAP_CLEAR, ringHit: ringHit, ringClashes: ringClashes, initialsFor: initialsFor,
+module.exports = { CAP_CLEAR: CAP_CLEAR, ringHit: ringHit, onBar: onBar, ringClashes: ringClashes, initialsFor: initialsFor,
                    Board: Board, Caption: Caption, Line: Line, Stop: Stop, Pill: Pill,
                    Furniture: Furniture,
                    check: check, ascii: ascii, report: report, pairing: pairing,
@@ -2159,7 +2184,7 @@ function readable(p, board, near) {
 // How good a readable position is, in one currency, all of it about the
 // reader pairing the words with the right stop. Lower is better.
 
-var OVER_BAR = 1, LEFT_OF_MARK = 7000, RAIL_HALF = 3.5;
+var OVER_BAR = 1, LEFT_OF_MARK = 7000, RAIL_HALF = 3.5, ADRIFT = 250000;
 // HOW DEARLY A CAPTION PAYS FOR LEAVING ITS EVENT. `spec.driftPrice` scaled
 // to the coefficient this function was written with: 12 is the 0.04 it always
 // used, and anything above that buys the caption's PLACE against the form
@@ -2226,7 +2251,12 @@ function price(p) {
        // move to the right". Priced past a folded name (a form's rung, see
        // bands.js), so a long name folds and stands after its mark before it
        // ends at it.
-       + (!w.pill && p.slide <= -w.w + 0.5 ? LEFT_OF_MARK : 0);
+       + (!w.pill && p.slide <= -w.w + 0.5 ? LEFT_OF_MARK : 0)
+       // FURTHER FROM ITS EVENT THAN IT IS LONG is not a place for the name
+       // at all (board.js check, `adrift`): dearer than not drawing it, so
+       // a name with nowhere near its stop is shed and counted, not written
+       // beside somebody else's.
+       + (!w.pill && along > w.w ? ADRIFT : 0);
 }
 
 // --------------------------------------------------------------- the solve
@@ -2743,6 +2773,7 @@ function apply(board, wants, sol) {
     var p = sol.cands[i][k];
     board.addCap({ id: w.id, pill: w.pill, text: w.shown || w.text, line: w._rail || w.line,
                    a: p.a, c: p.c, w: w.w, h: w.h, at: w.a0,
+                   atEnd: w.pill ? null : (w.endAt != null ? w.endAt : w.a1),
                    rows: w.rows, size: w.size, rowCls: w.rowCls, el: w.el });
   });
   return board;
@@ -5351,6 +5382,118 @@ function solve(spec, opts) {
   });
   spec.wants.forEach(function (w, i) { w._rail = bestRails[i]; });
   spec.lines.forEach(function (l, i) { l._c = bestLines[i].c; l._room = bestLines[i].room; });
+
+  // RICHER FORMS, ASKED OF THE SOLVE THAT SHIPS.
+  //
+  // The search prices a form during the descent with the GREEDY placement,
+  // which is pessimistic, and a name it once saw clash in its whole form is
+  // left in a poorer one: on an OG panel the simpsons example at 21:30 drew
+  // thirteen of fourteen names in the smallest type with no time under them,
+  // across a board with a band of empty paper under every rail, and the full
+  // solve placed every one of them whole, with its time, at no cost at all.
+  // So each name wearing a poorer form is offered its richer ones here, one
+  // at a time, judged exactly as the candidates above were (faults, the
+  // board's cost) plus what the forms themselves cost, and kept only where
+  // that whole score falls. Bounded by the same pool and clock as the search.
+  (function richer() {
+    if (!bestSt) return;
+    function plain(forms) {
+      var c = 0;
+      spec.wants.forEach(function (w, i) {
+        var f = w.forms[Math.min(w.forms.length - 1, forms[i])];
+        c += (f && f.rung != null ? f.rung : forms[i]) * spec.formPrice;
+      });
+      return c;
+    }
+    function judge(st) {
+      spec.wants.forEach(function (w, i) { w.wear(st.forms[i]); });
+      var bb = boardFor(spec, st);
+      var co = {};
+      Object.keys(opts || {}).forEach(function (k) { co[k] = opts[k]; });
+      co.minLift = spec.minLift; co.muddlePrice = spec.muddlePrice; co.driftPrice = spec.driftPrice;
+      var ss = C.solve(spec.wants, bb, co);
+      C.apply(bb, spec.wants, ss);
+      var fl = require('./board').check(bb);
+      var cuts = fl.filter(function (f) { return f.kind === 'namecut' && f.own; }).length;
+      bb.edgeSlack = edgeSlack(st.gaps);
+      var sc = (fl.length - cuts) * 1e6 + cuts * spec.muddlePrice * 4 + boardCost(spec, bb, ss) + plain(st.forms);
+      return { score: sc, board: bb, sol: ss, rails: spec.wants.map(function (w) { return w._rail; }),
+               lines: spec.lines.map(function (l) { return { c: l._c, room: l._room }; }) };
+    }
+    var cost = Math.max(1, spec.wants.length * spec.wants.length / 14);
+    var out = false;
+    function spent() {
+      if (opts && opts.pool) {
+        opts.pool.used += cost;
+        if (opts.pool.left != null && opts.pool.used >= opts.pool.left) return true;
+      }
+      return !!(opts && opts.deadline && Date.now() > opts.deadline);
+    }
+    // Each name, richer, one at a time, from `st0` as judged `cur0`.
+    function climb(st, cur) {
+      var moved = false;
+      for (var pass = 0; pass < 2 && !out; pass++) {
+        var any = false;
+        for (var i = 0; i < spec.wants.length && !out; i++) {
+          var was = st.forms[i];
+          // the whole form, half way, one step: three tries a name, not the
+          // ladder, which on a busy board was a second of the panel's three
+          var tries = [0, Math.floor(was / 2), was - 1].filter(function (k, ix, all) {
+            return k >= 0 && k < was && all.indexOf(k) === ix;
+          });
+          for (var ti = 0; ti < tries.length && !out; ti++) {
+            st.forms[i] = tries[ti];
+            var got = judge(st);
+            out = spent();
+            // ...and never at the price of one of the four numbers a board is
+            // judged by (MAINTENANCE.md): a time row is not worth a name that
+            // could be misread, however the prices add up.
+            if (got.score < cur.score - 1e-6 && got.sol.shed <= cur.sol.shed
+                && got.board.muddle <= cur.board.muddle) { cur = got; any = moved = true; break; }
+            st.forms[i] = was;
+          }
+        }
+        if (!any) break;
+      }
+      return { st: st, cur: cur, moved: moved };
+    }
+    var timedOf = function (j) { return j.board.caps.filter(function (c) { return (c.rows || []).length >= 2; }).length; };
+    var first = judge(clone3(bestSt));
+    var mine = climb(clone3(bestSt), first);
+    var st = mine.st, cur = mine.cur, moved = mine.moved;
+    // ...AND FROM THE SAME BOARD WITH EVERY RAIL FLAT, which the descent
+    // cannot reach from a board where every event took a shelf: taking any
+    // one event off its shelf buys nothing, all of them together does. On an
+    // OG panel the simpsons example at noon had all fourteen events on
+    // shelves and three of them with their time; flat, the same fourteen
+    // names come out twelve with their time. Kept only for what it is for --
+    // more names with their time, at a lower price, with nothing shed,
+    // nothing misreadable and no fault added -- so a board whose names
+    // already have their time keeps its shelves (shelfWorth).
+    var anyStep = false;
+    for (var si = 0; si < bestSt.steps.length; si++) if (bestSt.steps[si]) anyStep = true;
+    if (anyStep && !out) {
+      var flat = clone3(bestSt);
+      flat.steps.fill(0);
+      var alt = climb(flat, judge(flat));
+      if (timedOf(alt.cur) > timedOf(cur) && alt.cur.score < cur.score - 1e-6
+          && alt.cur.sol.shed <= cur.sol.shed && alt.cur.board.muddle <= cur.board.muddle) {
+        st = alt.st; cur = alt.cur; moved = true;
+      }
+    }
+    // Every board tried wrote its rails onto the spec (boardFor), so the
+    // winner's are put back whether or not anything here was kept.
+    if (!moved) {
+      spec.wants.forEach(function (w, i) { w.wear(bestSt.forms[i]); w._rail = bestRails[i]; });
+      spec.lines.forEach(function (l, i) { l._c = bestLines[i].c; l._room = bestLines[i].room; });
+      return;
+    }
+    bestSt = st; bestBoard = cur.board; bestSol = cur.sol;
+    bestRails = cur.rails; bestLines = cur.lines;
+    spec.wants.forEach(function (w, i) { w._rail = bestRails[i]; });
+    spec.lines.forEach(function (l, i) { l._c = bestLines[i].c; l._room = bestLines[i].room; });
+  })();
+  function clone3(x) { return { gaps: x.gaps.slice(), steps: x.steps.slice(), forms: x.forms.slice() }; }
   band = { st: bestSt };
   var b = bestBoard, sol = bestSol;
   spec.wants.forEach(function (w, i) { w.wear(bestSt.forms[i]); });
@@ -6099,7 +6242,7 @@ function routeRows(states, key, oneName) {
   });
 }
 
-function statesFor(metro) {
+function statesFor(metro, standing, scale, cell, deep) {
   var all = metro.days || [];
   var drawn = all.filter(function (d) {
     return d.end_min > metro.day_start_min && d.start_min < metro.day_end_min;
@@ -6126,6 +6269,45 @@ function statesFor(metro) {
       text = on.map(function (d) {
         return d.weekday_short || d.date_label || d.weekday_label;
       }).filter(Boolean).join(', ') + ' \u00b7 ' + text;
+    }
+    // A STATE THAT IS NOT TODAY'S IS DRAWN WHERE ITS DAY IS.
+    //
+    // Every line is named once, in the legend's column at the leading edge,
+    // so a badge for tomorrow was declared in that column beside today's
+    // rails with only its day to say otherwise: true, and still "kinda
+    // weird it's still in the today space". The board already has furniture
+    // for "this line is in this state for this stretch" -- the band behind
+    // the rail an ambient block draws (fixedFor's `bandname`, draw.js) --
+    // and a day the paper actually shows is a stretch. So a state that does
+    // not cover the FIRST drawn day becomes that band, over the days it
+    // does cover, named where it begins; the column keeps what is today's.
+    // One per owner, because each person's own rail is where their own day
+    // is said.
+    // ...BUT ONLY WHERE THE MAP IS WIDE ENOUGH TO SAY IT. A turned slot
+    // reads down a column a few names wide: there the map has no room to
+    // name a state where it happens, and the badge in the legend is the
+    // only place left. (Taking it off that board's heads moved a caption a
+    // quarter of the way along its rail from its own stop, which is the
+    // fault adrift.js exists to catch.)
+    var ends0 = drawn.length ? on.indexOf(drawn[0]) >= 0 : true;
+    if (deep && !standing && !ends0 && on.length) {
+      var bFrom = Math.max(on[0].start_min, metro.day_start_min);
+      var bTo = Math.min(on[on.length - 1].end_min, metro.day_end_min);
+      // ...AND ONLY WHERE THE STRETCH CAN CARRY ITS OWN NAME. Measured, not
+      // guessed: the title at the width it is drawn, plus the gap it keeps
+      // from the head. (The DEPTH for that name is asked for separately,
+      // above: a band's name is a row of the map, and on a quadrant putting
+      // one there cost the board a whole PERSON.)
+      var bw = scale && cell ? String(ad.title).length * cell * 1.05 + 6 * cell : Infinity;
+      var bPx = scale ? scale.at(bTo) - scale.at(bFrom) : 0;
+      if (bTo > bFrom && bPx >= bw) {
+        owners.forEach(function (ow) {
+          out.push({ title: ad.title, text: ad.title, owners: [ow], ends: [false, true],
+                     timed: true, from: bFrom, to: bTo, allDay: true,
+                     day0: drawn.indexOf(on[0]) });
+        });
+        return;
+      }
     }
     // Which edges of the paper the state runs off: leave that is tomorrow's
     // did not begin before the board's first hour, so that end is a slash.
@@ -6623,6 +6805,19 @@ function specFor(metro, view, opts) {
   // the head and the connector stands at the first minute after them, a
   // bar between labelled stations, which is what a transit map draws.
   var flatSlot = !opts.standing && legendN > 1 && view.h / legendN < nameH0 * 2.6;
+  // STANDING UP, THE SAME WHERE A NAME CANNOT BE SET BESIDE ITS RAIL AT ALL.
+  // A standing name is a column as thick as a row is tall, and it needs that
+  // plus a rail gap and a half of clearance from its own rail and the next
+  // rail's clearance (its terminal slash reaches a mark past it; bands.js,
+  // ABOVE ITS RAIL): on a seven-line half every gap came out a pixel short,
+  // the top line's name fell into the gap below and "D" was written on "Fry".
+  // Where the board cannot give every line that much, the names go level,
+  // in a row at the head of the board, where length is what a standing
+  // board has. (The rail gap is the band search's default, 8.)
+  var nameRow = nameH0 + 8 * 1.5 + Math.max(8, (opts.markR || 0) + 3);
+  // (across what is left beside the hour column)
+  var standDepth = view.h - (opts.stripThick || 0) - pad * 2;
+  if (opts.standing && legendN > 1 && standDepth < legendN * nameRow) flatSlot = true;
   var levelNames = flatSlot || (!opts.standing && legendN > 1 && ringLead > 0);
   // ...AND A NAME IS GIVEN MORE ROOM WHERE IT STANDS OVER ITS RAIL. The
   // share above was cut for a legend column, where every pixel of the
@@ -6901,7 +7096,12 @@ function specFor(metro, view, opts) {
                          // about pixels per minute still can.
                          segments: opts.evenTime ? null : segmentsFor(metro) });
   var got = wantsFrom(metro, scale, measure, opts);
-  var states = statesFor(metro);
+  // The depth a head needs for a route row under its name, asked here
+  // because a band's NAME is a row of the map in the same way (fixedFor's
+  // `deepEnough`, which is computed there from the same two numbers).
+  var nameHd = opts.nameH != null ? opts.nameH : ((opts.rowH || 12) + 6);
+  var deepFor = (cross.c1 - cross.c0) / Math.max(1, (metro.legend || []).length) >= nameHd * 2 + 6;
+  var states = statesFor(metro, !!opts.standing, scale, opts.cell || 7, deepFor);
   opts = Object.assign({}, opts, { states: states, gutter: tookGutter, headLead: headLead, nameMax: nameMax });
   got.wants.sort(function (p, q) { return p.a0 - q.a0; });
   var lines = linesFrom(metro);
@@ -12661,6 +12861,20 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       for (var li = 0; li < board.lines.length; li++) {
         if (B.lineTouches(board.lines[li], g)) return false;
       }
+      // ...AND OF EVERY BAR AND ITS RINGS. A shared event's ring stands
+      // proud of the rail it sits on, so a box grown down to just above the
+      // rail is already on the ring: four captions on the simpsons example
+      // day were written across one on a TRMNL X, a fault `check` reports
+      // and this step made. Asked with check's own test.
+      for (var pi = 0; pi < (board.pills || []).length; pi++) {
+        if (B.onBar(board, want[gi].cp, board.pills[pi], g)) return false;
+      }
+      // ...and of the board's furniture, a line's name above all: on a
+      // household's X board a grown clock came down onto "Daan".
+      for (var fi = 0; fi < (board.fixed || []).length; fi++) {
+        if (board.fixed[fi].kind === 'now') continue;
+        if (B.capsOverlap(g, board.fixed[fi].box())) return false;
+      }
       return true;
     });
     if (!ok) return;
@@ -13285,8 +13499,18 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
   var probe = document.createElement('div');
   probe.className = 'absolute';
   probe.style.visibility = 'hidden';
-  ['title', 'label label--small text--bold', 'label label--base text--bold', 'label', 'value value--small'].forEach(function (c) {
-    var sp = document.createElement('span'); sp.className = c; sp.textContent = 'Mg 09:30'; probe.appendChild(sp);
+  // (with the punctuation a time range is set in: the en dash and the
+  // ellipsis can come from a face of their own)
+  var PROBE_TEXT = 'Mg 09:30 \u2013 10:00\u2026 \u00b7';
+  // EVERY TYPE A CAPTION IS SET IN, not the five the header used: the
+  // captions' own text sizes (base, small, large, xlarge, bold) are faces of
+  // their own, and one still on its way when the board was solved laid the
+  // first board a cold page drew out in a fallback -- a different board from
+  // the one the same page drew once that face was in.
+  ['title', 'label label--small text--bold', 'label label--base text--bold', 'label', 'value value--small',
+   'text--base text--bold', 'text--small text--bold', 'text--large text--bold', 'text--xlarge text--bold',
+   'metro-hour label text--bold', 'metro-terminus metro-pill label label--base text--bold'].forEach(function (c) {
+    var sp = document.createElement('span'); sp.className = c; sp.textContent = PROBE_TEXT; probe.appendChild(sp);
   });
   canvas.appendChild(probe);
   void probe.offsetWidth;   // styled now, so the faces it needs are requested now
@@ -13325,7 +13549,23 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
   var SOLVE_FIRST = SOLVE_ALL;
   var SOLVE_UNTIL = Date.now() + SOLVE_ALL;
   var faces = document.fonts;
-  if (faces && faces.ready && faces.status !== 'loaded') {
+  // ...AND EACH OF THOSE FACES ASKED FOR BY NAME. `fonts.ready` resolves for
+  // the faces that are already pending, and `status` can say "loaded" while
+  // a face the board has not asked for yet is nowhere: a cold page then
+  // started at once and measured in the fallback. Loading the face each probe
+  // computes to is the question that has the right answer. Still a second at
+  // most, out of the five the device gives the page.
+  if (faces && faces.load) {
+    var want = [];
+    Array.prototype.forEach.call(probe.children, function (sp) {
+      var cs = getComputedStyle(sp);
+      var f = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+      if (want.indexOf(f) < 0) want.push(f);
+    });
+    Promise.all(want.map(function (f) { return faces.load(f, PROBE_TEXT).catch(function () {}); }))
+      .then(function () { return faces.ready; }).then(start, start);
+    setTimeout(start, 1000);
+  } else if (faces && faces.ready && faces.status !== 'loaded') {
     faces.ready.then(start, start);
     setTimeout(start, 1000);
   } else {

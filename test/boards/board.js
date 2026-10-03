@@ -2,7 +2,7 @@
 
 // THE PLUGIN'S BOARD, IN NODE, IN A FEW HUNDRED MILLISECONDS.
 //
-// `test/layout` builds the plugin and renders it in Chromium, which is the
+// `test/trmnl/layout` renders the plugin in Chromium (trmnlp-test), which is the
 // only way to ask what the words look like in the panel's own face. Most of
 // what it asks is not about the words: where the rails go, where the marks
 // are, which days are on the board, whether a spur leaves from its trunk.
@@ -130,6 +130,12 @@ function specOf(metro, v, o, extra) {
   // padding the title row does not.
   var nameTab = metrics.TABLE[o.dev].name;
   var nameH = Math.max(Math.round(probe.h), nameTab.h);
+  // STANDING UP, the name is set in vertical writing mode and is as thick as
+  // the template measures it (metrics.json `nameStanding`, measured in the
+  // page): booked at the level name's height (20 against 33), the node
+  // boards laid out standing boards the page never draws, and "Good News
+  // Everyone" written beside the wrong interchange was invisible here.
+  if (!o.horiz && metrics.TABLE[o.dev].nameStanding) nameH = Math.max(nameH, metrics.TABLE[o.dev].nameStanding.h);
   var nameW = {};
   (metro.legend || []).forEach(function (p) {
     var t = p.name || p.key;

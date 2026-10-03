@@ -4228,6 +4228,20 @@ var TRAIN_D = 'M814.817,382.75h-45.773c0-9.665-7.835-17.5-17.5-17.5h-57.5c-9.665
       for (var li = 0; li < board.lines.length; li++) {
         if (B.lineTouches(board.lines[li], g)) return false;
       }
+      // ...AND OF EVERY BAR AND ITS RINGS. A shared event's ring stands
+      // proud of the rail it sits on, so a box grown down to just above the
+      // rail is already on the ring: four captions on the simpsons example
+      // day were written across one on a TRMNL X, a fault `check` reports
+      // and this step made. Asked with check's own test.
+      for (var pi = 0; pi < (board.pills || []).length; pi++) {
+        if (B.onBar(board, want[gi].cp, board.pills[pi], g)) return false;
+      }
+      // ...and of the board's furniture, a line's name above all: on a
+      // household's X board a grown clock came down onto "Daan".
+      for (var fi = 0; fi < (board.fixed || []).length; fi++) {
+        if (board.fixed[fi].kind === 'now') continue;
+        if (B.capsOverlap(g, board.fixed[fi].box())) return false;
+      }
       return true;
     });
     if (!ok) return;

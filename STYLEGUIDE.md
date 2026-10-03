@@ -256,6 +256,7 @@ Checked against the code, not remembered.
    screen alternates its rows.
 6. **Reserve red, and lay yellow tape.** On BWRY take red out of the rail
    ladder and give it to the alert; give the strip rail the yellow.
-7. **Render the panels nobody renders.** `tools/sheet.js` and
-   `test/layout/run.js` build 1-bit OG and 4-bit X only, so the palette
-   branch and the two-grey branch are drawn by nobody.
+7. **Render the panels nobody renders.** `tools/sheet.js` and the layout
+   specs draw 1-bit OG and 4-bit X almost only, so the palette branch and
+   the two-grey branch are drawn by nobody. (trmnlp-test renders any panel's
+   palette: `palette: 'color-4bwry'`, `device: 'waveshare_7_5_bwry'`.)

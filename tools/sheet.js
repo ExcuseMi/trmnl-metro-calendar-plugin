@@ -37,11 +37,11 @@ const vm = require('vm');
 const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
-const CACHE = path.join(ROOT, 'test/layout/.cache');
+const Assets = require('./framework-assets');
+const CACHE = Assets.CACHE;
 const CHROME = process.env.METRO_CHROME
   || '/home/dev/.cache/ms-playwright/chromium-1243/chrome-linux64/chrome';
-const CSS_URL = 'https://trmnl.com/css/3.3.1/plugins.css';
-const JS_URL = 'https://trmnl.com/js/3.3.1/plugins.js';
+const { CSS_URL, JS_URL } = Assets;
 
 // The device each view is really drawn on. Getting these wrong renders one
 // panel's board at another panel's size and every conclusion from it is
@@ -139,10 +139,7 @@ function swapMetro(html, metro) {
 function pageFor(metro, vp) {
   let html = fs.readFileSync(path.join(ROOT, 'plugin/_build', vp.page + '.html'), 'utf-8');
   html = swapMetro(html, metro);
-  const css = path.join(CACHE, 'plugins.local.css'), js = path.join(CACHE, 'plugins.js');
-  for (const f of [css, js]) {
-    if (!fs.existsSync(f)) throw new Error('missing ' + f + '; run the layout suite once to fetch the framework');
-  }
+  const { css, js } = Assets.frameworkAssets();
   html = html.split(CSS_URL).join('file://' + css).split(JS_URL).join('file://' + js);
   const tag = /class="screen([^"]*)"/;
   if (!tag.test(html)) throw new Error('the built page has no .screen element to size');
@@ -218,7 +215,7 @@ const noBuild = process.argv.indexOf('--no-build') > 0;
 
   // on the disk rather than in /tmp, which is a tmpfs here: a sheet is a
   // pile of full-size pages and they were being held in RAM (see the note
-  // by SCRATCH in test/layout/run.js)
+  // the old layout harness kept about SCRATCH)
   const scratch = process.env.METRO_TMPDIR || path.join(CACHE, 'tmp');
   fs.mkdirSync(scratch, { recursive: true });
   const dir = fs.mkdtempSync(path.join(scratch, 'metro-sheet-'));

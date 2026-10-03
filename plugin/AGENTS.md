@@ -124,14 +124,18 @@ trusting it.
 
 ### What the harness actually does
 
-`test/layout/run.js` runs `trmnlp build`, swaps the baked demo `data:` block
-for a fixture, loads the page in headless Chromium with the **real** 18MB
-TRMNL framework CSS, waits for the layout to settle, and has the page report
-every drawn thing in one coordinate space (screen px, canvas-relative). SVG
-paths are **sampled** with `getPointAtLength`, never read as control points,
-so a rounded or curved path is checked as the shape it really draws.
-Assertions run out in Node against that report. `layout(fixture, viewport)` is
-memoised per fixture+viewport, so ten tests on one board cost one render.
+The layout specs (`test/trmnl/layout/*.spec.js`, on trmnlp-test) render the
+real template with a fixture as its `data` (trmnlp's own Liquid, so the
+banner and the script see the same payload), in Chromium with the **real**
+TRMNL framework CSS and faces and the device's own screen classes, palette,
+orientation and mashup slot. `lib/page.js` waits for the layout to settle and
+has the page report every drawn thing in one coordinate space (screen px,
+canvas-relative). SVG paths are **sampled** with `getPointAtLength`, never
+read as control points, so a rounded or curved path is checked as the shape
+it really draws. Assertions run in the spec against that report.
+`layout(fixture, viewport)` is memoised per worker and cached on disk
+(`test/trmnl/.cache`, keyed on the plugin's sources), so ten tests on one
+board cost one render.
 
 ### The rule that matters: test the truth, not the tidiness
 
@@ -174,9 +178,10 @@ Two failure modes have both bitten here, and both look like success:
 
 1. **Reproduce visually first.** Build, screenshot at a real device size,
    crop and zoom to the defect. Never start from the test output.
-2. **Probe with numbers.** Drop a throwaway `cases/zz-probe.js` that renders
-   one fixture and `assert(false, ...)`s the values you care about (console
-   output from a case is not shown; the assertion message is). Read the
+2. **Probe with numbers.** Drop a throwaway `test/trmnl/zz-probe.spec.js`
+   that renders one fixture (`require('./lib/layout').cases(...)`) and
+   `console.log`s the values you care about; run it with
+   `trmnlp-test run zz-probe`. Read the
    canvas's `data-metro-debug` attribute for each event's chosen lane,
    direction, node/elbow/text positions and line distance.
 3. **Fix, then re-screenshot.** A passing suite is not evidence the picture
@@ -208,16 +213,19 @@ Two failure modes have both bitten here, and both look like success:
 
 ### Known issues, not skips
 
-`test(name, fn, { known: 'why' })` marks a real, understood, unfixed defect.
-It reports without failing the run, **and fails if it ever starts passing**,
+`test(name, fn, { known: 'why' })` marks a real, understood, unfixed defect
+(Playwright's `test.fail()` underneath). It reports without failing the run,
+**and fails if it ever starts passing**,
 so a fix cannot land without the marker coming off. Use it for a genuine
 trade-off you have decided to accept; never to quiet a failure you have not
 diagnosed. The `why` string must name the trade-off, not the symptom.
 
 ### Before pushing a layout change
 
-* `cd test/layout && npm test` — 0 failures, and the known-issue count has
-  not grown without a written reason.
-* `./test.sh` at the repo root for `transform.js` and the config editor.
+* `./test.sh` at the repo root: 0 failures, and the known-issue count has
+  not grown without a written reason. (`./test.sh trmnl -g <name>` while
+  working; the report, with the picture of every failing board, is
+  `test/trmnl-report/index.html`.)
+* `trmnlp-test run visual -u` if the pictures moved and you meant them to.
 * Screenshots of the affected views at real device sizes, zoomed on what
   changed.
