@@ -25,7 +25,7 @@
 # trmnlp and THAT Firefox draw: move the pin deliberately and read what moves.
 set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-IMAGE="${TRMNLP_IMAGE:-trmnl/trmnlp:v0.18.0}"
+IMAGE="${TRMNLP_IMAGE:-trmnl/trmnlp:v0.20.0}"
 REPORT="$ROOT/test/trmnl-report"
 SHARDS="${METRO_SHARDS:-6}"
 
