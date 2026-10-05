@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Only what is listed here: the TRMNL framework (plugin, and the preview tools that fetch it themselves) and the trmnlp image the tests run in. Each release becomes a pull request and the Tests run on it says what it does to the board.",
+  "enabledManagers": ["custom.regex"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^plugin/src/settings\\.yml$/"],
+      "matchStrings": ["framework_version: (?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "depNameTemplate": "usetrmnl/trmnl-framework",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^tools/framework-assets\\.js$/", "/^tools/config-editor\\.html$/"],
+      "matchStrings": ["trmnl\\.com/(?:css|js)/(?<currentValue>\\d+\\.\\d+\\.\\d+)/"],
+      "depNameTemplate": "usetrmnl/trmnl-framework",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    },
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^tools/trmnl-test$/"],
+      "matchStrings": ["(?<depName>trmnl/trmnlp):(?<currentValue>v\\d+\\.\\d+\\.\\d+)"],
+      "datasourceTemplate": "docker"
+    }
+  ]
+}
