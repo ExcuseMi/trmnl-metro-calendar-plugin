@@ -4,6 +4,9 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  # framework.yml starts a run on the branch it pushes: a push made with the
+  # workflow's own token starts nothing by itself
+  workflow_dispatch:
 
 jobs:
   # the suites that need no browser (./test.sh node)

@@ -1,0 +1,76 @@
+name: Framework update
+
+# A new release of the TRMNL framework becomes a pull request that moves the
+# pin (tools/framework-pin: settings.yml and the two tools that fetch the
+# framework), and the ordinary Tests workflow judges it there. Green: merge.
+# Pictures red: that is what the release changed on the board; look at the
+# report, bless what is meant (./test.sh trmnl --update tests/visual_spec.rb)
+# and merge. Anything else red: the release broke something, and the pull
+# request stays open as the reminder.
+#
+# GitHub cannot start a workflow here when another repository releases, so
+# this asks once a day and stops in seconds when there is nothing new.
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Is there a newer framework?
+        id: look
+        run: |
+          # a failed request fails the run: "could not ask" must never read as "nothing new"
+          latest="$(gh api repos/usetrmnl/trmnl-framework/releases/latest -q .tag_name)"
+          latest="${latest#v}"
+          pin="$(tools/framework-pin)"
+          echo "pinned $pin, newest release $latest"
+          branch="framework-$latest"
+          if [ "$latest" = "$pin" ]; then
+            echo "nothing new"
+          elif git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "$branch is already there: its pull request is the open question"
+          else
+            echo "latest=$latest" >> "$GITHUB_OUTPUT"
+            echo "pin=$pin" >> "$GITHUB_OUTPUT"
+            echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Move the pin on a branch and open the pull request
+        if: steps.look.outputs.latest
+        env:
+          LATEST: ${{ steps.look.outputs.latest }}
+          PIN: ${{ steps.look.outputs.pin }}
+          BRANCH: ${{ steps.look.outputs.branch }}
+        run: |
+          # refuses a malformed or older number, and checks every file moved
+          tools/framework-pin set "$LATEST"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git add plugin/src/settings.yml tools/framework-assets.js tools/config-editor.html
+          git commit -m "TRMNL framework $LATEST (was $PIN)"
+          git push origin "$BRANCH"
+          gh pr create --base main --head "$BRANCH" \
+            --title "TRMNL framework $LATEST (was $PIN)" \
+            --body "The framework released $LATEST: https://github.com/usetrmnl/trmnl-framework/releases/tag/v$LATEST
+
+          The Tests run on this branch says what it does to the board. Its \`trmnl-report\` artifact has every screen drawn.
+
+          - Green: merge.
+          - Only pictures or the sweep's baseline red: that is what the release changed. Look, then bless what is meant (\`./test.sh trmnl --update tests/visual_spec.rb\`, \`./test.sh trmnl --update tests/sweep_spec.rb\`) on this branch and merge.
+          - Anything else red: the release broke something. Fix it here, or leave this open.
+
+          After merging, \`plugin/push.sh\` puts it on TRMNL."
+          # a push made with this token starts no workflow, a dispatch does
+          gh workflow run test.yml --ref "$BRANCH"

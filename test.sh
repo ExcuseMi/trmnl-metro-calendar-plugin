@@ -47,6 +47,11 @@ if [ "$WHAT" = all ] || [ "$WHAT" = node ]; then
   # have five different opinions about where a caption goes; one copy and a
   # check is how this one keeps having one.
   step "bundle --check" bash -c "cd '$ROOT' && node plugin/bundle.js --check"
+  # ...and that every file names the one framework version (settings.yml, the
+  # tools that render from file://, the editor's page), and that the tool
+  # that moves it moves all of them.
+  step "framework-pin --check" "$ROOT/tools/framework-pin" --check
+  step "framework-pin test" "$ROOT/tools/framework-pin.test.sh"
 fi
 
 # esbuild squeezes the copy that ships: the size check below and the shipped

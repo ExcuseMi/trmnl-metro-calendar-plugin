@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# The TRMNL framework version this plugin is drawn against, in one place.
+#
+#   tools/framework-pin              prints the pin (plugin/src/settings.yml)
+#   tools/framework-pin --check      fails when a file names another version
+#   tools/framework-pin set 3.4.0    writes the version into every file
+#
+# The number lives in four lines of three files: settings.yml is what TRMNL
+# serves the board with, tools/framework-assets.js is what the tools that
+# render from file:// fetch, and tools/config-editor.html is the editor's
+# page. One left behind means the tests measure one framework and the device
+# draws another, so `--check` runs with the node suites (test.sh) and `set`
+# is the only way the number moves (.github/workflows/framework.yml uses it).
+# `set` only goes up: a lower or malformed number is refused.
+set -euo pipefail
+ROOT="${FRAMEWORK_PIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+SETTINGS="$ROOT/plugin/src/settings.yml"
+OTHERS=("$ROOT/tools/framework-assets.js" "$ROOT/tools/config-editor.html")
+SEMVER='^[0-9]+\.[0-9]+\.[0-9]+$'
+
+pin() { sed -n 's/^framework_version: *\([0-9.]*\) *$/\1/p' "$SETTINGS"; }
+# every version a file asks trmnl.com's css/ or js/ for
+asked() { grep -oE 'trmnl\.com/(css|js)/[0-9]+\.[0-9]+\.[0-9]+/' "$1" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | sort -u; }
+
+PIN="$(pin)"
+[[ "$PIN" =~ $SEMVER ]] || { echo "framework-pin: no framework_version: X.Y.Z in $SETTINGS" >&2; exit 2; }
+
+case "${1:-}" in
+  "") echo "$PIN" ;;
+  --check)
+    bad=0
+    for f in "${OTHERS[@]}"; do
+      got="$(asked "$f" | tr '\n' ' ')"
+      [ -n "$got" ] || { echo "framework-pin: $f names no framework version" >&2; bad=1; continue; }
+      [ "$got" = "$PIN " ] || { echo "framework-pin: $f asks for $got, settings.yml pins $PIN" >&2; bad=1; }
+    done
+    [ "$bad" = 0 ] && echo "framework $PIN in every file" || exit 1 ;;
+  set)
+    NEW="${2:-}"
+    [[ "$NEW" =~ $SEMVER ]] || { echo "framework-pin: '$NEW' is not a version (X.Y.Z)" >&2; exit 2; }
+    [ "$NEW" = "$PIN" ] && { echo "framework-pin: already $PIN"; exit 0; }
+    [ "$(printf '%s\n%s\n' "$PIN" "$NEW" | sort -V | tail -n 1)" = "$NEW" ] ||
+      { echo "framework-pin: $NEW is older than the pin $PIN" >&2; exit 2; }
+    sed -i "s/^framework_version: .*/framework_version: $NEW/" "$SETTINGS"
+    sed -i -E "s#(trmnl\.com/(css|js)/)[0-9]+\.[0-9]+\.[0-9]+/#\1$NEW/#g" "${OTHERS[@]}"
+    "$0" --check ;;
+  *) echo "usage: tools/framework-pin [--check | set X.Y.Z]" >&2; exit 2 ;;
+esac

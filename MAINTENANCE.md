@@ -124,6 +124,11 @@ what was reverted and why. Most of this file came out of one.
 
 ## The device
 
+The TRMNL framework version is pinned (`tools/framework-pin` prints it, and
+`set X.Y.Z` moves it in all three files that name it). `.github/workflows/framework.yml`
+asks once a day for a newer release and opens a pull request that moves the
+pin; the Tests run on it says what the release does to the board.
+
 `plugin/push.sh` deploys. Never `trmnlp pull` in the working tree. After a
 push, the server's copy can be fetched with `trmnlp clone <dir> <id>` and
 compared -- a clone taken seconds after a push can still show the old build.
