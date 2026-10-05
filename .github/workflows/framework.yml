@@ -71,6 +71,8 @@ jobs:
           - Only pictures or the sweep's baseline red: that is what the release changed. Look, then bless what is meant (\`./test.sh trmnl --update tests/visual_spec.rb\`, \`./test.sh trmnl --update tests/sweep_spec.rb\`) on this branch and merge.
           - Anything else red: the release broke something. Fix it here, or leave this open.
 
+          GitHub also shows a Tests run "awaiting approval" here, because a workflow made this branch. It is the same suite a second time: leave it. The verdict of the run that was started is the status \"Tests (started by a workflow)\" on the commit.
+
           After merging, \`plugin/push.sh\` puts it on TRMNL."
           # a push made with this token starts no workflow, a dispatch does
           gh workflow run test.yml --ref "$BRANCH"

@@ -40,3 +40,23 @@ jobs:
         with:
           name: trmnl-report
           path: test/trmnl-report
+
+  # A run framework.yml started is not a pull request's run, so the pull
+  # request would show nothing of it (and GitHub holds the pull request's own
+  # run of a workflow-made branch for approval). This puts the verdict on the
+  # commit, where the pull request shows it.
+  verdict:
+    if: always() && github.event_name == 'workflow_dispatch'
+    needs: [node, trmnl]
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          STATE: ${{ (needs.node.result == 'success' && needs.trmnl.result == 'success') && 'success' || 'failure' }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state="$STATE" -f context="Tests (started by a workflow)" \
+            -f description="node: ${{ needs.node.result }}, trmnl: ${{ needs.trmnl.result }}" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
