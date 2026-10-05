@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# `trmnlp test` for this plugin: the RSpec suite in plugin/tests, run in the
+# trmnl/trmnlp image (trmnlp, its Firefox, libfaketime and node are all in it,
+# so nothing but Docker is needed here). Usage:
+#
+#   tools/trmnl-test                                  everything, spread over
+#                                                     $METRO_SHARDS processes (6)
+#   tools/trmnl-test tests/layout/band_spec.rb        some of it, in one process;
+#   tools/trmnl-test tests/sweep_spec.rb -e futurama  any path or rspec argument
+#   tools/trmnl-test --update tests/visual_spec.rb    rewrite pictures / baselines
+#
+# Paths are relative to plugin/. The report (every screen drawn, every
+# transform run) is test/trmnl-report/index.html, or shard-N/index.html under
+# it when the suite was spread out.
+#
+# SPREAD OUT BY EXAMPLE, NOT BY FILE. `trmnlp test` is one process and one
+# Firefox, and the suite draws several hundred boards at about six seconds
+# each. So the whole suite is started METRO_SHARDS times and each process
+# keeps its own share of the examples (METRO_SHARD=i/n, see
+# plugin/tests/support/metro.rb); a board two of them need is drawn once and
+# read from plugin/tests/.cache by the other.
+#
+# TRMNLP_IMAGE picks the image. It is pinned, because the pictures in
+# plugin/tests/snapshots and the numbers in sweep.baseline.json are what THAT
+# trmnlp and THAT Firefox draw: move the pin deliberately and read what moves.
+set -uo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+IMAGE="${TRMNLP_IMAGE:-trmnl/trmnlp:v0.18.0}"
+REPORT="$ROOT/test/trmnl-report"
+SHARDS="${METRO_SHARDS:-6}"
+
+command -v docker >/dev/null || { echo "tools/trmnl-test needs Docker" >&2; exit 2; }
+
+# trmnlp test, in the image, as this user (so what it writes is ours), with
+# the repo at its own path (so a path in a failure is a path here).
+trmnlp_test() {
+  local summary=()
+  if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    summary=(-e GITHUB_STEP_SUMMARY=/summary.md -v "$GITHUB_STEP_SUMMARY":/summary.md)
+  fi
+  docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -e CI -e GITHUB_ACTIONS -e METRO_CACHE -e METRO_SHARD \
+    "${summary[@]}" -v "$ROOT":"$ROOT" -w "$ROOT/plugin" "$IMAGE" test "$@"
+}
+
+# Is there a path (or any rspec argument) among the arguments, or only our
+# own flags?
+whole=1
+for a in "$@"; do
+  case "$a" in --update|-u|--quiet|-q) ;; *) whole=0 ;; esac
+done
+
+rm -rf "$REPORT"
+if [ "$whole" = 0 ] || [ "$SHARDS" -le 1 ]; then
+  trmnlp_test --report "$REPORT" "$@"
+  exit $?
+fi
+
+LOGS="$(mktemp -d)"
+trap 'rm -rf "$LOGS"' EXIT
+pids=()
+for i in $(seq 0 $((SHARDS - 1))); do
+  METRO_SHARD="$i/$SHARDS" trmnlp_test --report "$REPORT/shard-$i" "$@" >"$LOGS/$i.log" 2>&1 &
+  pids+=($!)
+done
+failed=0
+for i in $(seq 0 $((SHARDS - 1))); do
+  if ! wait "${pids[$i]}"; then failed=1; fi
+  echo "---- shard $i/$SHARDS"
+  # the boards' own lines are in the report; here, what failed and the count
+  if grep -q 'occurred outside of examples' "$LOGS/$i.log"; then
+    # a file that would not load: all of it, or the reason is not on the page
+    cat "$LOGS/$i.log"
+  elif grep -q '^Failures:' "$LOGS/$i.log"; then
+    sed -n '/^Failures:/,$p' "$LOGS/$i.log"
+  else
+    tail -n 4 "$LOGS/$i.log"
+  fi
+done
+echo "report: test/trmnl-report/shard-*/index.html"
+exit $failed

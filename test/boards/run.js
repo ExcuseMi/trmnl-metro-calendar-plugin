@@ -4,10 +4,10 @@
 //
 //   node test/boards/run.js [substring]
 //
-// Same shape as the layout specs in test/trmnl/layout -- `test(name, fn,
+// The same questions as the layout specs in plugin/tests/layout -- `test(name, fn,
 // {known})`, the same helpers, reports in the same units -- over boards built
 // by `board.js`, the solver and the renderer in node. A case lives here when
-// it asks about the drawing's geometry; it goes in test/trmnl/layout when it
+// it asks about the drawing's geometry; it goes in plugin/tests/layout when it
 // asks about the words in
 // the real face, the header, the banner, the framework's engines or a slot
 // cropping the page. See board.js for the line between the two.

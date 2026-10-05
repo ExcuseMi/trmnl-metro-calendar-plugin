@@ -18,8 +18,8 @@ line's own lane, its name, what it crosses on the way).
 Otherwise render one. The scratchpad keeps `shot.sh` (screenshot at a real
 device size) and `swap.js` / `swapjson.js` (put a fixture or a raw METRO
 payload into `plugin/_build/full.html`). If they are not there, rebuild them
-from `tools/sheet.js`'s `pageFor` (or render the board with trmnlp-test,
-whose report keeps every device picture), and read `AGENTS.md` first: two
+from `tools/sheet.js`'s `pageFor` (or render the board with `trmnlp test`,
+whose report keeps every screen's picture), and read `AGENTS.md` first: two
 builds into `plugin/_build` must not happen at the same time.
 
 ```bash

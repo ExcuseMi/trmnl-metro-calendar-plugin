@@ -16,9 +16,10 @@ jobs:
           node-version: 24
       - run: ./test.sh node
 
-  # everything that renders the plugin or runs its transform, on trmnlp-test:
-  # a summary on the run page, annotations on failing tests, and the report
-  # with every device picture as the "trmnl-report" artifact
+  # everything that renders the plugin or runs its transform, on trmnlp's own
+  # test framework (`trmnlp test`, in the trmnl/trmnlp image tools/trmnl-test
+  # pins): a summary on the run page, and the report with every screen drawn
+  # as the "trmnl-report" artifact
   trmnl:
     runs-on: ubuntu-latest
     steps:
@@ -28,6 +29,11 @@ jobs:
           node-version: 24
       # esbuild, for the squeezed copy the shipped spec tests
       - run: cd tools && npm ci --no-audit --no-fund
-      - uses: ExcuseMi/trmnlp-test@v0
+      - run: ./test.sh trmnl
+        env:
+          METRO_SHARDS: 4
+      - if: always()
+        uses: actions/upload-artifact@v4
         with:
-          args: --workers 2
+          name: trmnl-report
+          path: test/trmnl-report

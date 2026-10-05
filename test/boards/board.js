@@ -2,7 +2,7 @@
 
 // THE PLUGIN'S BOARD, IN NODE, IN A FEW HUNDRED MILLISECONDS.
 //
-// `test/trmnl/layout` renders the plugin in Chromium (trmnlp-test), which is the
+// `plugin/tests/layout` renders the plugin in Firefox (`trmnlp test`), which is the
 // only way to ask what the words look like in the panel's own face. Most of
 // what it asks is not about the words: where the rails go, where the marks
 // are, which days are on the board, whether a spur leaves from its trunk.

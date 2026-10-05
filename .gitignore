@@ -233,7 +233,9 @@ track.md
 style/*
 !style/README.md
 
-# trmnlp-test: the report, and the squeezed copy test/trmnl/lib/shipped.js builds
+# the trmnlp suite's report (tools/trmnl-test)
 test/trmnl-report/
-test/trmnl/.shipped/
-!test/trmnl/lib/
+
+# trmnlp test: rendered reports and the squeezed copy
+plugin/tests/.cache/
+plugin/tests/.shipped/

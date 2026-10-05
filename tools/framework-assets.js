@@ -4,8 +4,8 @@
 //
 // tools/sheet.js and test/boards/calibrate.js load a built page in headless
 // Chromium from file://. They used to borrow test/layout/run.js's cache of the
-// framework; the layout suite runs on trmnlp-test now (test/trmnl), which
-// keeps its own, so the part they need moved here.
+// framework; the layout suite runs on `trmnlp test` now (plugin/tests), which
+// loads its own, so the part they need moved here.
 //
 // The framework stylesheet is ~18MB and decides every text metric, so a board
 // can only be measured honestly with the real thing. And it asks for its

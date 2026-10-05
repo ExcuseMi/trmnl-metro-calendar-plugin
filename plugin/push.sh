@@ -27,7 +27,7 @@ ESBUILD="$ROOT/tools/node_modules/.bin/esbuild"
 # THE PANEL IS FED FROM main AND NOWHERE ELSE (AGENTS.md).
 #
 # 471753 is a display somebody is actually reading, and a branch is for
-# looking at boards locally -- tools/sheet.js and test/trmnl render without
+# looking at boards locally -- tools/sheet.js and plugin/tests render without
 # any deploy at all. Checked here rather than left to whoever is typing,
 # because the cost of getting it wrong is a half-built board on the wall and
 # the only way back is another push.
@@ -52,17 +52,17 @@ fi
 "$HERE/lint.sh" || { echo "trmnlp lint is not clean; nothing was uploaded" >&2; exit 1; }
 
 # THE COPY THAT SHIPS HAS TO DRAW, before anything is touched. The shipped
-# spec (test/trmnl/shipped.spec.js, on trmnlp-test) squeezes a copy of these
-# sources exactly as squeeze.py is about to below, then proves it: every view
-# lays a map out, the squeezed transform answers what the source answers, and
-# every fixture draws the same board as from the sources. The squeeze is
+# spec (plugin/tests/shipped_spec.rb, on `trmnlp test`) squeezes a copy of
+# these sources exactly as squeeze.py is about to below, then proves it: every
+# view lays a map out, the squeezed transform answers what the source answers,
+# and every fixture draws the same board as from the sources. The squeeze is
 # deterministic, so after squeezing in place the result is compared with the
 # copy that was tested.
-command -v trmnlp-test >/dev/null || { echo "no trmnlp-test: gem install trmnlp-test" >&2; exit 1; }
 [ -x "$ESBUILD" ] || (cd "$ROOT/tools" && npm install --no-audit --no-fund --silent)
-(cd "$ROOT" && TRMNLP_TEST_WORKERS="${TRMNLP_TEST_WORKERS:-4}" trmnlp-test run shipped) ||
+"$ROOT/tools/trmnl-test" tests/shipped_spec.rb ||
   { echo "the squeezed copy fails the shipped spec; nothing was uploaded" >&2; exit 1; }
-TESTED="$ROOT/$(cd "$ROOT" && node -e "process.stdout.write(require('./test/trmnl/lib/shipped').shippedPlugin())")"
+TESTED="$(ruby -e 'require ARGV[0]; print Metro::Shipped.plugin' "$HERE/tests/support/shipped.rb")"
+[ -f "$TESTED/src/shared.liquid" ] || { echo "no tested copy at '$TESTED'; nothing was uploaded" >&2; exit 1; }
 
 # EVERY SOURCE FILE, not the two that used to change. squeeze.py now moves
 # the wrapper markup and the stylesheet out of shared.liquid and into each of

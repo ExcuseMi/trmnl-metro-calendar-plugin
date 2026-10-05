@@ -9,9 +9,9 @@
 # The repo is mounted read-write, because a suite writes its caches and a
 # fix writes source. What is NOT shared is plugin/_build: it gets a tmpfs
 # per container, which is the one thing two runs used to fight over. The
-# trmnlp-test suite never builds into plugin/; this covers everything that
+# trmnlp suite (plugin/tests) never builds into plugin/; this covers everything that
 # does (screenshots, a plain trmnlp build) without a lock between them.
-# (trmnlp-test runs in its own image: run ./test.sh trmnl on the host.)
+# (`trmnlp test` runs in trmnlp's own image: run ./test.sh trmnl on the host.)
 #
 # Chromium comes from the host's Playwright install, mounted read only, so
 # the container and the host render with the same binary. That matters more

@@ -3,17 +3,20 @@
 #
 #   ./test.sh                  everything
 #   ./test.sh node             only the suites that need no browser and no Docker
-#   ./test.sh trmnl [args]     only the trmnlp-test suite; args go to Playwright,
-#                              e.g. ./test.sh trmnl -g "band" or ./test.sh trmnl sweep
+#   ./test.sh trmnl [args]     only the trmnlp suite; args are paths (relative to
+#                              plugin/) and rspec arguments, e.g.
+#                              ./test.sh trmnl tests/layout/band_spec.rb
+#                              ./test.sh trmnl tests/sweep_spec.rb -e futurama
 #
 # TWO KINDS OF SUITE.
 #
-# test/trmnl is everything that renders the plugin or runs its transform, on
-# trmnlp-test (https://github.com/ExcuseMi/trmnlp-test, `gem install
-# trmnlp-test`, needs Docker): the transform in trmnlp's own runtime with a
-# frozen clock and mocked feeds, the board in the real framework and faces on
-# every device and view, the example days swept through both, the copy push.sh
-# ships, lint and the pictures. AGENTS.md says what each spec is for.
+# plugin/tests is everything that renders the plugin or runs its transform, on
+# trmnlp's own test framework (`trmnlp test`: RSpec, run in the trmnl/trmnlp
+# image by tools/trmnl-test, needs Docker): the transform in trmnlp's runtime
+# with a frozen clock and mocked feeds, the board in the real framework and
+# faces on every device and view, the example days swept through both, the
+# copy push.sh ships, lint and the pictures. AGENTS.md says what each spec is
+# for.
 #
 # The rest asks questions that need no browser, in plain node, and stays
 # there because it is faster that way: the layout ENGINE on its own
@@ -62,9 +65,9 @@ if [ "$WHAT" = all ] || [ "$WHAT" = node ]; then
 fi
 
 if [ "$WHAT" = all ] || [ "$WHAT" = trmnl ]; then
-  # Four workers unless told otherwise, so other work on the machine keeps
-  # some CPU.
-  step "test/trmnl (trmnlp-test)" bash -c "cd '$ROOT' && TRMNLP_TEST_WORKERS=\${TRMNLP_TEST_WORKERS:-4} trmnlp-test run \"\$@\"" _ "$@"
+  # Six processes unless told otherwise (METRO_SHARDS), so other work on the
+  # machine keeps some CPU.
+  step "plugin/tests (trmnlp test)" "$ROOT/tools/trmnl-test" "$@"
 fi
 
 if [ ${#FAILED[@]} -gt 0 ]; then

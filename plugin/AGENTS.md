@@ -124,17 +124,17 @@ trusting it.
 
 ### What the harness actually does
 
-The layout specs (`test/trmnl/layout/*.spec.js`, on trmnlp-test) render the
+The layout specs (`plugin/tests/layout/*_spec.rb`, on `trmnlp test`) render the
 real template with a fixture as its `data` (trmnlp's own Liquid, so the
-banner and the script see the same payload), in Chromium with the **real**
+banner and the script see the same payload), in Firefox with the **real**
 TRMNL framework CSS and faces and the device's own screen classes, palette,
-orientation and mashup slot. `lib/page.js` waits for the layout to settle and
+orientation and mashup slot. `support/page.rb` waits for the layout to settle and
 has the page report every drawn thing in one coordinate space (screen px,
 canvas-relative). SVG paths are **sampled** with `getPointAtLength`, never
 read as control points, so a rounded or curved path is checked as the shape
 it really draws. Assertions run in the spec against that report.
-`layout(fixture, viewport)` is memoised per worker and cached on disk
-(`test/trmnl/.cache`, keyed on the plugin's sources), so ten tests on one
+`layout(fixture, viewport)` is memoised per process and cached on disk
+(`plugin/tests/.cache`, keyed on the plugin's sources), so ten tests on one
 board cost one render.
 
 ### The rule that matters: test the truth, not the tidiness
@@ -178,10 +178,10 @@ Two failure modes have both bitten here, and both look like success:
 
 1. **Reproduce visually first.** Build, screenshot at a real device size,
    crop and zoom to the defect. Never start from the test output.
-2. **Probe with numbers.** Drop a throwaway `test/trmnl/zz-probe.spec.js`
-   that renders one fixture (`require('./lib/layout').cases(...)`) and
-   `console.log`s the values you care about; run it with
-   `trmnlp-test run zz-probe`. Read the
+2. **Probe with numbers.** Drop a throwaway `plugin/tests/zz_probe_spec.rb`
+   that renders one fixture (`include Metro::Layout`, `layout(fixture('busy-day'), viewport('og-landscape'))`) and
+   `puts` the values you care about; run it with
+   `./test.sh trmnl tests/zz_probe_spec.rb`. Read the
    canvas's `data-metro-debug` attribute for each event's chosen lane,
    direction, node/elbow/text positions and line distance.
 3. **Fix, then re-screenshot.** A passing suite is not evidence the picture
@@ -223,9 +223,9 @@ diagnosed. The `why` string must name the trade-off, not the symptom.
 ### Before pushing a layout change
 
 * `./test.sh` at the repo root: 0 failures, and the known-issue count has
-  not grown without a written reason. (`./test.sh trmnl -g <name>` while
-  working; the report, with the picture of every failing board, is
+  not grown without a written reason. (`./test.sh trmnl tests/layout/<name>_spec.rb` while
+  working; the report, with the picture of every board a test rendered, is
   `test/trmnl-report/index.html`.)
-* `trmnlp-test run visual -u` if the pictures moved and you meant them to.
+* `./test.sh trmnl --update tests/visual_spec.rb` if the pictures moved and you meant them to.
 * Screenshots of the affected views at real device sizes, zoomed on what
   changed.

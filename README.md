@@ -174,20 +174,20 @@ firing several times a day, shows on its first date only.
 cd plugin && trmnlp serve        # local preview at http://127.0.0.1:4567
 ./test.sh                        # every suite
 ./test.sh node                   # only the ones without a browser (engine, geometry, editor)
-./test.sh trmnl -g band          # only trmnlp-test, any Playwright arguments
+./test.sh trmnl tests/layout/band_spec.rb   # only the trmnlp suite: paths, rspec arguments
 ```
 
-The suites that render the plugin or run its transform are
-[trmnlp-test](https://github.com/ExcuseMi/trmnlp-test) specs in
-`test/trmnl/` (`gem install trmnlp-test`, needs Docker); the report is
-`test/trmnl-report/index.html`.
+The suites that render the plugin or run its transform are RSpec files in
+`plugin/tests/`, on [trmnlp's own test framework](https://github.com/usetrmnl/trmnlp#testing-plugins)
+(`trmnlp test`, run in the `trmnl/trmnlp` image by `tools/trmnl-test`, needs
+Docker); the report is under `test/trmnl-report/`.
 
 To run your own copy rather than the recipe: **Plugins → Private Plugins →
 New**, name it, save, then from `plugin/` run `./push.sh`. Not
 `trmnlp push`: the server takes 100KB per file and the sources are several
 times that, so `push.sh` strips the comments and minifies before it
 uploads, and refuses to upload a build that does not render (the
-`shipped` spec in `test/trmnl/`).
+`shipped` spec in `plugin/tests/`).
 
 The board is drawn by `solver/`, a set of plain node modules bundled into the
 template by `plugin/bundle.js`; `plugin/src/transform.js` turns calendars into

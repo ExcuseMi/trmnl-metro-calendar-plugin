@@ -21,7 +21,7 @@ space (three more people left off boards entirely).
 
 ## What to measure
 
-Four numbers, from `trmnlp-test run households` (216 boards, drawn in the real page; each board's line is in the console and in its test's annotations):
+Four numbers, from `./test.sh trmnl tests/households` (216 boards, drawn in the real page; each board's line is in the console):
 
 | | what it means | worse means |
 |---|---|---|
@@ -40,7 +40,7 @@ those names that was measured (pricing a name on a name like any other
 fault, letting a name's badge and to-do row give way) left one to three
 people off instead, so a few overlapping names are accepted there rather
 than dropping a person. Six household boards carry such a fault and are
-listed as KNOWN in `test/trmnl/households/households.spec.js`: shown, not
+listed as KNOWN in `plugin/tests/households/households_spec.rb`: shown, not
 failed, and failing if they ever come clean so the list shrinks. Any other
 fault still fails.
 
@@ -48,7 +48,7 @@ Then the suites, all of which must pass:
 
 ```
 ./test.sh                        # everything: engine, boards, editor, bundle, size, and
-                                 # test/trmnl on trmnlp-test (transform, real-page layout,
+                                 # plugin/tests on trmnlp test (transform, real-page layout,
                                  # the example-day sweep, the shipped copy, lint, pictures)
 plugin/lint.sh
 ```
@@ -58,7 +58,7 @@ plugin/lint.sh
 **The device, not the corpus.** The households are six invented families; the
 example days are what a reader with no calendars sees; your own board is
 neither. A caption written straight across another one sat on the real board
-for weeks while every fixture said the board was clean. `test/trmnl/sweep.spec.js`
+for weeks while every fixture said the board was clean. `plugin/tests/sweep_spec.rb`
 exists because of that, and it is still not enough on its own: when the user
 sends a screenshot, rebuild *that* payload and look at it.
 
