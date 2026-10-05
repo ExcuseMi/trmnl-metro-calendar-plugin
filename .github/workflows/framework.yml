@@ -20,6 +20,7 @@ permissions:
   contents: write
   pull-requests: write
   actions: write
+  statuses: write
 
 jobs:
   update:
@@ -76,3 +77,8 @@ jobs:
           After merging, \`plugin/push.sh\` puts it on TRMNL."
           # a push made with this token starts no workflow, a dispatch does
           gh workflow run test.yml --ref "$BRANCH"
+          # the pull request shows "running" from the start; Tests' verdict job replaces it
+          gh api "repos/${{ github.repository }}/statuses/$(git rev-parse HEAD)" \
+            -f state=pending -f context="Tests (started by a workflow)" \
+            -f description="running" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/workflows/test.yml?query=branch%3A$BRANCH"
