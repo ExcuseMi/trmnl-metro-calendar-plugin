@@ -25,8 +25,8 @@ const { execFileSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const CACHE = path.join(__dirname, '.cache');
-const CSS_URL = 'https://trmnl.com/css/3.3.1/plugins.css';
-const JS_URL = 'https://trmnl.com/js/3.3.1/plugins.js';
+const CSS_URL = 'https://trmnl.com/css/3.4.0/plugins.css';
+const JS_URL = 'https://trmnl.com/js/3.4.0/plugins.js';
 
 function fetchTo(file, url) {
   if (fs.existsSync(file) && fs.statSync(file).size > 100) return;
