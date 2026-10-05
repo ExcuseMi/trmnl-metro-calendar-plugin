@@ -13507,7 +13507,11 @@ module.exports = { draw: draw, treatment: treatment, pathOf: pathOf,
   // their own, and one still on its way when the board was solved laid the
   // first board a cold page drew out in a fallback -- a different board from
   // the one the same page drew once that face was in.
-  ['title', 'label label--small text--bold', 'label label--base text--bold', 'label', 'value value--small',
+  // (...and the small label at its plain weight, which only the Now and Next
+  // card's "am" and "pm" are set in: nothing asked for it, so the first pass
+  // measured the suffix in a fallback and the card came out three pixels
+  // wider than on every pass after. tests/layout/passes_spec.rb.)
+  ['title', 'label label--small text--bold', 'label label--small', 'label label--base text--bold', 'label', 'value value--small',
    'text--base text--bold', 'text--small text--bold', 'text--large text--bold', 'text--xlarge text--bold',
    'metro-hour label text--bold', 'metro-terminus metro-pill label label--base text--bold'].forEach(function (c) {
     var sp = document.createElement('span'); sp.className = c; sp.textContent = PROBE_TEXT; probe.appendChild(sp);
